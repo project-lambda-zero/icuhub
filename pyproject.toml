@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "icuhub"
+version = "0.0.1"
+description = "Standalone integration hub: connectors, credential broker, action policy, audit, OCSF/SARIF normalization"
+readme = "README.md"
+license = "AGPL-3.0-only"
+requires-python = ">=3.11"
+# Runtime dependencies are added when the open decisions in docs/BRD.md section 18 close.
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.6",
+  "pytest>=8",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+  "E",    # pycodestyle errors
+  "F",    # pyflakes
+  "W",    # pycodestyle warnings
+  "I",    # isort
+  "UP",   # pyupgrade
+  "BLE",  # flake8-blind-except
+  "N",    # pep8-naming
+  "PLC",  # pylint convention
+]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["icuhub"]

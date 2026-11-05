@@ -1,0 +1,12 @@
+---
+description: ICUHUB repository rules (canonical source is AGENTS.md)
+alwaysApply: true
+---
+
+Follow `AGENTS.md` in the repository root. It is the canonical instruction file.
+
+- Integration hub only: connectors, credentials, policy, approvals, audit, OCSF/SARIF.
+- No AI/LLM code. No consumer imports. Never expose credentials.
+- One pipeline for every external call. Plain dict connector registry. Small protocols.
+- Every operation: classification + egress class + schemas.
+- Do not resolve open decisions D1-D8 or add dependencies without the operator.

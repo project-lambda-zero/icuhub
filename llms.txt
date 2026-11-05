@@ -1,0 +1,13 @@
+# ICUHUB
+
+> Standalone integration hub: vendor connectors, credential broker, action policy and approvals, audit, and OCSF/SARIF normalization, exposed to internal platforms through REST, MCP, an event stream, and webhook ingress. No AI code. Phase 0 (design).
+
+## Instructions
+- [AGENTS.md](AGENTS.md): canonical rules for AI coding agents and humans
+
+## Design
+- [Business requirements](docs/BRD.md): goals, scope, requirements (BR/FR/NFR), integration catalog, risks, open decisions D1-D8
+- [High-level design](docs/HLD.md): components, data model, connector framework, pipelines, REST/MCP/events/webhooks, security, deployment, consumer contract, roadmap
+- [Communication matrix](docs/COMMATRIX.md): every network flow with ports, auth, and examples
+- [Connector guide](docs/CONNECTOR_GUIDE.md): checklist for adding a vendor connector
+- [Architecture decisions](docs/adr/README.md)

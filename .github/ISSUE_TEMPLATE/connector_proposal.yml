@@ -1,0 +1,46 @@
+name: Connector proposal
+description: Propose a new vendor connector
+labels: [connector]
+body:
+  - type: input
+    id: vendor
+    attributes:
+      label: Vendor and product
+      placeholder: "F5 BIG-IP (iControl REST)"
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: Connector type
+      options: [native, MCP-backed, file parser]
+    validations:
+      required: true
+  - type: textarea
+    id: capabilities
+    attributes:
+      label: Capability protocols
+      description: Which of SourceControl, CodeScanningSink, FindingSource, TelemetrySource, Enforcer, Containment, Tracker, BuildSystem, ClusterOps, ThreatIntel
+    validations:
+      required: true
+  - type: textarea
+    id: operations
+    attributes:
+      label: Operations
+      description: "Table: operation | capability | classification (read/write/destructive) | egress class | idempotent | vendor endpoint"
+    validations:
+      required: true
+  - type: textarea
+    id: flows
+    attributes:
+      label: Network flows
+      description: Destination, protocol, port, auth (becomes COMMATRIX rows)
+    validations:
+      required: true
+  - type: textarea
+    id: consumers
+    attributes:
+      label: Consumers and use cases
+      description: Which platforms need this and for what
+    validations:
+      required: true
