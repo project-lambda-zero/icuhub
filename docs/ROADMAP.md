@@ -5,7 +5,7 @@
 | Document | Phase-by-phase delivery plan |
 | Status | v0.1 |
 | Date | 2026-11-06 |
-| Inputs | `BRD.md` v0.3, `HLD.md`, `INTEGRATION_INVENTORY.md`, `OPTIONS.md`, `PRIOR_ART.md`, `CONNECTOR_FRAMEWORK.md`, `VENDOR_CONNECTORS.md` |
+| Inputs | `BRD.md` v0.3, `HLD.md`, `INTEGRATION_INVENTORY.md`, `OPTIONS.md`, `PRIOR_ART.md`, `CONNECTOR_FRAMEWORK.md`, `VENDOR_CONNECTORS.md`, `COVERAGE_GAPS.md` |
 | Replaces | `HLD.md` section 18 (now a pointer to this document) |
 
 ---

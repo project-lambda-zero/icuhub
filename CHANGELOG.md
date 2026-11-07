@@ -19,6 +19,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Prior-art survey of 51 comparable security, DevOps, and platform-engineering projects with cross-cutting lessons PA-01..PA-41 and anti-patterns AP-01..AP-18 (`docs/PRIOR_ART.md`).
 - Connector framework design: connector contract, generated manifest, sync engine with transactional checkpoints, mapping and identity rules, plan/apply actions, testing kit (`docs/CONNECTOR_FRAMEWORK.md`).
 - BRD v0.3: FR-CNR-12..19, FR-ING-07..13, FR-NRM-07..09, FR-CON-08..09, FR-TKT-09, FR-POL-09, NFR-18.
+- Coverage gap analysis of the vendor connector specs against open-source integration platforms, with 192 vendor gaps and 25 platform-level gaps (`docs/COVERAGE_GAPS.md`).
 - Per-vendor API facts and connector specifications for GitHub, GitLab, Bitbucket, Jira, Confluence, Kubernetes, OpenShift, Prisma Cloud, Fortify SSC and on Demand, Invicti, Mend, Qualys, Tenable, and Nessus (`docs/VENDOR_CONNECTORS.md`); `KnowledgeBase` capability and FR-KB-01..03; COMMATRIX F-122..123 and F-226..229.
 - ADR-0017..0019 closing decisions D15-D17 (generated connector manifests, first-party in-process connectors, JMESPath extraction in mappers); `OPTIONS.md` section 17.
 

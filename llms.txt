@@ -12,6 +12,7 @@
 - [Prior art](docs/PRIOR_ART.md): integration designs of comparable security, DevOps, and platform projects; lessons PA-01..PA-41
 - [Connector framework](docs/CONNECTOR_FRAMEWORK.md): connector contract, manifest, sync engine, mapping, identity, actions, testing kit
 - [Vendor connectors](docs/VENDOR_CONNECTORS.md): per-vendor API facts and connector specs for SCM, Jira, Confluence, Kubernetes, OpenShift, Prisma Cloud, Fortify, Invicti, Mend, Qualys, Tenable
+- [Coverage gaps](docs/COVERAGE_GAPS.md): what open-source integration platforms implement for the same vendors that ICUHUB specs lack (GAP-* IDs)
 - [Connector guide](docs/CONNECTOR_GUIDE.md): checklist for adding a vendor connector
 - [Integration inventory](docs/INTEGRATION_INVENTORY.md): integrations found in existing consumers and their ICUHUB disposition
 - [Technology options](docs/OPTIONS.md): options per concern, licenses, air-gap fit, decision outcomes

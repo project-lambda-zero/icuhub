@@ -42,6 +42,7 @@ envelope, finding fingerprint) is implemented; the service is not built yet. See
 | [`docs/PRIOR_ART.md`](docs/PRIOR_ART.md) | How comparable projects implement integrations, and the lessons ICUHUB takes |
 | [`docs/CONNECTOR_FRAMEWORK.md`](docs/CONNECTOR_FRAMEWORK.md) | Connector contract, sync engine, mapping, actions, testing kit |
 | [`docs/VENDOR_CONNECTORS.md`](docs/VENDOR_CONNECTORS.md) | Per-vendor API facts and connector specs |
+| [`docs/COVERAGE_GAPS.md`](docs/COVERAGE_GAPS.md) | Vendor spec gaps against open-source integration platforms |
 | [`docs/CONNECTOR_GUIDE.md`](docs/CONNECTOR_GUIDE.md) | How to add a connector |
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
 

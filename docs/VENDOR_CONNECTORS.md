@@ -1442,6 +1442,8 @@ Top risks:
 
 ## 9. Open questions to verify at adoption
 
+- Gaps against open-source integration platforms are tracked in `COVERAGE_GAPS.md` (GAP-* IDs); each phase's Write step absorbs the `must` gaps listed in its section 9.
+
 - Release prerequisite for every kind: a vendor sandbox, trial, or test tenant with credentials for live acceptance (`ICUHUB_ACC=1`); kinds without one stay unreleased as `core`.
 
 - GitHub: Enterprise audit REST requires an enterprise-owner credential and administration scope; page not read in this pass (## 2. Authentication options and required permissions)
