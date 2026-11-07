@@ -16,6 +16,7 @@ dependencies = []
 dev = [
   "ruff>=0.6",
   "pytest>=8",
+  "packaging>=24",  # PEP 508 marker evaluation in tools/license_check.py
 ]
 
 [tool.setuptools.packages.find]
@@ -39,4 +40,7 @@ select = [
 ignore = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["icuhub"]
+known-first-party = ["icuhub", "icuhub_schemas", "license_check"]
+
+[tool.pytest.ini_options]
+pythonpath = ["tools"]

@@ -14,5 +14,5 @@ Key rules:
   classification (`read`/`write`/`destructive`) and egress class.
 - Unknown values are `null` / "not measured", never `0`.
 - Specific exception types, `__all__` in every package, migrations for schema changes.
-- No new dependencies and no choice for open decisions D1-D8 without the operator.
+- No dependencies outside accepted ADRs and no choice for open decisions (BRD section 18) without the operator.
 - Use `--` instead of em-dashes in prose.

@@ -27,27 +27,33 @@ audit, OCSF/SARIF normalization.
 
 ## 3. Status
 
-**Phase 0: design.** The repository contains the design documents and tooling only.
-There is no runtime code yet. Do not describe features as implemented until they are.
+**Phase 1 (`docs/ROADMAP.md`).** Decisions D1-D14 are closed. The shared schema package
+`packages/icuhub-schemas` (OCSF 1.9.0, SARIF 2.1.0, CloudEvents envelope, finding
+fingerprint) and the CI license check exist. The service itself (`src/icuhub`) has no
+runtime code yet. Do not describe features as implemented until they are.
 
 | Document | Content | IDs to cite |
 |---|---|---|
-| `docs/BRD.md` | Business requirements, scope, risks, open decisions | `BR-*`, `FR-*`, `NFR-*`, `D1`-`D8`, `R1`-`R9` |
+| `docs/BRD.md` | Business requirements, scope, risks, decisions | `BR-*`, `FR-*`, `NFR-*`, `NG*`, `D1`-`D14`, `R1`-`R13` |
 | `docs/HLD.md` | Architecture, data model, APIs, MCP, events, connector framework, roadmap | section numbers |
 | `docs/COMMATRIX.md` | Every network flow | `F-*`, `X-*` |
+| `docs/INTEGRATION_INVENTORY.md` | Integrations found in existing consumers and their ICUHUB disposition | `INV-*` |
+| `docs/OPTIONS.md` | Technology options per concern and the decision outcomes | section numbers |
+| `docs/ROADMAP.md` | Delivery phases P0-P10, each run as brainstorm, write, plan, implement, test | `P*`, `R-*` |
 | `docs/CONNECTOR_GUIDE.md` | How to add a connector | checklist |
 | `docs/adr/` | Architecture decision records | `ADR-NNNN` |
 
 Commit messages, PR descriptions, and code comments that implement a requirement cite its
 ID (for example `FR-POL-03`, `F-100`).
 
-## 4. Open decisions: do not resolve them yourself
+## 4. Decisions: do not resolve them yourself
 
-`docs/BRD.md` section 18 lists open decisions D1-D8 (language, event backbone, secret
-backend, deployment model, OCSF version pin, OCSF model library, event envelope, first
-wave connectors). An agent MUST NOT pick an option, add a dependency that implies an
-option, or write code that assumes one. Ask the operator. When a decision is made, record
-it as an ADR in `docs/adr/` and update BRD section 18.
+`docs/BRD.md` section 18 records decisions D1-D14, all closed by ADR-0004..0016. Any new
+choice with real tradeoffs (a new dependency, a new engine, a scope change) is appended
+there as D15 onward with options and a recommendation. An agent MUST NOT pick an option,
+add a dependency that implies an option, or write code that assumes one. Ask the
+operator. When a decision is made, record it as an ADR in `docs/adr/` and update BRD
+section 18. A dependency named in an accepted ADR may be added when its phase starts.
 
 ## 5. Hard rules
 
@@ -125,11 +131,11 @@ it as an ADR in `docs/adr/` and update BRD section 18.
 
 ```
 icuhub/
-├── docs/                      # BRD, HLD, COMMATRIX, CONNECTOR_GUIDE, adr/
+├── docs/                      # BRD, HLD, COMMATRIX, INTEGRATION_INVENTORY, OPTIONS, ROADMAP, CONNECTOR_GUIDE, adr/
 ├── packages/
-│   ├── icuhub-schemas/        # OCSF models + SARIF codecs (Phase 1)
-│   ├── icuhub-sdk/            # generated client (Phase 2)
-│   └── icuhub-connector-kit/  # protocols, HTTP toolkit, fixture harness (Phase 2)
+│   ├── icuhub-schemas/        # OCSF models, SARIF codec, CloudEvents envelope (P1)
+│   ├── icuhub-sdk/            # generated client (P3)
+│   └── icuhub-connector-kit/  # protocols, HTTP toolkit, fixture harness (P2)
 ├── src/icuhub/                # api/, core/, connectors/, parsers/, collectors/, workers/, storage/
 ├── fixtures/                  # vendor-shaped payloads + expected outputs
 ├── deploy/helm/icuhub/        # Kubernetes / OpenShift chart
@@ -141,13 +147,18 @@ Only create a directory when you put real content in it.
 ## 7. Build and verify
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev]" -e packages/icuhub-schemas
 python -m ruff check .
-python -m compileall -q src
-python -m pytest -q            # exit code 5 (no tests collected) is acceptable in Phase 0
+python -m compileall -q src packages tools
+python -m pytest -q packages/icuhub-schemas/tests tests
+python tools/license_check.py   # runtime dependency licenses (NFR-15)
 ```
 
-All must pass before you yield or open a PR.
+All must pass before you yield or open a PR. While developing a step, run only the tests
+for the code you changed (`docs/ROADMAP.md` section 1).
+
+`icuhub-schemas` is versioned independently of the service (BRD R2): its version lives in
+`packages/icuhub-schemas/pyproject.toml` and `icuhub_schemas/__init__.py`.
 
 ## 8. Git workflow and versioning
 

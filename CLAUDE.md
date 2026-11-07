@@ -13,5 +13,5 @@ The imported `AGENTS.md` is canonical. This file only adds Claude Code specifics
 - Path-scoped rules live in `.claude/rules/` and load for matching files.
 - Before editing a design document, read the section you change and keep requirement IDs
   stable. Never renumber existing IDs; append new ones.
-- Before adding a dependency or choosing an option for D1-D8, ask the operator.
+- Before adding a dependency not named in an accepted ADR, or choosing an option for a new decision (D15 onward), ask the operator.
 - Use subagents for broad exploration; keep edits in the main session reviewable.

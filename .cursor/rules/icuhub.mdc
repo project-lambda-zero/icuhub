@@ -9,4 +9,4 @@ Follow `AGENTS.md` in the repository root. It is the canonical instruction file.
 - No AI/LLM code. No consumer imports. Never expose credentials.
 - One pipeline for every external call. Plain dict connector registry. Small protocols.
 - Every operation: classification + egress class + schemas.
-- Do not resolve open decisions D1-D8 or add dependencies without the operator.
+- Do not resolve open decisions (BRD section 18) or add dependencies outside accepted ADRs without the operator.

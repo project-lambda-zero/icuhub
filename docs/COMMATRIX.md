@@ -57,7 +57,7 @@ flowchart LR
 | F-004 | Other enterprise hubs | icuhub-api | HTTPS (REST) | 443 / 8080 | JWT / mTLS | Any operation allowed by policy | `GET /v1/connections` |
 | F-005 | Admin users (browser) | icuhub-api admin UI / API | HTTPS | 443 | OIDC/SAML SSO session | Manage connections, policy, approvals, audit | `https://icuhub.acme.internal/admin/approvals` |
 | F-006 | Approvers (browser or consumer UI via API) | icuhub-api `/v1/approvals` | HTTPS | 443 | OIDC user token, role `icuhub_approver` | Approve / reject actions | `POST /v1/approvals/apr_01JC9/approve` |
-| F-007 | AILA / posture console / other hubs (subscribers) | Event backbone **[D2]** | Kafka TLS / NATS TLS | Kafka 9093, NATS 4222 | SASL/SCRAM or mTLS (Kafka), NKey/JWT or mTLS (NATS) | Subscribe to `icuhub.*` topics | Subscribe `icuhub.scm.change_request.opened` |
+| F-007 | AILA / posture console / other hubs (subscribers) | Apache Kafka (ADR-0005) | Kafka TLS | 9093 *(listener port is deployment-defined, confirm)* | SASL/SCRAM or mTLS | Subscribe to `icuhub.*` topics | Subscribe `icuhub.scm.change_request.opened` |
 
 ## 3. Ingress flows from vendors (Z6/Z7 -> Z4 -> Z2)
 
@@ -84,9 +84,9 @@ exposes only `/hooks/*`; API, MCP, and admin are reachable only on the internal 
 | ID | Source | Destination | Protocol | Port | Auth | Purpose | Example |
 |---|---|---|---|---|---|---|---|
 | F-010 | icuhub-api, icuhub-worker | Postgres | PostgreSQL (TLS) | 5432 | SCRAM-SHA-256 or client cert | State, audit, outbox | `postgresql://icuhub@pg.icuhub.svc:5432/icuhub?sslmode=verify-full` |
-| F-011 | icuhub-worker (outbox relay) | Event backbone **[D2]** | Kafka TLS / NATS TLS | 9093 / 4222 | SASL/SCRAM or mTLS | Publish `icuhub.*` events | Produce to `icuhub.finding.upserted` |
-| F-012 | icuhub-worker (collectors needing a stream consumer) | Event backbone | Kafka TLS / NATS TLS | 9093 / 4222 | as above | Internal work queues (if backbone used for jobs) | Consume `icuhub.internal.normalize` |
-| F-013 | icuhub-api, icuhub-worker | Secret backend **[D3]** (Vault) | HTTPS | 8200 | Kubernetes auth method (service account JWT) or AppRole | Read credentials, write rotated tokens | `GET https://vault.acme.internal:8200/v1/kv/data/icuhub/acme/f5-prod` |
+| F-011 | icuhub-worker (outbox relay) | Apache Kafka (ADR-0005) | Kafka TLS | 9093 | SASL/SCRAM or mTLS | Publish `icuhub.*` events from the Postgres outbox | Produce to `icuhub.finding.upserted` |
+| F-012 | icuhub-worker (collectors needing a stream consumer) | Apache Kafka | Kafka TLS | 9093 | as above | Internal normalization topics for streaming collectors (action jobs and approvals use Postgres, ADR-0014) | Consume `icuhub.internal.normalize` |
+| F-013 | icuhub-api, icuhub-worker | OpenBao Transit (ADR-0006) | HTTPS | 8200 *(OpenBao default, confirm)* | Kubernetes auth method (service account JWT) | Unwrap and rewrap data keys of envelope-encrypted credentials stored in Postgres | `POST https://openbao.acme.internal:8200/v1/transit/decrypt/icuhub-acme` |
 | F-014 | icuhub-worker | Object storage (optional, raw payload overflow) | HTTPS (S3 API) | 443 / 9000 (MinIO) | Access key / IRSA / workload identity | Store oversized raw vendor payloads | `PUT s3://icuhub-raw/acme/...` |
 | F-030 | icuhub-api | Enterprise IdP (OIDC discovery, JWKS) | HTTPS | 443 | none (public metadata) | Validate JWTs, admin SSO | `GET https://idp.acme.internal/.well-known/openid-configuration` |
 | F-031 | icuhub-worker (audit exporter) | Customer SIEM | Syslog TLS / Splunk HEC / Kafka | 6514 / 8088 *(Splunk HEC vendor default)* / 9093 | mTLS / HEC token / SASL | OCSF audit export | `POST https://splunk-hec.acme.internal:8088/services/collector/event` |
@@ -173,7 +173,7 @@ All initiated by `icuhub-worker` (scheduled pulls, approved actions) or `icuhub-
 | `icuhub-default-deny` | all pods in `icuhub` | nothing (ingress and egress denied) |
 | `icuhub-api-ingress` | `app=icuhub-api` | from ingress controller / router namespace on 8080 (F-020, F-001..F-006 via Route); from consumer namespaces (`aila`, `posture`) on 8080; from monitoring on 8080 (F-033) |
 | `icuhub-collector-ingress` | `app=icuhub-collector-syslog` | from device CIDRs on 6514 (F-040) |
-| `icuhub-egress-data` | api, worker | to Postgres 5432 (F-010), backbone 9093/4222 (F-011/F-012), Vault 8200 (F-013), object storage (F-014) |
+| `icuhub-egress-data` | api, worker | to Postgres 5432 (F-010), Kafka 9093 (F-011/F-012), OpenBao 8200 (F-013), object storage (F-014) |
 | `icuhub-egress-platform` | api, worker | to IdP 443 (F-030), OTel 4317/4318 (F-032), SIEM (F-031), DNS 53/UDP+TCP to cluster DNS |
 | `icuhub-egress-vendors` | worker, api | to egress proxy (F-034) or to vendor CIDRs / FQDN policies for F-100..F-121, F-200..F-225 |
 
@@ -203,7 +203,7 @@ a CNI that supports FQDN policies; plain Kubernetes NetworkPolicy is IP/CIDR onl
 | 4 | F-011 | Relay publishes `icuhub.scm.change_request.opened` |
 | 5 | F-007 | AILA subscriber receives event, starts investigation `inv_8a10` |
 | 6 | F-001 | AILA reads diff files: `get_diff_files` operation |
-| 7 | F-013, F-101 | ICUHUB fetches GitLab token from Vault, calls GitLab API |
+| 7 | F-013, F-101 | ICUHUB decrypts the GitLab token (data key unwrapped through OpenBao Transit), calls GitLab API |
 | 8 | F-001 | After fix passes gates, AILA calls `open_change_request` (draft) with `X-Correlation-Id: inv_8a10` |
 | 9 | F-006 | Approver approves (policy `require_approval` for writes) |
 | 10 | F-101 | Worker creates branch, commits patch, opens draft MR |
@@ -255,7 +255,7 @@ a CNI that supports FQDN policies; plain Kubernetes NetworkPolicy is IP/CIDR onl
 | Vendor ports where marked *(vendor default, confirm)* | Customers often change defaults or front with a reverse proxy |
 | SaaS regional hostnames (CrowdStrike, Wiz, Prisma Cloud, Qualys, Mend, Google) | Depend on the customer's tenant region / stack |
 | Webhook source IP ranges | Vendors publish and change them (for example GitHub `meta` API) |
-| Event backbone ports | Depend on decision D2 |
-| Secret backend endpoint | Depends on decision D3 |
+| Kafka listener ports | Deployment-defined; 9093 used in this document |
+| OpenBao endpoint and Transit key naming | Customer standard; one Transit key per tenant |
 | Egress proxy host/port | Customer standard |
 | Jenkins MCP plugin path | Confirm against plugin documentation for the installed version |

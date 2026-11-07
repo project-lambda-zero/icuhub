@@ -148,9 +148,11 @@ icuhub/
 └── tests/
 ```
 
-Stack (proposed, D1): Python 3.11+, FastAPI, SQLModel/SQLAlchemy + Alembic, httpx,
-official MCP Python SDK (server side), Postgres. Event backbone per D2, secret backend
-per D3.
+Stack: Python 3.11+ (ADR-0004); Postgres with a transactional outbox feeding Apache
+Kafka (ADR-0005); envelope-encrypted credentials with an OpenBao KEK (ADR-0006);
+connector toolkit on httpx2, tenacity, aiolimiter, Authlib, asyncpg (ADR-0016);
+official MCP Python SDK (server side). FastAPI and SQLAlchemy + Alembic are proposed
+and are adopted by ADR when P3 starts.
 
 ## 4. Data model
 
@@ -226,10 +228,16 @@ class Containment(Protocol):              # EDR host isolation
     async def isolate_host(self, host_id: str, reason: str) -> str: ...
     async def release_host(self, host_id: str) -> None: ...
 
-class Tracker(Protocol):                  # Jira, ServiceNow
+class Tracker(Protocol):                  # Jira, ServiceNow, Service Manager, Maximo (SOAP)
     async def open_ticket(self, ticket: TicketDraft) -> TicketRef: ...
     async def update_ticket(self, ref: TicketRef, patch: TicketPatch) -> None: ...
     async def get_ticket(self, ref: TicketRef) -> Ticket: ...
+    async def search_tickets(self, query: TicketQuery, cursor: str | None) -> Page[Ticket]: ...
+    async def add_comment(self, ref: TicketRef, body: str) -> str: ...
+    async def transition(self, ref: TicketRef, to_state: str, comment: str | None) -> None: ...
+    async def list_fields(self, project: str, issue_type: str | None) -> list[TrackerField]: ...
+    # Routing, fingerprint dedupe, and status sync (FR-TKT-02..07) run in the core
+    # service on top of these primitives; connectors stay vendor-only.
 
 class BuildSystem(Protocol):              # Jenkins, GitLab CI, GitHub Actions, Azure Pipelines
     async def trigger(self, job: str, params: dict[str, str]) -> BuildRef: ...
@@ -242,7 +250,30 @@ class ClusterOps(Protocol):               # Kubernetes, OpenShift
 
 class ThreatIntel(Protocol):              # GTI, MISP, OpenCTI
     async def lookup(self, indicator: Indicator) -> IntelReport: ...
+
+# Added in BRD v0.2 from INTEGRATION_INVENTORY.md
+
+class Notifier(Protocol):                 # SMTP, Teams/Slack/Google Chat webhooks, FR-NTF-*
+    async def send(self, message: Notification) -> str: ...
+
+class Directory(Protocol):                # LDAPS, Microsoft Graph, FR-DIR-*
+    async def get_user(self, ref: PrincipalRef) -> Principal: ...
+    async def list_group_members(self, group: str) -> list[Principal]: ...
+    async def get_manager(self, ref: PrincipalRef) -> Principal | None: ...
+
+class SbomSink(Protocol):                 # OWASP Dependency-Track
+    async def upload_bom(self, project: ProjectRef, bom: dict) -> str: ...      # CycloneDX 1.7
+
+class RiskRegister(Protocol):             # RSA Archer and other GRC tools
+    async def pull_records(self, cursor: str | None, budget: int) -> Page[RiskRecord]: ...
+
+class VulnIntel(Protocol):                # NVD, EPSS, KEV, OSV, advisories (ADR-0012), FR-FEED-*
+    async def pull_records(self, cursor: str | None, budget: int) -> Page[AdvisoryRecord]: ...
 ```
+
+`web.fetch` (FR-FET-*) is a core operation, not a connector capability: it has no
+vendor credential, only destination policy. Remote host execution (SSH/SFTP) is not a
+capability: it stays in consumers (ADR-0011, BRD NG13).
 
 Every method also exists as an **operation** with metadata (5.2). Vendor-specific
 operations (for example `create_irule` on F5, `list_issue_templates` on Fortify) are
@@ -485,7 +516,7 @@ Error model (RFC 9457 problem details):
 ### 7.3 Event stream
 
 Envelope: CloudEvents 1.0 (structured JSON) with OCSF payload where applicable
-**[decision D7]**. Backbone **[decision D2]**.
+(ADR-0009). Backbone: Postgres outbox relayed to Apache Kafka (ADR-0005).
 
 | Topic | Emitted when | Payload |
 |---|---|---|
@@ -523,46 +554,65 @@ version during connector implementation.
 
 - Published as its own package, versioned independently; consumers (AILA, posture
   console) import it to read and write the same models (BR-05).
-- OCSF version pinned **[decision D5]**; model source **[decision D6]**.
-- SARIF 2.1.0 import and export.
+- OCSF pinned to 1.9.0; ICUHUB-owned Pydantic models validated against the vendored
+  official per-class JSON schemas (ADR-0008).
+- SARIF 2.1.0 import and export; `findings_to_sarif` converts code-located findings and
+  returns the findings it skipped (FR-NRM-06).
+- CloudEvents 1.0 envelope model with `tenantid` and `correlationid` extensions (ADR-0009).
 - Activity projection on every event: `actor`, `action`, `resource`, `location`,
-  `outcome`; `actor.kind` taken from the vendor's documented field (FR-NRM-03).
-- Unmapped fields stay null and are listed in `unmapped[]` (FR-NRM-05).
-- `raw_ref` keeps the original vendor payload (bounded; large payloads go to object
-  storage) (FR-NRM-04).
-- Fingerprint: `sha256(connector_kind | rule_or_check_id | normalized_location | normalized_component)`.
+  `outcome`; `actor.kind` taken from the vendor's documented field (FR-NRM-03). Built by
+  connector mappers in P2 on top of these models.
+- Fields without a vendor source stay null and are omitted; vendor fields OCSF cannot
+  represent go to `unmapped` (FR-NRM-05).
+- `raw_data` (an OCSF string attribute) keeps the original vendor payload up to a bound;
+  larger payloads are stored by reference in object storage (P3) (FR-NRM-04).
+- Required by the 1.9.0 schema on finding classes and easy to miss: `metadata.product`,
+  `metadata.version`, `finding_info.uid`, `cloud` (with `provider`), and `osint` (array,
+  may be empty). Incident Finding (2005) uses `finding_info_list` instead of
+  `finding_info`; Compliance Finding (2003) requires `compliance`.
+- `type_uid` is always `class_uid * 100 + activity_id`; a different supplied value is
+  rejected.
+- Fingerprint: `fp_` + `sha256(connector_kind | rule_or_check_id | normalized_location | normalized_component)`;
+  kind lowercased, paths use `/` without a leading `./`, `None` becomes empty, a `|`
+  inside a field is rejected.
 
-Example: Fortify issue -> OCSF Vulnerability Finding (abbreviated):
+Example: Fortify issue -> OCSF Vulnerability Finding. This document passes
+`validate_ocsf` and round-trips through `VulnerabilityFinding`:
 
 ```json
 {
   "class_uid": 2002,
   "category_uid": 2,
   "activity_id": 1,
+  "type_uid": 200201,
   "severity_id": 4,
   "time": 1762300800000,
   "metadata": {
-    "version": "1.x (pinned)",
+    "version": "1.9.0",
     "product": {"name": "Fortify SSC", "vendor_name": "OpenText"},
     "uid": "fortify-ssc:issue:88213"
   },
+  "cloud": {"provider": "on-premises"},
+  "osint": [],
   "finding_info": {
-    "uid": "fp_9c1e...",
+    "uid": "fp_9c1e",
     "title": "SQL Injection",
     "types": ["SAST"],
     "first_seen_time": 1762200000000
   },
   "vulnerabilities": [{
     "cwe": {"uid": "89"},
-    "affected_code": [{"file": {"path": "src/orders/repo.py"}, "start_line": 41, "end_line": 44}]
+    "affected_code": [{
+      "file": {"name": "repo.py", "path": "src/orders/repo.py", "type_id": 1},
+      "start_line": 41,
+      "end_line": 44
+    }]
   }],
   "resources": [{"type": "repository", "name": "acme/orders"}],
+  "raw_data": "{\"issueInstanceId\": \"88213\"}",
   "unmapped": {"fortify_kingdom": "Input Validation and Representation"}
 }
 ```
-
-Field names above follow OCSF conventions; exact attribute names are validated against
-the pinned schema in Phase 1.
 
 ## 9. Ingestion
 
@@ -802,12 +852,19 @@ class F5BigIp(Connector):
 
 ## 18. Roadmap
 
+The delivery plan lives in `ROADMAP.md` (phases P0 to P10, each run as brainstorm,
+write, plan, implement, test). Summary:
+
 | Phase | Deliverable | Exit criteria |
 |---|---|---|
-| 0 | Decisions D1-D8 closed | Recorded in BRD |
-| 1 | `icuhub-schemas` (OCSF pin + SARIF codecs) | Round-trip tests; consumers can import |
-| 2 | Core: auth, tenancy/RLS, connection store, credential broker, policy, approvals, audit, outbox, REST, MCP, webhook ingress, admin API | Example 16.2 works end to end with a mock connector; audit chain verifies |
-| 3 | Wave-1 connectors: GitHub, GitLab, Jira, F5, GTI | Fixture proofs pass; examples 16.1-16.3 run against real or sandbox instances |
-| 4 | AILA consumer side (15.2) | AILA calls only ICUHUB for these vendors; boundary audit green |
-| 5 | Wave-2 connectors + collectors + file parsers | Per-connector fixture proofs |
-| 6 | Helm/OpenShift hardening, audit export to SIEM, HA | Install on OpenShift restricted SCC; failover test |
+| P0 | Decisions D1-D14 closed as ADRs; skeleton and CI | Recorded in BRD section 18 |
+| P1 | `icuhub-schemas` (OCSF pin, SARIF codec, CloudEvents envelope, fingerprint) | Round-trip and validation tests; consumers can import |
+| P2 | Connector kit (protocols, operations, registry, HTTP and SOAP toolkit, proof harness) | Reference connector live through the proof gate |
+| P3 | Core service (tenancy/RLS, connections, credentials, policy, approvals, audit, outbox, REST) | Example 16.2 end to end with the reference connector; audit chain verifies |
+| P4 | MCP endpoint, webhook ingress, event relay, SMTP notifier | Example 16.3 with recorded payloads |
+| P5 | Wave-1 connectors and ticket routing | Fixture proofs; examples 16.1-16.3 on sandboxes |
+| P6 | AILA consumer side (15.2) | Boundary audit green for wave-1 vendors |
+| P7 | Scan-platform migration (ticket routes, result-file ingestion) | Scan platform files tickets only through ICUHUB; no duplicates on re-run |
+| P8 | AppSec middleware parity connectors | Parity fixture per inventory row |
+| P9 | Governed fetch, MCP governance, vuln-intel mirror, directory | AILA fetch and MCP catalog through ICUHUB |
+| P10 | Collectors, wave 3, Helm/OpenShift hardening, HA, SIEM export | Restricted SCC install; failover and restore rehearsed |

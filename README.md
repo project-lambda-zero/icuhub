@@ -5,8 +5,10 @@ Each vendor integration is built once, and every internal platform uses it throu
 governed, audited path. The first consumer is AILA; others include the posture management
 console and other enterprise hubs.
 
-**Status: Phase 0 (design).** There is no runtime code yet. See `docs/HLD.md` section 18
-for the roadmap.
+**Status: Phase 1.** Decisions D1-D14 are closed (`docs/adr/`). The shared schema package
+[`packages/icuhub-schemas`](packages/icuhub-schemas) (OCSF 1.9.0, SARIF 2.1.0, CloudEvents
+envelope, finding fingerprint) is implemented; the service is not built yet. See
+[`docs/ROADMAP.md`](docs/ROADMAP.md) for the phases.
 
 ## What it does
 
@@ -34,16 +36,20 @@ for the roadmap.
 | [`docs/BRD.md`](docs/BRD.md) | Business requirements |
 | [`docs/HLD.md`](docs/HLD.md) | High-level design |
 | [`docs/COMMATRIX.md`](docs/COMMATRIX.md) | Communication matrix (network flows) |
+| [`docs/INTEGRATION_INVENTORY.md`](docs/INTEGRATION_INVENTORY.md) | Integrations in existing consumers and their ICUHUB disposition |
+| [`docs/OPTIONS.md`](docs/OPTIONS.md) | Technology options per concern and decision outcomes |
+| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Delivery phases P0-P10 |
 | [`docs/CONNECTOR_GUIDE.md`](docs/CONNECTOR_GUIDE.md) | How to add a connector |
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
 
 ## Development
 
 ```bash
-python -m pip install -e ".[dev]"
+python -m pip install -e ".[dev]" -e packages/icuhub-schemas
 python -m ruff check .
-python -m compileall -q src
-python -m pytest -q
+python -m compileall -q src packages tools
+python -m pytest -q packages/icuhub-schemas/tests tests
+python tools/license_check.py
 ```
 
 AI coding agents: start with [`AGENTS.md`](AGENTS.md).

@@ -4,9 +4,12 @@
 |---|---|
 | Document | ICUHUB Business Requirements |
 | Prototype name | ICUHUB (working name, no branding work planned) |
-| Status | Draft v0.1 |
-| Date | 2026-11-05 |
-| Companion documents | `HLD.md` (high-level design), `COMMATRIX.md` (communication matrix) |
+| Status | Draft v0.2 |
+| Date | 2026-11-06 |
+| Companion documents | `HLD.md` (high-level design), `COMMATRIX.md` (communication matrix), `INTEGRATION_INVENTORY.md` (integrations in existing consumers), `OPTIONS.md` (technology options), `ROADMAP.md` (delivery phases) |
+
+v0.2 appends requirements derived from `INTEGRATION_INVENTORY.md` (inventory rows are
+cited as `INV-nn`). Existing IDs are unchanged.
 
 ---
 
@@ -72,6 +75,12 @@ administration.
 | NG5 | Running exploitation, sandboxes, or fix loops | Belongs to AILA (VR module + platform sandbox) |
 | NG6 | End-user UI for analysts | Consumers own their UIs; ICUHUB ships an admin surface only |
 | NG7 | High-volume telemetry through the request/response API | Telemetry flows connector -> event stream -> consumers |
+| NG8 | Gateway for LLM, embedding, reranker, or speech APIs (INV-84..86) | Model traffic belongs to the enterprise AI gateway; ICUHUB contains no AI code (NG1) |
+| NG9 | Mirror for software, tool, model, or symbol downloads (INV-03, INV-72, INV-85) | Supply-chain artifacts belong to the enterprise artifact repository, which already handles signing, scanning, and retention |
+| NG10 | Conversational channels of assistant products (Teams bots, chat apps) (INV-64) | Those are product surfaces, not tool integrations. One-way notifications are in scope (FR-NTF-*) |
+| NG11 | Hosting the consumers' local analysis engines and lab tooling (INV-31, INV-32, INV-82, INV-83) | They operate on local files and devices next to the consumer; they have no vendor credential or tenant boundary for ICUHUB to govern |
+| NG12 | End-user login for consumer platforms (INV-50) | Each consumer federates with the enterprise IdP directly; ICUHUB authenticates its own callers only (HLD section 10) |
+| NG13 | Remote command execution and file transfer on managed hosts over SSH/SFTP (INV-40..48) | Decided in ADR-0011 (D9): consumers keep their SSH stacks; host results can enter ICUHUB as result files (FR-ING-06) |
 
 ## 6. Stakeholders and personas
 
@@ -124,6 +133,19 @@ telemetry beyond the stream retention window, billing.
 | BR-12 | Vendor-official MCP servers can be governed through ICUHUB instead of being wired into each consumer | Should |
 | BR-13 | Connector mappings are proven with replayed vendor-shaped fixtures before being marked live | Must |
 | BR-14 | Unmeasured or unknown values are reported as "not measured", never as zero | Must |
+| BR-15 | Withdrawn by ADR-0011 (D9): remote host execution stays in consumers (NG13). ID reserved | -- |
+| BR-16 | Finding-to-ticket flows are shared: routing to one or more tracker instances, fingerprint deduplication, and status synchronization are implemented once (INV-10..14) (ADR-0015) | Must |
+| BR-17 | Outbound notifications (approvals, run results, reports) use one governed notifier path (INV-60, INV-61, COMMATRIX F-035) | Must |
+| BR-18 | Each existing consumer can move its vendor integrations to ICUHUB without losing a capability it has today (migration parity, `INTEGRATION_INVENTORY.md` section 4) | Must |
+| BR-19 | Segregation of duties: the identity that requests an action, the identity that approves it, and the identity that administers the connection or policy it uses are separable, and the separation is enforceable per tenant | Must |
+| BR-20 | Destructive actions can be bound to an external change record (ITSM change or ticket reference) as an approval precondition | Should |
+| BR-21 | Data protection: every stored payload has a data class and a retention period; expired data is purged without breaking the audit chain | Must |
+| BR-22 | Business continuity: documented recovery point and recovery time objectives, tested restore, and consumer behaviour when ICUHUB is unavailable (NFR-13) | Must |
+| BR-23 | Service ownership: published service levels, an owner per connector, and a support path for connector breakage caused by vendor changes (NFR-14) | Should |
+| BR-24 | Licensing: every runtime dependency and bundled artifact has a license compatible with distributing ICUHUB under AGPL-3.0 on-prem (NFR-15) | Must |
+| BR-25 | Arbitrary outbound HTTP requested by consumers or agents (generic fetch) is governed: destination allowlists, egress class, size limits, and audit (INV-80) | Must |
+| BR-26 | Corporate PKI is supported everywhere: per-connection and per-install CA bundles and client certificates; TLS verification cannot be switched off | Must |
+| BR-27 | Public vulnerability intelligence (CVE, EPSS, KEV, OSV, distribution advisories) is available to every consumer from one cached, mirrorable source, including in air-gapped installs (INV-02, INV-70) (ADR-0012) | Should |
 
 ## 9. Functional requirements
 
@@ -150,6 +172,10 @@ telemetry beyond the stream retention window, billing.
 | FR-CNR-05 | Shared HTTP toolkit: retries with backoff, rate-limit handling (429 / `Retry-After`), pagination helpers, timeouts, TLS settings, proxy support, request signing |
 | FR-CNR-06 | Three connector types: native (Python class calling the vendor API), MCP-backed (an upstream vendor MCP server governed by ICUHUB), file parser (uploaded report to findings) |
 | FR-CNR-07 | Each connector ships vendor-shaped fixtures; a mapping is "live" only after a fixture replayed through the real connector produces the expected OCSF output; a proof gate reverts the connector and asserts the output disappears |
+| FR-CNR-08 | The toolkit supports SOAP/XML services (WSDL-described operations, XML request and response codecs, SOAP faults mapped to typed errors) alongside JSON/REST (INV-12) |
+| FR-CNR-09 | Transport safety is not configurable away: TLS verification always on (custom CA bundles instead, BR-26); connectors never spawn shell commands carrying credentials or untrusted values; every outbound request goes through the toolkit client |
+| FR-CNR-10 | Query languages are built from structured inputs: LDAP filters escaped (RFC 4515), SOAP/SQL-like WHERE clauses parameterized or escaped per vendor rules, JQL values quoted; operation inputs never accept raw query fragments unless the operation is classified for it and audited |
+| FR-CNR-11 | Vendor-specific field mappings (custom field IDs, priority tables, severity-to-priority maps) are data on the connection or route, never code, and never forked per customer (INV-11, INV-12) |
 
 ### 9.3 Policy and approvals
 
@@ -185,6 +211,7 @@ telemetry beyond the stream retention window, billing.
 | FR-ING-03 | Streaming collectors: AWS S3 + SQS notifications, GCP Pub/Sub, Azure Event Hubs, syslog/CEF listener |
 | FR-ING-04 | Report-file parsers (Fortify FPR, Nessus XML, Burp, SARIF, CycloneDX, and others) modelled on the DefectDojo parser approach |
 | FR-ING-05 | Deduplication by stable fingerprint per finding |
+| FR-ING-06 | Tabular and line-oriented result files (CSV, XLSX, JSON, JSONL, plain lines) are ingested through declared mapping profiles (column to field, severity map, fingerprint fields), not ad-hoc parsers; this includes result files that consumers collect from hosts themselves (INV-30, INV-90, INV-91, NG13) |
 
 ### 9.6 Normalization
 
@@ -205,6 +232,7 @@ telemetry beyond the stream retention window, billing.
 | FR-AUD-02 | Audit records are hash-chained per tenant (tamper-evident) |
 | FR-AUD-03 | Audit export to customer SIEM as OCSF (API Activity / Account Change / Web Resources Activity classes as applicable) over syslog TLS, Splunk HEC, or the event stream |
 | FR-AUD-04 | Secrets and raw credential material never appear in audit or logs; arguments are digested, with an allowlist of fields kept in clear |
+| FR-AUD-05 | Retention purge of payloads and audit bodies keeps the hash chain verifiable: purged records leave their digest and chain link, and the purge itself is an audited event (BR-21) |
 
 ### 9.8 Administration
 
@@ -212,6 +240,84 @@ telemetry beyond the stream retention window, billing.
 |---|---|
 | FR-ADM-01 | Admin UI and API: connections, credentials (write-only), policy rules, approvals queue, audit search, connector health, fixture proof status |
 | FR-ADM-02 | SSO via OIDC/SAML through the enterprise IdP; RBAC roles: `icuhub_admin`, `icuhub_approver`, `icuhub_auditor`, `icuhub_viewer` |
+| FR-ADM-03 | Segregation-of-duties constraints per tenant: an approver cannot approve an action whose policy rule or connection they changed within a configured window; an admin cannot approve; constraint violations are denials with a recorded reason (BR-19) |
+| FR-ADM-04 | Change-record binding: a policy rule can require an external change reference on approval; the reference is validated through a `Tracker` connection (exists, open, approved state) before execution (BR-20) |
+
+### 9.9 Remote host execution (withdrawn)
+
+FR-RX-01..10 are withdrawn by ADR-0011 (D9): remote host execution stays in consumers
+(NG13). The IDs stay reserved and are not reused.
+
+### 9.10 Ticket lifecycle (`Tracker`) (ADR-0015)
+
+| ID | Requirement |
+|---|---|
+| FR-TKT-01 | `Tracker` covers create, get, search, comment, update fields, assign, transition (including close and reopen), link, and attachment; close and reopen are classified `destructive` when the vendor workflow makes them irreversible for the tenant |
+| FR-TKT-02 | Ticket creation from a finding is keyed by the finding fingerprint and route: a repeat request updates or comments on the linked ticket instead of opening a duplicate (INV-10) |
+| FR-TKT-03 | Routes: a tenant defines routing profiles (connection, project or queue, issue type, labels, assignee rule, one ticket per finding or one summary ticket per batch); one request can fan out to several routes and several instances of the same vendor |
+| FR-TKT-04 | Title and body templates per route, rendered in the vendor's format (Atlassian Document Format, wiki markup, HTML, plain text) from the normalized finding |
+| FR-TKT-05 | Field mapping per connection: custom field discovery from the vendor, mapping of normalized fields to vendor fields, severity-to-priority tables (INV-11, INV-12) |
+| FR-TKT-06 | Status synchronization: ticket state changes (webhook or poll) are normalized and published, and the link between finding and ticket is updated; consumers decide what a state change means for their own records |
+| FR-TKT-07 | Partial failure in a fan-out is reported per route; a failed route never blocks or silently skips another (INV-10) |
+| FR-TKT-08 | Business prioritization (which findings deserve a ticket, SLA deadlines) stays in the consumer; ICUHUB executes the routing it is given |
+
+### 9.11 Notifications (`Notifier`)
+
+| ID | Requirement |
+|---|---|
+| FR-NTF-01 | Channels: SMTP (STARTTLS or implicit TLS, optional auth) and chat incoming webhooks (Teams, Slack, Google Chat); further channels are connectors |
+| FR-NTF-02 | Messages are rendered from templates owned by the tenant; recipients are resolved from addresses, groups (FR-DIR-*), or approver roles, never hard-coded in code |
+| FR-NTF-03 | Approval notifications are emitted for `icuhub.approval.requested`, expiry warnings, and outcomes (COMMATRIX F-035) |
+| FR-NTF-04 | Message bodies are classified like any payload (BR-21) and are not written to logs |
+
+### 9.12 Directory lookups (`Directory`)
+
+| ID | Requirement |
+|---|---|
+| FR-DIR-01 | Read-only lookups of users, groups, group membership, and manager chains over LDAPS and Microsoft Graph |
+| FR-DIR-02 | Used by ICUHUB for approver resolution and notification recipients, and exposed to consumers for ticket assignment and ownership questions |
+| FR-DIR-03 | Filters are built under FR-CNR-10; the service account is bound read-only |
+| FR-DIR-04 | Results are cached with a bounded TTL and invalidated on connection change |
+
+### 9.13 Governed fetch
+
+| ID | Requirement |
+|---|---|
+| FR-FET-01 | A `web.fetch` operation performs one HTTP(S) request for a consumer or agent and returns a bounded, typed response (status, headers allowlist, body reference) |
+| FR-FET-02 | Destinations are checked on every hop (including redirects and DNS resolution) against tenant allowlists and denylists; private, loopback, link-local, and metadata ranges are denied unless a rule allows them explicitly |
+| FR-FET-03 | Each destination has an egress class (FR-POL-07); `third_party_shared` destinations follow the same policy as threat-intel lookups |
+| FR-FET-04 | Methods other than GET and HEAD are classified `write` |
+| FR-FET-05 | Size, time, and redirect limits are enforced and recorded in audit |
+
+### 9.14 MCP server governance
+
+| ID | Requirement |
+|---|---|
+| FR-MCPG-01 | An operator registers an upstream MCP server as an MCP-backed connection (FR-CNR-06): transport (Streamable HTTP; stdio only from an admin-approved, pinned image or command), credential reference, and the protocol revision it negotiates |
+| FR-MCPG-02 | Upstream tools are imported into the operation catalog with an operator-assigned classification; an unclassified tool is not callable |
+| FR-MCPG-03 | Calls to upstream tools pass ICUHUB policy, approval, credential injection, and audit exactly like native operations (BR-12) |
+| FR-MCPG-04 | A change in the upstream tool list or tool schema marks the connection `degraded` until an operator reviews the diff |
+| FR-MCPG-05 | Tool descriptions from upstream servers are treated as untrusted text: length-bounded and shown to approvers as vendor-supplied |
+
+### 9.15 Vulnerability intelligence feeds (ADR-0012)
+
+| ID | Requirement |
+|---|---|
+| FR-FEED-01 | Feed connectors for NVD CVE API 2.0, FIRST EPSS, CISA KEV, OSV, GitHub advisories, and distribution security trackers, pulled on schedule with cursors (FR-ING-01) |
+| FR-FEED-02 | Records are stored in a local mirror and served by query (CVE, package and ecosystem, product), so consumers stop calling the public sources directly |
+| FR-FEED-03 | The mirror can be seeded and refreshed from offline bundles for air-gapped installs |
+| FR-FEED-04 | Each record carries its source, fetch time, and upstream modification time; stale data is reported as stale, not current |
+| FR-FEED-05 | Provider rate limits and API keys are held by ICUHUB; consumers never need a feed API key |
+
+### 9.16 Consumer migration
+
+| ID | Requirement |
+|---|---|
+| FR-MIG-01 | Every in-scope row of `INTEGRATION_INVENTORY.md` section 4 maps to an ICUHUB connection kind and operation set before the owning consumer migrates |
+| FR-MIG-02 | Each migrated operation has a parity fixture: a recorded request and response from the consumer's current behaviour replayed through the ICUHUB connector |
+| FR-MIG-03 | Consumers migrate per integration behind their own feature flag; the direct path is removed in the consumer release after the ICUHUB path is verified (no dual-write shims) |
+| FR-MIG-04 | Credential import from a consumer's store into the ICUHUB secret backend is a one-time, audited admin operation; the consumer's copy is deleted afterwards |
+| FR-MIG-05 | The consumer-side boundary audit (no direct vendor calls) is enabled for each integration once it migrates (success metric in section 17) |
 
 ## 10. Non-functional requirements
 
@@ -229,19 +335,34 @@ telemetry beyond the stream retention window, billing.
 | NFR-10 | Operability | Air-gapped install: all images and charts mirrorable; no runtime internet dependency except configured vendor endpoints |
 | NFR-11 | Compatibility | API versioned (`/v1`); breaking changes only with a new major path; event schema versioned |
 | NFR-12 | Honesty | Metrics and health report "not measured" or "unknown" instead of zero when no data exists |
+| NFR-13 | Continuity | Recovery point objective 15 minutes and recovery time objective 4 hours for state, audit, and pending approvals [proposed targets, not measured]; restore is exercised before each release that changes the schema; consumers queue or fail visibly while ICUHUB is unavailable, never fall back to direct vendor calls |
+| NFR-14 | Service levels | API availability 99.5% monthly per install [proposed target, not measured]; connector health and vendor-side outages are reported separately from ICUHUB availability; each connector lists an owner |
+| NFR-15 | Licensing | Runtime dependencies and bundled artifacts are OSI-approved and AGPL-3.0-compatible; source-available licenses (ELv2, BSL, SSPL) are excluded from the runtime; licenses are recorded in `OPTIONS.md` at adoption |
+| NFR-16 | Data retention | Defaults per data class: raw vendor payloads 30 days, normalized records 180 days, audit 400 days, all tenant-configurable within deployment limits [proposed defaults] |
+| NFR-17 | -- | Withdrawn by ADR-0011 (D9); ID reserved |
 
 ## 11. Integration catalog and waves
 
 Wave order is a proposal; the first wave is driven by the first consumers (AILA VR
-exploit-and-fix loop, posture console).
+exploit-and-fix loop, posture console) and, since v0.2, by migration parity for the
+existing consumers (BR-18). Waves map to roadmap phases: wave 1 = `ROADMAP.md` P5,
+wave 2 = P7 to P9, wave 3 = P10.
 
 | Category | Vendors / systems | Connector type | Wave |
 |---|---|---|---|
-| SCM | GitHub, GitLab, Bitbucket Cloud, Bitbucket Server, Azure DevOps, Gitea | Native (PR-Agent provider pattern + write side); GitLab MCP optional | 1 |
-| CI/CD | GitLab CI, Jenkins, GitHub Actions, Azure Pipelines | Native; Jenkins MCP plugin optional | 2 |
-| Ticketing / ITSM | Jira, ServiceNow | Native | 1 |
-| SAST / SCA / DAST | Fortify (SSC), Mend, Invicti, Snyk, SonarQube, Checkmarx | Native + file parsers | 2 |
-| Vulnerability scanners | Nessus / Tenable, Qualys, Rapid7 | Native + file parsers | 2 |
+| SCM | GitHub, GitLab (1); Bitbucket Cloud, Bitbucket Server, Azure DevOps, Gitea (3) | Native (PR-Agent provider pattern + write side); GitLab MCP optional | 1 / 3 |
+| CI/CD | GitLab CI, Jenkins, GitHub Actions, Azure Pipelines; inbound CI callbacks (INV-06) | Native; Jenkins MCP plugin optional | 2 |
+| Ticketing | Jira Cloud and Data Center, several instances per tenant (INV-10, INV-11) | Native | 1 |
+| ITSM | ServiceNow, Micro Focus Service Manager, IBM Maximo (SOAP) (INV-12..14) | Native | 2 |
+| GRC | RSA Archer (INV-15) | Native | 3 |
+| SAST / SCA / DAST | Fortify (SSC) + FPR parser, Mend, OWASP Dependency-Track (2); Invicti, Snyk, SonarQube, Checkmarx (3) | Native + file parsers | 2 / 3 |
+| Vulnerability scanners | Tenable Security Center, Nessus Manager + `.nessus` parser (2); Qualys, Rapid7 (3) | Native + file parsers | 2 / 3 |
+| Notifications | SMTP (1); Teams, Slack, Google Chat incoming webhooks (2) | Native (`Notifier`) | 1 / 2 |
+| Directory | LDAPS, Microsoft Graph users and groups (INV-51, INV-52) | Native (`Directory`) | 2 |
+| Generic egress | Governed `web.fetch` (INV-80) | Native | 2 |
+| Operator MCP servers | Any upstream MCP server registered by an operator (INV-81) | MCP-backed | 2 |
+| Vulnerability intelligence | NVD, EPSS, KEV, OSV, GitHub advisories, distribution trackers (INV-70) (ADR-0012) | Native feed connectors + mirror | 2 |
+| Collaboration | Microsoft Graph meetings, transcripts, change notifications (INV-62, INV-63) | Native | 3 |
 | WAF / ADC | F5 BIG-IP (iControl REST), F5 Distributed Cloud, Cloudflare, Imperva | Native | 1 (F5) |
 | EDR / XDR | CrowdStrike Falcon, Microsoft Defender, SentinelOne | Native or MCP-backed | 2 |
 | SIEM | Splunk, Microsoft Sentinel, Google SecOps, Elastic, QRadar | Native or MCP-backed | 2 |
@@ -268,7 +389,7 @@ exploit-and-fix loop, posture console).
 ## 13. Constraints
 
 - Separate repository and service; must not import or depend on AILA code.
-- Python for the service and connector SDK [proposed; decision D1].
+- Python 3.11+ for the service, connector kit, and schema package (ADR-0004).
 - Postgres for state; secret backend for credentials.
 - Runs on Kubernetes and OpenShift (restricted SCC).
 - Any third-party dependency adoption (event bus, secret backend, OCSF model library) is decided explicitly before use.
@@ -285,8 +406,8 @@ exploit-and-fix loop, posture console).
 |---|---|---|
 | Enterprise IdP (OIDC/SAML) | Admin SSO, service tokens, approver groups | Required |
 | Postgres 15+ | State, audit, outbox | Required |
-| Secret backend (Vault, External Secrets, or KMS envelope encryption) | Credentials | Decision D3 |
-| Event backbone (Kafka, Redpanda, or NATS JetStream) | Event stream | Decision D2 |
+| OpenBao (Transit key-encryption keys) | Wraps the data keys of envelope-encrypted credentials | Required in production (ADR-0006) |
+| Apache Kafka (KRaft), fed by the Postgres outbox | Event stream | Required (ADR-0005) |
 | Container platform (Kubernetes / OpenShift) | Runtime | Required |
 
 ## 16. Risks
@@ -302,6 +423,10 @@ exploit-and-fix loop, posture console).
 | R7 | Agent-triggered destructive actions | Classification, three switches, approvals, replay mode boundary |
 | R8 | Credential compromise blast radius | Secret backend, per-connection least privilege, rotation, mTLS, egress allowlist |
 | R9 | Single point of failure for all products | HA deployment, stateless API, durable outbox, consumers degrade gracefully when hub is unavailable |
+| R10 | Withdrawn with ADR-0011 (no host execution in ICUHUB); ID reserved | -- |
+| R11 | Migration parity gaps keep direct vendor paths alive in consumers | Parity fixtures per migrated operation (FR-MIG-02), consumer-side boundary audit (FR-MIG-05), migration tracked per inventory row |
+| R12 | Upstream MCP servers and vendor APIs change faster than connectors | Tool-list diff review (FR-MCPG-04), pinned protocol revisions, scheduled fixture replays (R6) |
+| R13 | Shared ticket routing grows into product logic | FR-TKT-08: prioritization stays in consumers; routing profiles are data, reviewed against NG items |
 
 ## 17. Success metrics
 
@@ -313,19 +438,30 @@ exploit-and-fix loop, posture console).
 | Write/destructive actions executed without a policy decision | 0 |
 | Time to add a new read-only connector with fixtures | Tracked; not measured yet |
 | Connector mappings live without a passing fixture proof | 0 |
+| In-scope inventory rows migrated to ICUHUB per consumer | Tracked per row in `INTEGRATION_INVENTORY.md`; not measured yet |
+| Duplicate tickets opened for the same finding and route | 0 |
 
-## 18. Open decisions
+## 18. Decisions
 
-| ID | Decision | Options | Recommendation |
-|---|---|---|---|
-| D1 | Service language | Python, Go | Python (shares schema package with consumers, PR-Agent/DefectDojo approaches are Python) |
-| D2 | Event backbone | Kafka, Redpanda, NATS JetStream | Undecided; must be asked before adoption |
-| D3 | Secret backend | HashiCorp Vault, External Secrets Operator + cloud KMS, envelope encryption in Postgres | Undecided |
-| D4 | Deployment model | One ICUHUB per enterprise install shared by all consoles; multi-tenant hosted | One per install |
-| D5 | OCSF version pin | Latest stable at implementation time | Pin at Phase 1 |
-| D6 | OCSF model library | Own models, or evaluate Prowler `py-ocsf-models` | Evaluate first, ask before adopting |
-| D7 | Event envelope | CloudEvents 1.0 with OCSF payload, or custom envelope | CloudEvents 1.0 |
-| D8 | First-wave connectors | Section 11 wave 1 | GitHub, GitLab, Jira, F5, GTI |
+All decisions D1-D14 are closed. New open decisions are appended as D15 onward with
+options and a recommendation, and stay open until an ADR closes them.
+
+| ID | Decision | Options considered | Outcome | ADR |
+|---|---|---|---|---|
+| D1 | Service language | Python, Go | Python 3.11+ | [0004](adr/0004-service-language-python.md) |
+| D2 | Event backbone | Kafka, Redpanda, NATS JetStream, RabbitMQ streams, PostgreSQL outbox only (`OPTIONS.md` section 7) | PostgreSQL transactional outbox feeding Apache Kafka (KRaft) | [0005](adr/0005-event-backbone-postgres-outbox-kafka.md) |
+| D3 | Secret backend | HashiCorp Vault, OpenBao, Conjur, External Secrets Operator, envelope encryption in Postgres (`OPTIONS.md` section 8) | AES-256-GCM envelope encryption in Postgres; KEK from OpenBao Transit in production, file KEK in development | [0006](adr/0006-credentials-envelope-encryption-openbao-kek.md) |
+| D4 | Deployment model | One ICUHUB per enterprise install; multi-tenant hosted | One per install | [0007](adr/0007-deployment-one-hub-per-install.md) |
+| D5 | OCSF version pin | Latest stable at implementation time | OCSF 1.9.0 | [0008](adr/0008-ocsf-1-9-0-own-models.md) |
+| D6 | OCSF model library | Own models, Prowler `py-ocsf-models` (`OPTIONS.md` sections 5, 16) | Own Pydantic v2 models validated against the vendored official schema with `jsonschema` | [0008](adr/0008-ocsf-1-9-0-own-models.md) |
+| D7 | Event envelope | CloudEvents 1.0, custom envelope | CloudEvents 1.0 structured JSON | [0009](adr/0009-cloudevents-envelope.md) |
+| D8 | First-wave connectors | Section 11 wave 1 | GitHub, GitLab, Jira, F5, GTI, SMTP notifier | [0010](adr/0010-wave-1-connectors.md) |
+| D9 | Ownership of remote host execution (SSH/SFTP) | ICUHUB `HostAccess` capability; consumers keep their SSH stacks | Consumers keep SSH; BR-15, FR-RX-*, NFR-17 withdrawn | [0011](adr/0011-host-execution-stays-in-consumers.md) |
+| D10 | Ownership of public vulnerability-intelligence feeds | ICUHUB feed connectors + mirror; feeds stay in the consumer | ICUHUB mirror in wave 2; consumer clients removed after parity | [0012](adr/0012-vulnerability-intelligence-mirror.md) |
+| D11 | Policy engine | Typed rules, OPA/Rego, Cedar, Cerbos, OpenFGA, Casbin (`OPTIONS.md` section 9) | Typed rules in Postgres, evaluated in-process | [0013](adr/0013-policy-typed-rules.md) |
+| D12 | Durable execution for actions and approvals | Own Postgres state machine + queue, Temporal, DBOS, Hatchet, Restate, Prefect (`OPTIONS.md` section 10) | Own Postgres state machine and `SKIP LOCKED` job queue | [0014](adr/0014-durable-execution-postgres.md) |
+| D13 | Ownership of finding-to-ticket routing, dedupe, and status sync | ICUHUB generic routing; consumers keep ticket logic | ICUHUB generic routing; prioritization stays in consumers | [0015](adr/0015-ticket-routing-in-icuhub.md) |
+| D14 | HTTP toolkit dependency set | httpx2, classic httpx, aiohttp, requests stacks (`OPTIONS.md` section 2) | httpx2, tenacity, aiolimiter, Authlib, asyncpg | [0016](adr/0016-http-toolkit-stack.md) |
 
 ## 19. Glossary
 
