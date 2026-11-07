@@ -57,7 +57,7 @@ flowchart LR
 | F-004 | Other enterprise hubs | icuhub-api | HTTPS (REST) | 443 / 8080 | JWT / mTLS | Any operation allowed by policy | `GET /v1/connections` |
 | F-005 | Admin users (browser) | icuhub-api admin UI / API | HTTPS | 443 | OIDC/SAML SSO session | Manage connections, policy, approvals, audit | `https://icuhub.acme.internal/admin/approvals` |
 | F-006 | Approvers (browser or consumer UI via API) | icuhub-api `/v1/approvals` | HTTPS | 443 | OIDC user token, role `icuhub_approver` | Approve / reject actions | `POST /v1/approvals/apr_01JC9/approve` |
-| F-007 | AILA / posture console / other hubs (subscribers) | Event backbone **[D2]** | Kafka TLS / NATS TLS | Kafka 9093, NATS 4222 | SASL/SCRAM or mTLS (Kafka), NKey/JWT or mTLS (NATS) | Subscribe to `icuhub.*` topics | Subscribe `icuhub.scm.change_request.opened` |
+| F-007 | AILA / posture console / other hubs (subscribers) | Apache Kafka (ADR-0005) | Kafka TLS | 9093 *(listener port is deployment-defined, confirm)* | SASL/SCRAM or mTLS | Subscribe to `icuhub.*` topics | Subscribe `icuhub.scm.change_request.opened` |
 
 ## 3. Ingress flows from vendors (Z6/Z7 -> Z4 -> Z2)
 
@@ -72,7 +72,7 @@ flowchart LR
 | F-026 | Azure DevOps | Ingress `/hooks/...` | HTTPS | 443 | Basic auth or header secret | PR, build events | `POST .../hooks/con_ado` |
 | F-027 | GitLab self-managed (Z6) | Internal ingress `/hooks/...` | HTTPS | 443 | `X-Gitlab-Token` | MR, push, pipeline events | `POST https://icuhub.acme.internal/hooks/con_gitlab_main` |
 | F-028 | Jenkins (Z6) | Internal ingress `/hooks/...` | HTTPS | 443 | Shared secret header | Build completed | `POST .../hooks/con_jenkins` |
-| F-029 | Jira Data Center / Bitbucket Server (Z6) | Internal ingress `/hooks/...` | HTTPS | 443 | Shared secret / HMAC | Issue / PR events | `POST .../hooks/con_jira_dc` |
+| F-029 | Jira Data Center / Bitbucket Data Center / Confluence Data Center (Z6) | Internal ingress `/hooks/...` | HTTPS | 443 | Shared secret / HMAC | Issue / PR events | `POST .../hooks/con_jira_dc` |
 | F-040 | Network devices, appliances (Z6) | icuhub-collector-syslog | Syslog over TLS (RFC 5425) | 6514/TCP | mTLS (optional) | Syslog/CEF telemetry | CEF from F5 ASM to `syslog.icuhub.acme.internal:6514` |
 | F-041 | Legacy devices (optional, disabled by default) | icuhub-collector-syslog | Syslog TCP / UDP plaintext | 514/TCP, 514/UDP | none | Legacy telemetry where TLS unsupported | Only on an isolated segment with explicit exception |
 
@@ -84,9 +84,9 @@ exposes only `/hooks/*`; API, MCP, and admin are reachable only on the internal 
 | ID | Source | Destination | Protocol | Port | Auth | Purpose | Example |
 |---|---|---|---|---|---|---|---|
 | F-010 | icuhub-api, icuhub-worker | Postgres | PostgreSQL (TLS) | 5432 | SCRAM-SHA-256 or client cert | State, audit, outbox | `postgresql://icuhub@pg.icuhub.svc:5432/icuhub?sslmode=verify-full` |
-| F-011 | icuhub-worker (outbox relay) | Event backbone **[D2]** | Kafka TLS / NATS TLS | 9093 / 4222 | SASL/SCRAM or mTLS | Publish `icuhub.*` events | Produce to `icuhub.finding.upserted` |
-| F-012 | icuhub-worker (collectors needing a stream consumer) | Event backbone | Kafka TLS / NATS TLS | 9093 / 4222 | as above | Internal work queues (if backbone used for jobs) | Consume `icuhub.internal.normalize` |
-| F-013 | icuhub-api, icuhub-worker | Secret backend **[D3]** (Vault) | HTTPS | 8200 | Kubernetes auth method (service account JWT) or AppRole | Read credentials, write rotated tokens | `GET https://vault.acme.internal:8200/v1/kv/data/icuhub/acme/f5-prod` |
+| F-011 | icuhub-worker (outbox relay) | Apache Kafka (ADR-0005) | Kafka TLS | 9093 | SASL/SCRAM or mTLS | Publish `icuhub.*` events from the Postgres outbox | Produce to `icuhub.finding.upserted` |
+| F-012 | icuhub-worker (collectors needing a stream consumer) | Apache Kafka | Kafka TLS | 9093 | as above | Internal normalization topics for streaming collectors (action jobs and approvals use Postgres, ADR-0014) | Consume `icuhub.internal.normalize` |
+| F-013 | icuhub-api, icuhub-worker | OpenBao Transit (ADR-0006) | HTTPS | 8200 *(OpenBao default, confirm)* | Kubernetes auth method (service account JWT) | Unwrap and rewrap data keys of envelope-encrypted credentials stored in Postgres | `POST https://openbao.acme.internal:8200/v1/transit/decrypt/icuhub-acme` |
 | F-014 | icuhub-worker | Object storage (optional, raw payload overflow) | HTTPS (S3 API) | 443 / 9000 (MinIO) | Access key / IRSA / workload identity | Store oversized raw vendor payloads | `PUT s3://icuhub-raw/acme/...` |
 | F-030 | icuhub-api | Enterprise IdP (OIDC discovery, JWKS) | HTTPS | 443 | none (public metadata) | Validate JWTs, admin SSO | `GET https://idp.acme.internal/.well-known/openid-configuration` |
 | F-031 | icuhub-worker (audit exporter) | Customer SIEM | Syslog TLS / Splunk HEC / Kafka | 6514 / 8088 *(Splunk HEC vendor default)* / 9093 | mTLS / HEC token / SASL | OCSF audit export | `POST https://splunk-hec.acme.internal:8088/services/collector/event` |
@@ -124,6 +124,8 @@ All initiated by `icuhub-worker` (scheduled pulls, approved actions) or `icuhub-
 | F-119 | OpenCTI | HTTPS (GraphQL) | 443 *(8080 vendor default)* | Bearer token | Indicator / entity lookup | `POST https://opencti.acme.internal/graphql` |
 | F-120 | Cortex XSOAR (on-prem) | HTTPS | 443 | API key | Incidents, playbooks | `POST https://xsoar.acme.internal/incident` |
 | F-121 | Symantec / Forcepoint DLP (on-prem) | HTTPS | 443 *(confirm per product)* | Product API credentials | DLP incidents | per product REST API |
+| F-122 | Confluence Data Center | HTTPS | 443 *(8090 vendor default, confirm)* | Personal access token | Page reads, report publishing (FR-KB-*) | `PUT https://confluence.acme.internal/rest/api/content/123456` |
+| F-123 | Invicti Enterprise on-premises | HTTPS | 443 *(confirm per deployment)* | User ID + API token (basic) | DAST issues and scans | `GET https://invicti.acme.internal/api/1.0/issues/report` |
 
 ## 6. Outbound to SaaS vendors (Z2 -> Z7, through egress proxy F-034 when mandated)
 
@@ -155,6 +157,10 @@ All initiated by `icuhub-worker` (scheduled pulls, approved actions) or `icuhub-
 | F-223 | Azure Event Hubs (`<ns>.servicebus.windows.net`) | AMQP over TLS / AMQP over WebSockets | 5671 / 443 | Entra client credentials or SAS | Event Hubs collector | `amqps://acme-logs.servicebus.windows.net/insights-activity-logs` |
 | F-224 | Okta (`<org>.okta.com`) | HTTPS | 443 | API token / OAuth service app | Identity events, user lookup | `GET https://acme.okta.com/api/v1/logs?since=...` |
 | F-225 | Microsoft Purview (Graph / compliance APIs) | HTTPS | 443 | Entra client credentials | DLP alerts | via `graph.microsoft.com` security alerts |
+| F-226 | Confluence Cloud (`<site>.atlassian.net/wiki`) | HTTPS | 443 | API token / OAuth 2.0 (3LO) / service account | Page reads, report publishing (FR-KB-*) | `POST https://acme.atlassian.net/wiki/api/v2/pages` |
+| F-227 | Tenable Vulnerability Management (`cloud.tenable.com`) | HTTPS | 443 | API access/secret keys (`X-ApiKeys`) | Vulnerability and asset exports | `POST https://cloud.tenable.com/vulns/export` |
+| F-228 | Fortify on Demand (`api.ams.fortify.com`, `api.emea.fortify.com`; other regions confirm per tenant) | HTTPS | 443 | OAuth 2.0 client credentials (`/oauth/token`, scoped e.g. `view-issues`) | SAST/DAST/SCA findings | `GET https://api.ams.fortify.com/api/v3/releases/<id>/vulnerabilities` |
+| F-229 | Prisma Cloud Compute console (regional, URL from the Prisma Cloud console settings) | HTTPS | 443 | Access key -> token | Runtime and image vulnerability, compliance | per Compute API |
 
 ## 7. Explicitly forbidden flows
 
@@ -173,9 +179,9 @@ All initiated by `icuhub-worker` (scheduled pulls, approved actions) or `icuhub-
 | `icuhub-default-deny` | all pods in `icuhub` | nothing (ingress and egress denied) |
 | `icuhub-api-ingress` | `app=icuhub-api` | from ingress controller / router namespace on 8080 (F-020, F-001..F-006 via Route); from consumer namespaces (`aila`, `posture`) on 8080; from monitoring on 8080 (F-033) |
 | `icuhub-collector-ingress` | `app=icuhub-collector-syslog` | from device CIDRs on 6514 (F-040) |
-| `icuhub-egress-data` | api, worker | to Postgres 5432 (F-010), backbone 9093/4222 (F-011/F-012), Vault 8200 (F-013), object storage (F-014) |
+| `icuhub-egress-data` | api, worker | to Postgres 5432 (F-010), Kafka 9093 (F-011/F-012), OpenBao 8200 (F-013), object storage (F-014) |
 | `icuhub-egress-platform` | api, worker | to IdP 443 (F-030), OTel 4317/4318 (F-032), SIEM (F-031), DNS 53/UDP+TCP to cluster DNS |
-| `icuhub-egress-vendors` | worker, api | to egress proxy (F-034) or to vendor CIDRs / FQDN policies for F-100..F-121, F-200..F-225 |
+| `icuhub-egress-vendors` | worker, api | to egress proxy (F-034) or to vendor CIDRs / FQDN policies for F-100..F-123, F-200..F-229 |
 
 FQDN-based egress (for SaaS vendors) needs either an egress proxy with an allowlist or
 a CNI that supports FQDN policies; plain Kubernetes NetworkPolicy is IP/CIDR only.
@@ -203,7 +209,7 @@ a CNI that supports FQDN policies; plain Kubernetes NetworkPolicy is IP/CIDR onl
 | 4 | F-011 | Relay publishes `icuhub.scm.change_request.opened` |
 | 5 | F-007 | AILA subscriber receives event, starts investigation `inv_8a10` |
 | 6 | F-001 | AILA reads diff files: `get_diff_files` operation |
-| 7 | F-013, F-101 | ICUHUB fetches GitLab token from Vault, calls GitLab API |
+| 7 | F-013, F-101 | ICUHUB decrypts the GitLab token (data key unwrapped through OpenBao Transit), calls GitLab API |
 | 8 | F-001 | After fix passes gates, AILA calls `open_change_request` (draft) with `X-Correlation-Id: inv_8a10` |
 | 9 | F-006 | Approver approves (policy `require_approval` for writes) |
 | 10 | F-101 | Worker creates branch, commits patch, opens draft MR |
@@ -255,7 +261,7 @@ a CNI that supports FQDN policies; plain Kubernetes NetworkPolicy is IP/CIDR onl
 | Vendor ports where marked *(vendor default, confirm)* | Customers often change defaults or front with a reverse proxy |
 | SaaS regional hostnames (CrowdStrike, Wiz, Prisma Cloud, Qualys, Mend, Google) | Depend on the customer's tenant region / stack |
 | Webhook source IP ranges | Vendors publish and change them (for example GitHub `meta` API) |
-| Event backbone ports | Depend on decision D2 |
-| Secret backend endpoint | Depends on decision D3 |
+| Kafka listener ports | Deployment-defined; 9093 used in this document |
+| OpenBao endpoint and Transit key naming | Customer standard; one Transit key per tenant |
 | Egress proxy host/port | Customer standard |
 | Jenkins MCP plugin path | Confirm against plugin documentation for the installed version |

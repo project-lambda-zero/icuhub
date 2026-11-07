@@ -148,16 +148,22 @@ icuhub/
 └── tests/
 ```
 
-Stack (proposed, D1): Python 3.11+, FastAPI, SQLModel/SQLAlchemy + Alembic, httpx,
-official MCP Python SDK (server side), Postgres. Event backbone per D2, secret backend
-per D3.
+Stack: Python 3.11+ (ADR-0004); Postgres with a transactional outbox feeding Apache
+Kafka (ADR-0005); envelope-encrypted credentials with an OpenBao KEK (ADR-0006);
+connector toolkit on httpx2, tenacity, aiolimiter, Authlib, asyncpg (ADR-0016);
+official MCP Python SDK (server side). FastAPI and SQLAlchemy + Alembic are proposed
+and are adopted by ADR when P3 starts.
 
 ## 4. Data model
 
 ```mermaid
 erDiagram
   TENANT ||--o{ CONNECTION : owns
-  CONNECTION ||--o{ CURSOR : has
+  CONNECTION ||--o{ TARGET : discovers
+  CONNECTION ||--o{ STREAM_STATE : tracks
+  STREAM_STATE ||--o{ SYNC_RUN : runs
+  SYNC_RUN ||--o{ RAW_BATCH : fetches
+  ACTION_REQUEST ||--o| ACTION_PLAN : carries
   CONNECTION ||--o{ WEBHOOK_DELIVERY : receives
   CONNECTION ||--o{ ACTION_REQUEST : targets
   ACTION_REQUEST ||--o| APPROVAL : may_require
@@ -176,9 +182,14 @@ erDiagram
 | `action_request` | `id`, `tenant_id`, `connection_id`, `operation`, `classification`, `args_json` (encrypted at rest), `args_digest`, `caller_id`, `correlation_id`, `idempotency_key`, `mode` (`live`/`replay`), `state`, `decision`, `result_json`, `error_class`, timestamps | Unique `(tenant_id, caller_id, idempotency_key)` |
 | `approval` | `id`, `action_request_id`, `approver_group`, `evidence_json`, `expires_at`, `decided_by`, `decided_at`, `decision`, `reason` | Durable pause |
 | `audit_record` | `id`, `tenant_id`, `seq`, `prev_hash`, `hash`, `ts`, `caller_id`, `connection_id`, `operation`, `classification`, `decision`, `approval_id`, `args_digest`, `status`, `http_status`, `latency_ms`, `correlation_id`, `trace_id` | Hash chain per tenant: `hash = H(prev_hash || canonical(record))` |
-| `cursor` | `connection_id`, `stream`, `position`, `updated_at`, `last_batch_size`, `lag_estimate` | Resumable pulls |
+| `target` | `id`, `connection_id`, `source_uid`, `kind`, `display_name`, `included`, `paused`, `last_seen_at`, `missing_since` | Discovered scope inside a connection (FR-ING-10) |
+| `stream_state` | `connection_id`, `target_id`, `stream`, `partition`, `checkpoint_json`, `checkpoint_schema`, `version`, `lease_owner`, `lease_expires_at`, `health`, `last_success_at`, `lag_s` | Typed checkpoint advanced in the outbox transaction with a version check (FR-ING-07) |
+| `sync_run` | `id`, `stream_state_key`, `mode` (`incremental`/`full`/`event`/`replay`), `completeness`, `outcome` (`succeeded`/`failed`/`held`/`superseded`), counts per stage, timestamps | One run (FR-ING-09, NFR-18) |
+| `raw_batch` | `id`, `sync_run_id`, `digest`, `parser_version`, `payload_ref` (encrypted), `expires_at` | Raw evidence and mapping replay (FR-NRM-07, NFR-16) |
+| `quarantine_item` | `id`, `raw_batch_id`, `record_locator`, `error_class`, `parser_version`, `mapper_version`, `replayed_at` | Rejected records (FR-ING-11) |
+| `action_plan` | `action_request_id`, `target_ref`, `diff_json`, `preconditions_json`, `idempotency_key`, `plan_hash`, `changed` | Approval binds to `plan_hash` (FR-CNR-17) |
 | `webhook_delivery` | `id`, `connection_id`, `vendor_delivery_id`, `received_at`, `signature_valid`, `event_type`, `payload_ref`, `processed_at`, `status` | Unique `(connection_id, vendor_delivery_id)` for dedupe |
-| `finding` | `id`, `tenant_id`, `connection_id`, `fingerprint`, `ocsf_class_uid`, `ocsf_json`, `raw_ref`, `first_seen`, `last_seen`, `status` | Unique `(tenant_id, fingerprint)`; optional cache, consumers own long-term storage |
+| `finding` | `id`, `tenant_id`, `connection_id`, `source_uid`, `fingerprint`, `ocsf_class_uid`, `ocsf_json`, `raw_batch_id`, `parser_version`, `mapper_version`, `first_seen`, `last_seen`, `status` (`open`/`resolved_by_source`/...) | Unique `(tenant_id, fingerprint)`; optional cache, consumers own long-term storage |
 | `outbox_event` | `id`, `tenant_id`, `topic`, `event_json`, `created_at`, `relayed_at` | Transactional outbox |
 | `fixture_proof` | `connector_kind`, `fixture_id`, `mapping_version`, `last_run_at`, `passed`, `prove_gate_passed` | Earned-executable status (FR-CNR-07) |
 
@@ -211,11 +222,15 @@ class SourceControl(Protocol):            # GitHub, GitLab, Bitbucket, Azure Dev
 class CodeScanningSink(Protocol):         # GitHub code scanning, GitLab security reports, Bitbucket Code Insights
     async def upload_sarif(self, repo: str, rev: str, sarif: dict) -> str: ...
 
-class FindingSource(Protocol):            # Fortify, Mend, Invicti, Nessus, Prisma, Wiz, SonarQube
-    async def pull_findings(self, cursor: str | None, budget: int) -> Page[VulnerabilityFinding | ComplianceFinding]: ...
+# Ingestion capabilities are stream declarations driven by the host sync engine
+# (CONNECTOR_FRAMEWORK.md sections 3 and 5); the connector yields raw batches and a
+# proposed checkpoint, the host commits.
+#   FindingSource    Fortify, Mend, Invicti, Nessus, Prisma, Wiz, SonarQube  -> @stream(ocsf_class=2002 | 2003 | 2007)
+#   TelemetrySource  SIEM, EDR                                             -> @stream(ocsf_class=2004)
+#   RiskRegister     RSA Archer and other GRC tools                        -> @stream(RiskRecord)
+#   VulnIntel        NVD, EPSS, KEV, OSV, advisories (ADR-0012), FR-FEED-*  -> @stream(AdvisoryRecord)
 
-class TelemetrySource(Protocol):          # SIEM, EDR
-    async def pull_events(self, cursor: str | None, budget: int) -> Page[DetectionFinding]: ...
+class TelemetrySearch(Protocol):          # SIEM, EDR (synchronous read)
     async def search(self, query: StructuredQuery) -> Page[dict]: ...           # closed schema, bound parameters
 
 class Enforcer(Protocol):                 # F5, Cloudflare, firewalls, EDR containment
@@ -226,10 +241,16 @@ class Containment(Protocol):              # EDR host isolation
     async def isolate_host(self, host_id: str, reason: str) -> str: ...
     async def release_host(self, host_id: str) -> None: ...
 
-class Tracker(Protocol):                  # Jira, ServiceNow
+class Tracker(Protocol):                  # Jira, ServiceNow, Service Manager, Maximo (SOAP)
     async def open_ticket(self, ticket: TicketDraft) -> TicketRef: ...
     async def update_ticket(self, ref: TicketRef, patch: TicketPatch) -> None: ...
     async def get_ticket(self, ref: TicketRef) -> Ticket: ...
+    async def search_tickets(self, query: TicketQuery, cursor: str | None) -> Page[Ticket]: ...
+    async def add_comment(self, ref: TicketRef, body: str) -> str: ...
+    async def transition(self, ref: TicketRef, to_state: str, comment: str | None) -> None: ...
+    async def list_fields(self, project: str, issue_type: str | None) -> list[TrackerField]: ...
+    # Routing, fingerprint dedupe, and status sync (FR-TKT-02..07) run in the core
+    # service on top of these primitives; connectors stay vendor-only.
 
 class BuildSystem(Protocol):              # Jenkins, GitLab CI, GitHub Actions, Azure Pipelines
     async def trigger(self, job: str, params: dict[str, str]) -> BuildRef: ...
@@ -242,9 +263,33 @@ class ClusterOps(Protocol):               # Kubernetes, OpenShift
 
 class ThreatIntel(Protocol):              # GTI, MISP, OpenCTI
     async def lookup(self, indicator: Indicator) -> IntelReport: ...
+
+# Added in BRD v0.2 from INTEGRATION_INVENTORY.md
+
+class Notifier(Protocol):                 # SMTP, Teams/Slack/Google Chat webhooks, FR-NTF-*
+    async def send(self, message: Notification) -> str: ...
+
+class Directory(Protocol):                # LDAPS, Microsoft Graph, FR-DIR-*
+    async def get_user(self, ref: PrincipalRef) -> Principal: ...
+    async def list_group_members(self, group: str) -> list[Principal]: ...
+    async def get_manager(self, ref: PrincipalRef) -> Principal | None: ...
+
+class SbomSink(Protocol):                 # OWASP Dependency-Track
+    async def upload_bom(self, project: ProjectRef, bom: dict) -> str: ...      # CycloneDX 1.7
+
+class KnowledgeBase(Protocol):            # Confluence Cloud, Confluence Data Center, FR-KB-*
+    async def get_page(self, ref: PageRef, body_format: str) -> KbPage: ...
+    async def search_pages(self, query: PageQuery, cursor: str | None) -> Page[PageSummary]: ...
+    async def publish_page(self, draft: PageDraft) -> PageRef: ...              # @action, keyed by natural key, version precondition
+
 ```
 
-Every method also exists as an **operation** with metadata (5.2). Vendor-specific
+`web.fetch` (FR-FET-*) is a core operation, not a connector capability: it has no
+vendor credential, only destination policy. Remote host execution (SSH/SFTP) is not a
+capability: it stays in consumers (ADR-0011, BRD NG13).
+
+Every method is declared as an `@operation` (read) or an `@action` with plan and apply
+(write, destructive), with metadata (5.2). Vendor-specific
 operations (for example `create_irule` on F5, `list_issue_templates` on Fortify) are
 declared on the connector in addition to the capability methods (FR-CNR-03).
 
@@ -252,27 +297,42 @@ declared on the connector in addition to the capability methods (FR-CNR-03).
 
 ```python
 @operation(
-    name="block",
+    name="get_block",
     capability="Enforcer",
-    classification="destructive",        # read | write | destructive
+    classification="read",               # read operations use @operation
     egress_class="vendor_tenant",        # internal | vendor_tenant | third_party_shared
-    idempotent=True,                     # executor may retry on transport errors
-    input_schema=BlockInput,             # pydantic model -> JSON Schema for REST and MCP
+    input_schema=BlockRef,               # pydantic model -> JSON Schema for REST and MCP
     output_schema=BlockResult,
 )
-async def block(self, indicator: Indicator, ttl_s: int, reason: str) -> str: ...
+async def get_block(self, ctx: OpContext, ref: BlockRef) -> BlockResult: ...
+
+@action(
+    name="block",
+    capability="Enforcer",
+    classification="destructive",        # write | destructive use @action: plan, then apply
+    egress_class="vendor_tenant",
+    idempotency="natural_key",           # none | key | natural_key; drives outcome_unknown reconciliation
+    input_schema=BlockInput,
+)
+class Block: ...                         # plan() and apply(), CONNECTOR_FRAMEWORK.md section 7
 ```
+
+Each member also carries `stability` (`experimental` / `beta` / `stable`); the manifest
+generated from these declarations is described in `CONNECTOR_FRAMEWORK.md` section 4.
 
 ### 5.3 Registry
 
-Plain dictionary, no reflection, no discovery magic (PR-Agent pattern):
+Plain dictionary, no reflection, no discovery magic (PR-Agent pattern). Only
+first-party connectors in this repository are registered; no connector package is
+loaded from outside it (ADR-0018). Each connector's manifest is generated from its code
+and committed (ADR-0017):
 
 ```python
 CONNECTORS: dict[str, type[Connector]] = {
     "github": GitHub,
     "gitlab": GitLab,
     "bitbucket_cloud": BitbucketCloud,
-    "bitbucket_server": BitbucketServer,
+    "bitbucket_dc": BitbucketDataCenter,
     "azure_devops": AzureDevOps,
     "gitea": Gitea,
     "jira": Jira,
@@ -302,7 +362,7 @@ classification and egress class in ICUHUB (unclassified upstream tools are hidde
 | Concern | Behaviour |
 |---|---|
 | Timeouts | Connect 5 s, read 30 s default; per operation override |
-| Retries | Exponential backoff with jitter on connect errors, 502/503/504; only for `idempotent=True` operations or reads |
+| Retries | Exponential backoff with jitter on connect errors, 502/503/504; only for reads and for actions whose `idempotency` is not `none`; an unretried send that times out ends `outcome_unknown` |
 | Rate limits | Honour `429` + `Retry-After`, vendor-specific headers (`X-RateLimit-*`), per-connection token bucket |
 | Pagination | Helpers for link-header, cursor, offset/limit, page-token styles |
 | Auth | Pluggable auth strategies fed by the credential broker (2.FR-CON-02) |
@@ -403,6 +463,9 @@ Rules:
 - `mode=replay` requests can only reach `denied` or `previewed` for write/destructive
   operations (FR-POL-08).
 - Every transition writes an audit record and an outbox event.
+- Write and destructive actions go through plan and apply, which adds the states
+  `stale_plan`, `no_op`, `accepted_async`, and `outcome_unknown`
+  (`CONNECTOR_FRAMEWORK.md` section 7.2, FR-POL-09).
 
 ### 6.4 Three switches
 
@@ -485,7 +548,7 @@ Error model (RFC 9457 problem details):
 ### 7.3 Event stream
 
 Envelope: CloudEvents 1.0 (structured JSON) with OCSF payload where applicable
-**[decision D7]**. Backbone **[decision D2]**.
+(ADR-0009). Backbone: Postgres outbox relayed to Apache Kafka (ADR-0005).
 
 | Topic | Emitted when | Payload |
 |---|---|---|
@@ -523,52 +586,71 @@ version during connector implementation.
 
 - Published as its own package, versioned independently; consumers (AILA, posture
   console) import it to read and write the same models (BR-05).
-- OCSF version pinned **[decision D5]**; model source **[decision D6]**.
-- SARIF 2.1.0 import and export.
+- OCSF pinned to 1.9.0; ICUHUB-owned Pydantic models validated against the vendored
+  official per-class JSON schemas (ADR-0008).
+- SARIF 2.1.0 import and export; `findings_to_sarif` converts code-located findings and
+  returns the findings it skipped (FR-NRM-06).
+- CloudEvents 1.0 envelope model with `tenantid` and `correlationid` extensions (ADR-0009).
 - Activity projection on every event: `actor`, `action`, `resource`, `location`,
-  `outcome`; `actor.kind` taken from the vendor's documented field (FR-NRM-03).
-- Unmapped fields stay null and are listed in `unmapped[]` (FR-NRM-05).
-- `raw_ref` keeps the original vendor payload (bounded; large payloads go to object
-  storage) (FR-NRM-04).
-- Fingerprint: `sha256(connector_kind | rule_or_check_id | normalized_location | normalized_component)`.
+  `outcome`; `actor.kind` taken from the vendor's documented field (FR-NRM-03). Built by
+  connector mappers in P2 on top of these models.
+- Fields without a vendor source stay null and are omitted; vendor fields OCSF cannot
+  represent go to `unmapped` (FR-NRM-05).
+- `raw_data` (an OCSF string attribute) keeps the original vendor payload up to a bound;
+  larger payloads are stored by reference in object storage (P3) (FR-NRM-04).
+- Required by the 1.9.0 schema on finding classes and easy to miss: `metadata.product`,
+  `metadata.version`, `finding_info.uid`, `cloud` (with `provider`), and `osint` (array,
+  may be empty). Incident Finding (2005) uses `finding_info_list` instead of
+  `finding_info`; Compliance Finding (2003) requires `compliance`.
+- `type_uid` is always `class_uid * 100 + activity_id`; a different supplied value is
+  rejected.
+- Fingerprint: `fp_` + `sha256(connector_kind | rule_or_check_id | normalized_location | normalized_component)`;
+  kind lowercased, paths use `/` without a leading `./`, `None` becomes empty, a `|`
+  inside a field is rejected.
 
-Example: Fortify issue -> OCSF Vulnerability Finding (abbreviated):
+Example: Fortify issue -> OCSF Vulnerability Finding. This document passes
+`validate_ocsf` and round-trips through `VulnerabilityFinding`:
 
 ```json
 {
   "class_uid": 2002,
   "category_uid": 2,
   "activity_id": 1,
+  "type_uid": 200201,
   "severity_id": 4,
   "time": 1762300800000,
   "metadata": {
-    "version": "1.x (pinned)",
+    "version": "1.9.0",
     "product": {"name": "Fortify SSC", "vendor_name": "OpenText"},
     "uid": "fortify-ssc:issue:88213"
   },
+  "cloud": {"provider": "on-premises"},
+  "osint": [],
   "finding_info": {
-    "uid": "fp_9c1e...",
+    "uid": "fp_9c1e",
     "title": "SQL Injection",
     "types": ["SAST"],
     "first_seen_time": 1762200000000
   },
   "vulnerabilities": [{
     "cwe": {"uid": "89"},
-    "affected_code": [{"file": {"path": "src/orders/repo.py"}, "start_line": 41, "end_line": 44}]
+    "affected_code": [{
+      "file": {"name": "repo.py", "path": "src/orders/repo.py", "type_id": 1},
+      "start_line": 41,
+      "end_line": 44
+    }]
   }],
   "resources": [{"type": "repository", "name": "acme/orders"}],
+  "raw_data": "{\"issueInstanceId\": \"88213\"}",
   "unmapped": {"fortify_kingdom": "Input Validation and Representation"}
 }
 ```
-
-Field names above follow OCSF conventions; exact attribute names are validated against
-the pinned schema in Phase 1.
 
 ## 9. Ingestion
 
 | Mode | Mechanism | State | Backpressure |
 |---|---|---|---|
-| Scheduled pull | Worker schedule per connection/stream | `cursor` row | Per-poll budget (max records / max seconds); lag reported |
+| Scheduled pull | Sync engine per stream state (`CONNECTOR_FRAMEWORK.md` section 5) | `stream_state` row | Per-poll budget (max records / max seconds); lag reported |
 | Webhook push | `/hooks` | `webhook_delivery` | Fast 202, async normalize |
 | Streaming collectors | S3+SQS, Pub/Sub, Event Hubs consumers, syslog/CEF TCP/TLS listener | Consumer offsets / ack | Bounded in-flight, ack after outbox commit |
 | File parsers | Upload via REST | Parser job record | Size limits, async job |
@@ -745,14 +827,21 @@ rule allows draft MRs automatically.
 ```python
 class F5BigIp(Connector):
     kind = "f5_bigip"
-    capabilities = (Enforcer,)
-    auth = TokenAuth(login_path="/mgmt/shared/authn/login")   # iControl REST token auth
+    version = "0.1.0"
+    sdk = ">=1,<2"
+    owner = "@icuhub/network-connectors"
+    support = "core"
+    config = F5Config
+    auth = (TokenAuth(login_path="/mgmt/shared/authn/login"),)   # iControl REST token auth
 
-    @operation(name="block", capability="Enforcer", classification="destructive",
-               egress_class="vendor_tenant", idempotent=True,
-               input_schema=BlockInput, output_schema=BlockResult)
-    async def block(self, indicator: Indicator, ttl_s: int, reason: str) -> str:
-        ...  # add address to a managed address-list / data-group bound to the AFM/ASM policy
+    @action(name="block", capability="Enforcer", classification="destructive",
+            egress_class="vendor_tenant", idempotency="natural_key", partition_key="data_group",
+            input_schema=BlockInput, stability="beta")
+    class Block:
+        async def plan(self, ctx: PlanContext, args: BlockInput) -> ActionPlan:
+            ...  # read the managed data-group; diff adds the address; precondition: data-group generation
+        async def apply(self, ctx: ApplyContext, plan: ActionPlan) -> ActionOutcome:
+            ...  # PATCH the data-group bound to the AFM/ASM policy; outcome carries the new generation
 
     @operation(name="list_virtual_servers", classification="read", egress_class="vendor_tenant",
                idempotent=True, input_schema=Empty, output_schema=VirtualServerList)
@@ -797,17 +886,25 @@ class F5BigIp(Connector):
 | Fixture proof | Per connector mapping: replay + prove gate (5.6) in CI |
 | Contract | OpenAPI schema diff check; event schema check; SDK generation in CI |
 | Integration | Postgres + event backbone in CI; webhook signature tests per vendor |
-| Sandbox vendors | Optional nightly runs against vendor sandboxes where available (GitLab, GitHub, Jira Cloud) |
+| Connector conformance | Generic suite every connector inherits, manifest regeneration check, HTTP contract cassettes (`CONNECTOR_FRAMEWORK.md` section 10) |
+| Sandbox vendors | Live acceptance with `ICUHUB_ACC=1` against vendor sandboxes; required for `core` connectors before release (FR-CNR-16) |
 | Consumer contract | AILA CI runs its ICUHUB adapter tests against a pinned ICUHUB image |
 
 ## 18. Roadmap
 
+The delivery plan lives in `ROADMAP.md` (phases P0 to P10, each run as brainstorm,
+write, plan, implement, test). Summary:
+
 | Phase | Deliverable | Exit criteria |
 |---|---|---|
-| 0 | Decisions D1-D8 closed | Recorded in BRD |
-| 1 | `icuhub-schemas` (OCSF pin + SARIF codecs) | Round-trip tests; consumers can import |
-| 2 | Core: auth, tenancy/RLS, connection store, credential broker, policy, approvals, audit, outbox, REST, MCP, webhook ingress, admin API | Example 16.2 works end to end with a mock connector; audit chain verifies |
-| 3 | Wave-1 connectors: GitHub, GitLab, Jira, F5, GTI | Fixture proofs pass; examples 16.1-16.3 run against real or sandbox instances |
-| 4 | AILA consumer side (15.2) | AILA calls only ICUHUB for these vendors; boundary audit green |
-| 5 | Wave-2 connectors + collectors + file parsers | Per-connector fixture proofs |
-| 6 | Helm/OpenShift hardening, audit export to SIEM, HA | Install on OpenShift restricted SCC; failover test |
+| P0 | Decisions D1-D14 closed as ADRs; skeleton and CI | Recorded in BRD section 18 |
+| P1 | `icuhub-schemas` (OCSF pin, SARIF codec, CloudEvents envelope, fingerprint) | Round-trip and validation tests; consumers can import |
+| P2 | Connector kit (protocols, operations, registry, HTTP and SOAP toolkit, proof harness) | Reference connector live through the proof gate |
+| P3 | Core service (tenancy/RLS, connections, credentials, policy, approvals, audit, outbox, REST) | Example 16.2 end to end with the reference connector; audit chain verifies |
+| P4 | MCP endpoint, webhook ingress, event relay, SMTP notifier | Example 16.3 with recorded payloads |
+| P5 | Wave-1 connectors and ticket routing | Fixture proofs; examples 16.1-16.3 on sandboxes |
+| P6 | AILA consumer side (15.2) | Boundary audit green for wave-1 vendors |
+| P7 | Scan-platform migration (ticket routes, result-file ingestion) | Scan platform files tickets only through ICUHUB; no duplicates on re-run |
+| P8 | AppSec middleware parity connectors | Parity fixture per inventory row |
+| P9 | Governed fetch, MCP governance, vuln-intel mirror, directory | AILA fetch and MCP catalog through ICUHUB |
+| P10 | Collectors, wave 3, Helm/OpenShift hardening, HA, SIEM export | Restricted SCC install; failover and restore rehearsed |

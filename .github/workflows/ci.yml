@@ -18,15 +18,12 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install
-        run: python -m pip install -e ".[dev]"
+        run: python -m pip install -e ".[dev]" -e packages/icuhub-schemas
       - name: Lint
         run: python -m ruff check .
       - name: Compile
-        run: python -m compileall -q src
+        run: python -m compileall -q src packages tools
       - name: Tests
-        # Exit code 5 means no tests were collected (Phase 0, no runtime code yet).
-        run: |
-          set +e
-          python -m pytest -q
-          code=$?
-          if [ "$code" -ne 0 ] && [ "$code" -ne 5 ]; then exit "$code"; fi
+        run: python -m pytest -q packages/icuhub-schemas/tests tests
+      - name: License check
+        run: python tools/license_check.py

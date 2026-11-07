@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=77", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "icuhub-schemas"
+version = "0.0.1"
+description = "ICUHUB OCSF, SARIF, CloudEvents, and finding fingerprint schemas"
+license = "AGPL-3.0-only"
+requires-python = ">=3.11"
+dependencies = [
+  "pydantic>=2.10,<3",
+  "jsonschema>=4.23,<5",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+icuhub_schemas = [
+  "_vendor/manifest.json",
+  "_vendor/ocsf/1.9.0/classes/*.json",
+  "_vendor/sarif/*.json",
+]

@@ -6,5 +6,5 @@
 4. Run the verification set (`AGENTS.md` section 7) before opening the PR.
 5. New connectors follow `docs/CONNECTOR_GUIDE.md` and start with a connector proposal
    issue.
-6. New dependencies and open decisions (D1-D8) need maintainer approval before code.
+6. New dependencies not named in an accepted ADR, and new decisions (D18 onward), need maintainer approval before code.
 7. Add a `CHANGELOG.md` entry under `Unreleased` for observable changes.
