@@ -341,6 +341,14 @@ FR-RX-01..10 are withdrawn by ADR-0011 (D9): remote host execution stays in cons
 | FR-MIG-04 | Credential import from a consumer's store into the ICUHUB secret backend is a one-time, audited admin operation; the consumer's copy is deleted afterwards |
 | FR-MIG-05 | The consumer-side boundary audit (no direct vendor calls) is enabled for each integration once it migrates (success metric in section 17) |
 
+### 9.17 Knowledge base (`KnowledgeBase`)
+
+| ID | Requirement |
+|---|---|
+| FR-KB-01 | `KnowledgeBase` covers space listing, page read (storage and rendered formats), search by the vendor query language with values bound from structured inputs (FR-CNR-10), and page history |
+| FR-KB-02 | Report publishing creates or updates a page keyed by a caller-supplied natural key (space, parent, title or label); a repeat publish updates the same page using the vendor version number as precondition; publishing is classified `write` |
+| FR-KB-03 | Confluence Cloud and Confluence Data Center are separate connector kinds sharing the capability; page bodies are converted from the normalized report through one template path per format (`VENDOR_CONNECTORS.md`) |
+
 ## 10. Non-functional requirements
 
 | ID | Category | Requirement |
@@ -366,6 +374,9 @@ FR-RX-01..10 are withdrawn by ADR-0011 (D9): remote host execution stays in cons
 
 ## 11. Integration catalog and waves
 
+Per-vendor API facts and connector specifications (streams, actions, scopes, webhooks,
+risks) are in `VENDOR_CONNECTORS.md`.
+
 Wave order is a proposal; the first wave is driven by the first consumers (AILA VR
 exploit-and-fix loop, posture console) and, since v0.2, by migration parity for the
 existing consumers (BR-18). Waves map to roadmap phases: wave 1 = `ROADMAP.md` P5,
@@ -373,13 +384,14 @@ wave 2 = P7 to P9, wave 3 = P10.
 
 | Category | Vendors / systems | Connector type | Wave |
 |---|---|---|---|
-| SCM | GitHub, GitLab (1); Bitbucket Cloud, Bitbucket Server, Azure DevOps, Gitea (3) | Native (PR-Agent provider pattern + write side); GitLab MCP optional | 1 / 3 |
+| SCM | GitHub, GitLab (1); Bitbucket Cloud, Bitbucket Data Center, Azure DevOps, Gitea (3) | Native (PR-Agent provider pattern + write side); GitLab MCP optional | 1 / 3 |
 | CI/CD | GitLab CI, Jenkins, GitHub Actions, Azure Pipelines; inbound CI callbacks (INV-06) | Native; Jenkins MCP plugin optional | 2 |
 | Ticketing | Jira Cloud and Data Center, several instances per tenant (INV-10, INV-11) | Native | 1 |
+| Knowledge base | Confluence Cloud and Data Center: report publishing, page and space reads, search (FR-KB-*) | Native | 2 (Cloud), 3 (Data Center) |
 | ITSM | ServiceNow, Micro Focus Service Manager, IBM Maximo (SOAP) (INV-12..14) | Native | 2 |
 | GRC | RSA Archer (INV-15) | Native | 3 |
-| SAST / SCA / DAST | Fortify (SSC) + FPR parser, Mend, OWASP Dependency-Track (2); Invicti, Snyk, SonarQube, Checkmarx (3) | Native + file parsers | 2 / 3 |
-| Vulnerability scanners | Tenable Security Center, Nessus Manager + `.nessus` parser (2); Qualys, Rapid7 (3) | Native + file parsers | 2 / 3 |
+| SAST / SCA / DAST | Fortify SSC + FPR parser, Fortify on Demand, Mend SCA, OWASP Dependency-Track (2); Invicti Enterprise, Invicti Standard (file ingestion), Snyk, SonarQube, Checkmarx (3) | Native + file parsers | 2 / 3 |
+| Vulnerability scanners | Tenable Vulnerability Management, Tenable Security Center, Nessus + `.nessus` parser (2); Qualys VMDR and WAS, Rapid7 (3) | Native + file parsers | 2 / 3 |
 | Notifications | SMTP (1); Teams, Slack, Google Chat incoming webhooks (2) | Native (`Notifier`) | 1 / 2 |
 | Directory | LDAPS, Microsoft Graph users and groups (INV-51, INV-52) | Native (`Directory`) | 2 |
 | Generic egress | Governed `web.fetch` (INV-80) | Native | 2 |
@@ -390,7 +402,7 @@ wave 2 = P7 to P9, wave 3 = P10.
 | EDR / XDR | CrowdStrike Falcon, Microsoft Defender, SentinelOne | Native or MCP-backed | 2 |
 | SIEM | Splunk, Microsoft Sentinel, Google SecOps, Elastic, QRadar | Native or MCP-backed | 2 |
 | SOAR | Google SecOps SOAR, Cortex XSOAR, Splunk SOAR | Native or MCP-backed | 3 |
-| CSPM / CNAPP | Prisma Cloud, Wiz, Google SCC, AWS Security Hub | Native or MCP-backed | 2 |
+| CSPM / CNAPP | Prisma Cloud (CSPM alerts and Compute), Wiz, Google SCC, AWS Security Hub | Native or MCP-backed | 2 |
 | DLP | Microsoft Purview, Symantec DLP, Forcepoint | Native | 3 |
 | Container platforms | Kubernetes, OpenShift | MCP-backed (`containers/kubernetes-mcp-server`) or native | 2 |
 | Threat intelligence | Google Threat Intelligence (VirusTotal), MISP, OpenCTI | MCP-backed (`google/mcp-security`) or native | 1 (GTI) |

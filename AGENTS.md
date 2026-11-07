@@ -42,6 +42,7 @@ runtime code yet. Do not describe features as implemented until they are.
 | `docs/ROADMAP.md` | Delivery phases P0-P10, each run as brainstorm, write, plan, implement, test | `P*`, `R-*` |
 | `docs/PRIOR_ART.md` | How comparable security, DevOps, and platform projects implement integrations; cross-cutting lessons | `PA-*`, `AP-*` |
 | `docs/CONNECTOR_FRAMEWORK.md` | Connector contract, manifest, sync engine, mapping, identity, actions, testing kit | section numbers |
+| `docs/VENDOR_CONNECTORS.md` | Per-vendor API facts and connector specs (SCM, Atlassian, Kubernetes/OpenShift, Prisma Cloud, Fortify, Invicti, Mend, Qualys, Tenable) | connector kind IDs |
 | `docs/CONNECTOR_GUIDE.md` | How to add a connector | checklist |
 | `docs/adr/` | Architecture decision records | `ADR-NNNN` |
 
@@ -133,7 +134,7 @@ section 18. A dependency named in an accepted ADR may be added when its phase st
 
 ```
 icuhub/
-├── docs/                      # BRD, HLD, COMMATRIX, INTEGRATION_INVENTORY, OPTIONS, PRIOR_ART, CONNECTOR_FRAMEWORK, ROADMAP, CONNECTOR_GUIDE, adr/
+├── docs/                      # BRD, HLD, COMMATRIX, INTEGRATION_INVENTORY, OPTIONS, PRIOR_ART, CONNECTOR_FRAMEWORK, VENDOR_CONNECTORS, ROADMAP, CONNECTOR_GUIDE, adr/
 ├── packages/
 │   ├── icuhub-schemas/        # OCSF models, SARIF codec, CloudEvents envelope (P1)
 │   ├── icuhub-sdk/            # generated client (P3)

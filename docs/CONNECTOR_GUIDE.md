@@ -9,7 +9,7 @@ contract every connector follows. Connectors are first-party code in this reposi
 
 | Step | Check |
 |---|---|
-| 1 | The vendor is listed in `docs/BRD.md` section 11 (integration catalog). If not, open a connector proposal issue first. |
+| 1 | The vendor is listed in `docs/BRD.md` section 11 (integration catalog). If not, open a connector proposal issue first. If `docs/VENDOR_CONNECTORS.md` has a spec for the vendor, start from it and resolve its section 9 open questions. |
 | 2 | Every network flow the connector needs has a row in `docs/COMMATRIX.md` (on-prem `F-1xx`, SaaS `F-2xx`, webhooks `F-02x`). Add rows with new IDs; never renumber. |
 | 3 | Pick the connector type: native, MCP-backed, or file parser (`docs/HLD.md` 5.4). |
 | 4 | List the capability protocols the vendor supports (`docs/HLD.md` 5.1). Only those. |

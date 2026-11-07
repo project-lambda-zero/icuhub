@@ -5,7 +5,7 @@
 | Document | Phase-by-phase delivery plan |
 | Status | v0.1 |
 | Date | 2026-11-06 |
-| Inputs | `BRD.md` v0.3, `HLD.md`, `INTEGRATION_INVENTORY.md`, `OPTIONS.md`, `PRIOR_ART.md`, `CONNECTOR_FRAMEWORK.md` |
+| Inputs | `BRD.md` v0.3, `HLD.md`, `INTEGRATION_INVENTORY.md`, `OPTIONS.md`, `PRIOR_ART.md`, `CONNECTOR_FRAMEWORK.md`, `VENDOR_CONNECTORS.md` |
 | Replaces | `HLD.md` section 18 (now a pointer to this document) |
 
 ---
@@ -146,7 +146,7 @@ Exit: HLD example 16.3 runs with recorded vendor payloads; approvals notify appr
 
 | Step | Content |
 |---|---|
-| Brainstorm | Per vendor: operations, classifications, rate limits, auth; wave-1 list from ADR-0010; ticket route model (ADR-0015) |
+| Brainstorm | Per vendor: operations, classifications, rate limits, auth, starting from the specs in `VENDOR_CONNECTORS.md` (`github`, `github_enterprise_server`, `gitlab`, `gitlab_self_managed`, `jira_cloud`, `jira_dc`); wave-1 list from ADR-0010; ticket route model (ADR-0015) |
 | Write | Operation table per connector; HLD 5.1 Tracker section; FR-TKT behaviour documented in HLD section 6 |
 | Plan | One task per connector plus the routing engine |
 | Implement | GitHub, GitLab, Jira (multi-instance), F5 BIG-IP, Google Threat Intelligence; ticket routing core: routes, templates, field mapping, fingerprint-linked creation, fan-out with per-route results, status sync from webhooks and polls (FR-TKT-02..07); every wave-1 connector on the kit with scope probes (FR-CON-09) and live acceptance for `core` tier (FR-CNR-16); outbound ticket echo suppression (FR-TKT-09) |
@@ -187,7 +187,7 @@ re-run.
 
 | Step | Content |
 |---|---|
-| Brainstorm | Per vendor operation list from inventory rows INV-11..15, INV-20..29; classification of every destructive operation; priority and field mapping tables |
+| Brainstorm | Per vendor operation list from inventory rows INV-11..15, INV-20..29; classification of every destructive operation; priority and field mapping tables; specs in `VENDOR_CONNECTORS.md` for `fortify_ssc`, `fortify_fod`, `mend_sca`, `invicti_enterprise`, `invicti_standard`, `tenable_vm`, `tenable_sc`, `nessus`, `confluence_cloud`, `kubernetes`, `openshift`, `prisma_cloud` |
 | Write | Operation tables per connector; mapping-profile schema for priority tables |
 | Plan | One task per vendor; inbound CI callbacks; change-record binding |
 | Implement | Fortify SSC + FPR parser, Mend, Dependency-Track (`SbomSink`), Tenable Security Center, Nessus Manager + `.nessus` parser, Maximo (SOAP), Service Manager, ServiceNow, Archer (`RiskRegister`), `Directory` over LDAPS, inbound CI webhooks, Teams webhook notifier, change-record binding for destructive approvals (FR-ADM-04) |
@@ -213,7 +213,7 @@ mirror passes parity fixtures against AILA's current clients.
 
 | Step | Content |
 |---|---|
-| Brainstorm | Collector throughput sizing; HA topology; DR exercise plan |
+| Brainstorm | Collector throughput sizing; HA topology; DR exercise plan; specs in `VENDOR_CONNECTORS.md` for `qualys_enterprise`, `bitbucket_cloud`, `bitbucket_data_center`, `confluence_dc` |
 | Write | HLD sections 9, 11, 13 updated with measured numbers; runbook for restore |
 | Plan | Collectors, wave-3 connectors, chart hardening, export |
 | Implement | Streaming collectors (FR-ING-03); SIEM, EDR, CSPM, SOAR connectors (native or MCP-backed); Helm chart for OpenShift restricted SCC; HA configuration; audit export to SIEM (FR-AUD-03); retention jobs (NFR-16); SLO dashboards (NFR-14); connector scaffold generator from OpenAPI documents or samples (PA-41); per-stream dashboards (NFR-18) |

@@ -72,7 +72,7 @@ flowchart LR
 | F-026 | Azure DevOps | Ingress `/hooks/...` | HTTPS | 443 | Basic auth or header secret | PR, build events | `POST .../hooks/con_ado` |
 | F-027 | GitLab self-managed (Z6) | Internal ingress `/hooks/...` | HTTPS | 443 | `X-Gitlab-Token` | MR, push, pipeline events | `POST https://icuhub.acme.internal/hooks/con_gitlab_main` |
 | F-028 | Jenkins (Z6) | Internal ingress `/hooks/...` | HTTPS | 443 | Shared secret header | Build completed | `POST .../hooks/con_jenkins` |
-| F-029 | Jira Data Center / Bitbucket Server (Z6) | Internal ingress `/hooks/...` | HTTPS | 443 | Shared secret / HMAC | Issue / PR events | `POST .../hooks/con_jira_dc` |
+| F-029 | Jira Data Center / Bitbucket Data Center / Confluence Data Center (Z6) | Internal ingress `/hooks/...` | HTTPS | 443 | Shared secret / HMAC | Issue / PR events | `POST .../hooks/con_jira_dc` |
 | F-040 | Network devices, appliances (Z6) | icuhub-collector-syslog | Syslog over TLS (RFC 5425) | 6514/TCP | mTLS (optional) | Syslog/CEF telemetry | CEF from F5 ASM to `syslog.icuhub.acme.internal:6514` |
 | F-041 | Legacy devices (optional, disabled by default) | icuhub-collector-syslog | Syslog TCP / UDP plaintext | 514/TCP, 514/UDP | none | Legacy telemetry where TLS unsupported | Only on an isolated segment with explicit exception |
 
@@ -124,6 +124,8 @@ All initiated by `icuhub-worker` (scheduled pulls, approved actions) or `icuhub-
 | F-119 | OpenCTI | HTTPS (GraphQL) | 443 *(8080 vendor default)* | Bearer token | Indicator / entity lookup | `POST https://opencti.acme.internal/graphql` |
 | F-120 | Cortex XSOAR (on-prem) | HTTPS | 443 | API key | Incidents, playbooks | `POST https://xsoar.acme.internal/incident` |
 | F-121 | Symantec / Forcepoint DLP (on-prem) | HTTPS | 443 *(confirm per product)* | Product API credentials | DLP incidents | per product REST API |
+| F-122 | Confluence Data Center | HTTPS | 443 *(8090 vendor default, confirm)* | Personal access token | Page reads, report publishing (FR-KB-*) | `PUT https://confluence.acme.internal/rest/api/content/123456` |
+| F-123 | Invicti Enterprise on-premises | HTTPS | 443 *(confirm per deployment)* | User ID + API token (basic) | DAST issues and scans | `GET https://invicti.acme.internal/api/1.0/issues/report` |
 
 ## 6. Outbound to SaaS vendors (Z2 -> Z7, through egress proxy F-034 when mandated)
 
@@ -155,6 +157,10 @@ All initiated by `icuhub-worker` (scheduled pulls, approved actions) or `icuhub-
 | F-223 | Azure Event Hubs (`<ns>.servicebus.windows.net`) | AMQP over TLS / AMQP over WebSockets | 5671 / 443 | Entra client credentials or SAS | Event Hubs collector | `amqps://acme-logs.servicebus.windows.net/insights-activity-logs` |
 | F-224 | Okta (`<org>.okta.com`) | HTTPS | 443 | API token / OAuth service app | Identity events, user lookup | `GET https://acme.okta.com/api/v1/logs?since=...` |
 | F-225 | Microsoft Purview (Graph / compliance APIs) | HTTPS | 443 | Entra client credentials | DLP alerts | via `graph.microsoft.com` security alerts |
+| F-226 | Confluence Cloud (`<site>.atlassian.net/wiki`) | HTTPS | 443 | API token / OAuth 2.0 (3LO) / service account | Page reads, report publishing (FR-KB-*) | `POST https://acme.atlassian.net/wiki/api/v2/pages` |
+| F-227 | Tenable Vulnerability Management (`cloud.tenable.com`) | HTTPS | 443 | API access/secret keys (`X-ApiKeys`) | Vulnerability and asset exports | `POST https://cloud.tenable.com/vulns/export` |
+| F-228 | Fortify on Demand (`api.ams.fortify.com`, `api.emea.fortify.com`; other regions confirm per tenant) | HTTPS | 443 | OAuth 2.0 client credentials (`/oauth/token`, scoped e.g. `view-issues`) | SAST/DAST/SCA findings | `GET https://api.ams.fortify.com/api/v3/releases/<id>/vulnerabilities` |
+| F-229 | Prisma Cloud Compute console (regional, URL from the Prisma Cloud console settings) | HTTPS | 443 | Access key -> token | Runtime and image vulnerability, compliance | per Compute API |
 
 ## 7. Explicitly forbidden flows
 
@@ -175,7 +181,7 @@ All initiated by `icuhub-worker` (scheduled pulls, approved actions) or `icuhub-
 | `icuhub-collector-ingress` | `app=icuhub-collector-syslog` | from device CIDRs on 6514 (F-040) |
 | `icuhub-egress-data` | api, worker | to Postgres 5432 (F-010), Kafka 9093 (F-011/F-012), OpenBao 8200 (F-013), object storage (F-014) |
 | `icuhub-egress-platform` | api, worker | to IdP 443 (F-030), OTel 4317/4318 (F-032), SIEM (F-031), DNS 53/UDP+TCP to cluster DNS |
-| `icuhub-egress-vendors` | worker, api | to egress proxy (F-034) or to vendor CIDRs / FQDN policies for F-100..F-121, F-200..F-225 |
+| `icuhub-egress-vendors` | worker, api | to egress proxy (F-034) or to vendor CIDRs / FQDN policies for F-100..F-123, F-200..F-229 |
 
 FQDN-based egress (for SaaS vendors) needs either an egress proxy with an allowlist or
 a CNI that supports FQDN policies; plain Kubernetes NetworkPolicy is IP/CIDR only.

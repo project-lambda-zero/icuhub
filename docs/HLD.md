@@ -277,6 +277,11 @@ class Directory(Protocol):                # LDAPS, Microsoft Graph, FR-DIR-*
 class SbomSink(Protocol):                 # OWASP Dependency-Track
     async def upload_bom(self, project: ProjectRef, bom: dict) -> str: ...      # CycloneDX 1.7
 
+class KnowledgeBase(Protocol):            # Confluence Cloud, Confluence Data Center, FR-KB-*
+    async def get_page(self, ref: PageRef, body_format: str) -> KbPage: ...
+    async def search_pages(self, query: PageQuery, cursor: str | None) -> Page[PageSummary]: ...
+    async def publish_page(self, draft: PageDraft) -> PageRef: ...              # @action, keyed by natural key, version precondition
+
 ```
 
 `web.fetch` (FR-FET-*) is a core operation, not a connector capability: it has no
@@ -327,7 +332,7 @@ CONNECTORS: dict[str, type[Connector]] = {
     "github": GitHub,
     "gitlab": GitLab,
     "bitbucket_cloud": BitbucketCloud,
-    "bitbucket_server": BitbucketServer,
+    "bitbucket_dc": BitbucketDataCenter,
     "azure_devops": AzureDevOps,
     "gitea": Gitea,
     "jira": Jira,
