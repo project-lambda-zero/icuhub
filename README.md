@@ -5,7 +5,7 @@ Each vendor integration is built once, and every internal platform uses it throu
 governed, audited path. The first consumer is AILA; others include the posture management
 console and other enterprise hubs.
 
-**Status: Phase 1.** Decisions D1-D14 are closed (`docs/adr/`). The shared schema package
+**Status: Phase 1.** Decisions D1-D17 are closed (`docs/adr/`). The shared schema package
 [`packages/icuhub-schemas`](packages/icuhub-schemas) (OCSF 1.9.0, SARIF 2.1.0, CloudEvents
 envelope, finding fingerprint) is implemented; the service is not built yet. See
 [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phases.
@@ -39,6 +39,8 @@ envelope, finding fingerprint) is implemented; the service is not built yet. See
 | [`docs/INTEGRATION_INVENTORY.md`](docs/INTEGRATION_INVENTORY.md) | Integrations in existing consumers and their ICUHUB disposition |
 | [`docs/OPTIONS.md`](docs/OPTIONS.md) | Technology options per concern and decision outcomes |
 | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Delivery phases P0-P10 |
+| [`docs/PRIOR_ART.md`](docs/PRIOR_ART.md) | How comparable projects implement integrations, and the lessons ICUHUB takes |
+| [`docs/CONNECTOR_FRAMEWORK.md`](docs/CONNECTOR_FRAMEWORK.md) | Connector contract, sync engine, mapping, actions, testing kit |
 | [`docs/CONNECTOR_GUIDE.md`](docs/CONNECTOR_GUIDE.md) | How to add a connector |
 | [`docs/adr/`](docs/adr/) | Architecture decision records |
 

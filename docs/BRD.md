@@ -4,8 +4,8 @@
 |---|---|
 | Document | ICUHUB Business Requirements |
 | Prototype name | ICUHUB (working name, no branding work planned) |
-| Status | Draft v0.2 |
-| Date | 2026-11-06 |
+| Status | Draft v0.3 |
+| Date | 2026-11-07 |
 | Companion documents | `HLD.md` (high-level design), `COMMATRIX.md` (communication matrix), `INTEGRATION_INVENTORY.md` (integrations in existing consumers), `OPTIONS.md` (technology options), `ROADMAP.md` (delivery phases) |
 
 v0.2 appends requirements derived from `INTEGRATION_INVENTORY.md` (inventory rows are
@@ -160,6 +160,8 @@ telemetry beyond the stream retention window, billing.
 | FR-CON-05 | Credential rotation without downtime (new version written, connections switch atomically) |
 | FR-CON-06 | Connection health check on demand and on schedule; result exposed via API and events |
 | FR-CON-07 | A connection can be scoped to a subset of operations (for example read-only F5) |
+| FR-CON-08 | Webhook secrets rotate with an overlap window in which the current and previous secrets verify (`CONNECTOR_FRAMEWORK.md`, PA-33) |
+| FR-CON-09 | Each connection's required vendor scopes are declared in the manifest and probed by `check` (`CONNECTOR_FRAMEWORK.md`, PA-32) |
 
 ### 9.2 Connector framework
 
@@ -176,6 +178,14 @@ telemetry beyond the stream retention window, billing.
 | FR-CNR-09 | Transport safety is not configurable away: TLS verification always on (custom CA bundles instead, BR-26); connectors never spawn shell commands carrying credentials or untrusted values; every outbound request goes through the toolkit client |
 | FR-CNR-10 | Query languages are built from structured inputs: LDAP filters escaped (RFC 4515), SOAP/SQL-like WHERE clauses parameterized or escaped per vendor rules, JQL values quoted; operation inputs never accept raw query fragments unless the operation is classified for it and audited |
 | FR-CNR-11 | Vendor-specific field mappings (custom field IDs, priority tables, severity-to-priority maps) are data on the connection or route, never code, and never forked per customer (INV-11, INV-12) |
+| FR-CNR-12 | Each connector has a manifest generated from its code and committed; CI fails on drift; the host refuses unsupported `format_version` or `sdk` ranges (`CONNECTOR_FRAMEWORK.md`, PA-01, PA-02) |
+| FR-CNR-13 | Connector lifecycle members: `check`, `discover`, streams, mappers, read operations, plan/apply actions, webhook parsers (section 3.2) (`CONNECTOR_FRAMEWORK.md`, PA-09) |
+| FR-CNR-14 | Connector errors use the typed taxonomy (section 3.4); retry and health decisions read the error class only (`CONNECTOR_FRAMEWORK.md`, PA-27) |
+| FR-CNR-15 | Manifest declares owner, support tier, and stability per stream, operation, and action; tier and stability rules in section 9 apply (`CONNECTOR_FRAMEWORK.md`, PA-05) |
+| FR-CNR-16 | Every connector passes the conformance suite and HTTP contract tests; `core` connectors also pass live acceptance before release (`CONNECTOR_FRAMEWORK.md`, PA-37, PA-38) |
+| FR-CNR-17 | Write and destructive actions provide `plan` and `apply`; approvals bind to the plan hash; `apply` re-checks preconditions (`CONNECTOR_FRAMEWORK.md`, PA-26) |
+| FR-CNR-18 | Connectors are first-party code in this repository, registered in `CONNECTORS`; ICUHUB loads no connector package from outside the repository (ADR-0018) (`CONNECTOR_FRAMEWORK.md`, PA-07) |
+| FR-CNR-19 | Manifest schema changes are classified additive or breaking by a diff tool; breaking changes require a connector major version and a migration (`CONNECTOR_FRAMEWORK.md`, PA-03, PA-04) |
 
 ### 9.3 Policy and approvals
 
@@ -189,6 +199,7 @@ telemetry beyond the stream retention window, billing.
 | FR-POL-06 | Approvers are resolved from IdP groups; self-approval by the requesting service is impossible |
 | FR-POL-07 | Egress classes: `internal`, `vendor_tenant` (customer's own SaaS tenant), `third_party_shared` (data may join a shared dataset, for example public threat-intel lookups). Policy can deny or require approval per class |
 | FR-POL-08 | Replay/simulation mode: calls flagged `mode=replay` can never execute writes; the action layer is the mutation boundary |
+| FR-POL-09 | Actions have the states `stale_plan`, `no_op`, `accepted_async`, and `outcome_unknown`; `outcome_unknown` is resolved by reconciliation, never by blind retry (`CONNECTOR_FRAMEWORK.md`, PA-27) |
 
 ### 9.4 Entry points
 
@@ -212,6 +223,13 @@ telemetry beyond the stream retention window, billing.
 | FR-ING-04 | Report-file parsers (Fortify FPR, Nessus XML, Burp, SARIF, CycloneDX, and others) modelled on the DefectDojo parser approach |
 | FR-ING-05 | Deduplication by stable fingerprint per finding |
 | FR-ING-06 | Tabular and line-oriented result files (CSV, XLSX, JSON, JSONL, plain lines) are ingested through declared mapping profiles (column to field, severity map, fingerprint fields), not ad-hoc parsers; this includes result files that consumers collect from hosts themselves (INV-30, INV-90, INV-91, NG13) |
+| FR-ING-07 | Stream checkpoints are typed, versioned, and advanced only in the transaction that writes records and outbox events; resets are audited (`CONNECTOR_FRAMEWORK.md`, PA-12, PA-13) |
+| FR-ING-08 | Time-based cursors use tie-breaker IDs and a bounded overlap window (`CONNECTOR_FRAMEWORK.md`, PA-14) |
+| FR-ING-09 | Findings are resolved by absence only in a complete `full` run, behind a removal circuit breaker; incomplete or permission-denied targets resolve nothing (`CONNECTOR_FRAMEWORK.md`, PA-15) |
+| FR-ING-10 | Targets are discovered per connection with include, exclude, pause, and missing-since aging (`CONNECTOR_FRAMEWORK.md`, PA-10) |
+| FR-ING-11 | Parser and mapper failures are quarantined with replay; exhausted jobs go to a visible dead-letter state; no silent disable (`CONNECTOR_FRAMEWORK.md`, PA-18) |
+| FR-ING-12 | Sync jobs run under leases with budgets and per-tenant, per-connection, per-kind concurrency caps (`CONNECTOR_FRAMEWORK.md`, PA-17) |
+| FR-ING-13 | Rate limits are shared across replicas per connection and per credential and honour `Retry-After` (`CONNECTOR_FRAMEWORK.md`, PA-35) |
 
 ### 9.6 Normalization
 
@@ -223,6 +241,9 @@ telemetry beyond the stream retention window, billing.
 | FR-NRM-04 | Original vendor payload is retained alongside the normalized record (bounded size, reference for oversized) |
 | FR-NRM-05 | Fields with no vendor source are left null and flagged unmapped, never defaulted |
 | FR-NRM-06 | Code-located findings export as SARIF 2.1.0 (for GitHub code scanning and similar surfaces) |
+| FR-NRM-07 | Parsing and mapping are separate; each finding records parser and mapper versions; stored raw batches can be re-mapped without a vendor call within retention (`CONNECTOR_FRAMEWORK.md`, PA-19, PA-21) |
+| FR-NRM-08 | Source record ID, fingerprint, and delivery ID are distinct; the fingerprint carries an algorithm version and excludes mutable fields (`CONNECTOR_FRAMEWORK.md`, PA-23) |
+| FR-NRM-09 | Resources carry canonical asset references (`AssetRef`) in OCSF `resources[].uid`; ICUHUB links findings by asset and does not merge findings across sources (`CONNECTOR_FRAMEWORK.md`, PA-25, PA-40) |
 
 ### 9.7 Audit
 
@@ -260,6 +281,7 @@ FR-RX-01..10 are withdrawn by ADR-0011 (D9): remote host execution stays in cons
 | FR-TKT-06 | Status synchronization: ticket state changes (webhook or poll) are normalized and published, and the link between finding and ticket is updated; consumers decide what a state change means for their own records |
 | FR-TKT-07 | Partial failure in a fan-out is reported per route; a failed route never blocks or silently skips another (INV-10) |
 | FR-TKT-08 | Business prioritization (which findings deserve a ticket, SLA deadlines) stays in the consumer; ICUHUB executes the routing it is given |
+| FR-TKT-09 | Outbound ticket writes record the remote revision they produced; matching inbound events are treated as echoes (`CONNECTOR_FRAMEWORK.md`, PA-29) |
 
 ### 9.11 Notifications (`Notifier`)
 
@@ -340,6 +362,7 @@ FR-RX-01..10 are withdrawn by ADR-0011 (D9): remote host execution stays in cons
 | NFR-15 | Licensing | Runtime dependencies and bundled artifacts are OSI-approved and AGPL-3.0-compatible; source-available licenses (ELv2, BSL, SSPL) are excluded from the runtime; licenses are recorded in `OPTIONS.md` at adoption |
 | NFR-16 | Data retention | Defaults per data class: raw vendor payloads 30 days, normalized records 180 days, audit 400 days, all tenant-configurable within deployment limits [proposed defaults] |
 | NFR-17 | -- | Withdrawn by ADR-0011 (D9); ID reserved |
+| NFR-18 | Observability | Per-stream and per-action metrics and health (`CONNECTOR_FRAMEWORK.md` section 11) are exported for every connector (PA-36) |
 
 ## 11. Integration catalog and waves
 
@@ -375,6 +398,10 @@ wave 2 = P7 to P9, wave 3 = P10.
 | Identity | Okta, Entra ID | Native | 3 |
 
 ## 12. Approaches adopted from prior art (copied as approaches, not as code)
+
+The full survey of comparable security, DevOps, and platform-engineering projects, with
+sources and the lesson IDs PA-01..PA-41, is `PRIOR_ART.md`; `CONNECTOR_FRAMEWORK.md`
+applies it. The table below lists the approaches adopted before that survey.
 
 | Source | Approach | Where it lands |
 |---|---|---|
@@ -443,7 +470,7 @@ wave 2 = P7 to P9, wave 3 = P10.
 
 ## 18. Decisions
 
-All decisions D1-D14 are closed. New open decisions are appended as D15 onward with
+All decisions D1-D17 are closed. New open decisions are appended as D18 onward with
 options and a recommendation, and stay open until an ADR closes them.
 
 | ID | Decision | Options considered | Outcome | ADR |
@@ -462,6 +489,9 @@ options and a recommendation, and stay open until an ADR closes them.
 | D12 | Durable execution for actions and approvals | Own Postgres state machine + queue, Temporal, DBOS, Hatchet, Restate, Prefect (`OPTIONS.md` section 10) | Own Postgres state machine and `SKIP LOCKED` job queue | [0014](adr/0014-durable-execution-postgres.md) |
 | D13 | Ownership of finding-to-ticket routing, dedupe, and status sync | ICUHUB generic routing; consumers keep ticket logic | ICUHUB generic routing; prioritization stays in consumers | [0015](adr/0015-ticket-routing-in-icuhub.md) |
 | D14 | HTTP toolkit dependency set | httpx2, classic httpx, aiohttp, requests stacks (`OPTIONS.md` section 2) | httpx2, tenacity, aiolimiter, Authlib, asyncpg | [0016](adr/0016-http-toolkit-stack.md) |
+| D15 | Connector manifest authoring | Generated from code and committed; handwritten YAML; class attributes only (`CONNECTOR_FRAMEWORK.md` section 15) | Generated from code, committed, CI diff | [0017](adr/0017-connector-manifest-generated.md) |
+| D16 | Where connector code runs | First-party in-process plus later subprocess tier; container per connector; in-process only | In-process only; first-party connectors in this repository; no third-party loading | [0018](adr/0018-connectors-first-party-in-process.md) |
+| D17 | Declarative mapping | Own helpers; JMESPath; jq (`OPTIONS.md` section 17) | JMESPath for extraction, kit helpers for enums and timestamps, Python for the rest | [0019](adr/0019-jmespath-mapping-expressions.md) |
 
 ## 19. Glossary
 

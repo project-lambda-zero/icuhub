@@ -1,7 +1,9 @@
 # ICUHUB -- Connector Guide
 
 How to add a vendor connector. The framework itself is designed in `docs/HLD.md`
-section 5 and is built in Phase 2; this guide is the contract every connector follows.
+section 5 and `docs/CONNECTOR_FRAMEWORK.md`, and is built in Phase 2; this guide is the
+contract every connector follows. Connectors are first-party code in this repository
+(ADR-0018).
 
 ## 1. Before writing code
 
@@ -12,6 +14,8 @@ section 5 and is built in Phase 2; this guide is the contract every connector fo
 | 3 | Pick the connector type: native, MCP-backed, or file parser (`docs/HLD.md` 5.4). |
 | 4 | List the capability protocols the vendor supports (`docs/HLD.md` 5.1). Only those. |
 | 5 | List every operation with classification, egress class, idempotency, input/output schema. Get the list reviewed. |
+| 6 | List the streams (one OCSF class each), their cursor kind, and whether the vendor supports complete snapshots (`CONNECTOR_FRAMEWORK.md` section 5). |
+| 7 | List the vendor scopes each stream, operation, and action needs, with a cheap probe request for each (FR-CON-09). |
 
 ## 2. Operation table template
 
@@ -38,14 +42,19 @@ Egress class guide:
 
 ## 3. Implementation checklist
 
-- [ ] Connector class with `kind`, `capabilities`, auth strategy, operations decorated with `@operation(...)`.
-- [ ] Registered in `CONNECTORS` (plain dict).
+- [ ] Connector class with `kind`, `version`, `sdk`, `owner`, `support`, `config` (secrets typed `SecretRef`), and auth strategies.
+- [ ] Reads as `@operation`, ingestion as `@stream` plus `@mapper`, writes and destructive changes as `@action` with `plan` and `apply`, pushes as `@webhook` sharing the stream mapper.
+- [ ] Every member declares `stability`; scopes declared with probes.
+- [ ] `check` returns per-capability health and `not_evaluated` for missing scopes; `discover` yields targets with stable source IDs.
+- [ ] Errors raised from the typed taxonomy (`CONNECTOR_FRAMEWORK.md` section 3.4), never generic exceptions for vendor states.
+- [ ] Registered in `CONNECTORS` (plain dict); `manifest.json` regenerated and committed (ADR-0017).
 - [ ] Uses the connector-kit HTTP toolkit (timeouts, retries only for idempotent operations or reads, rate limits, pagination, custom CA, proxy).
 - [ ] Never reads secrets directly; auth comes from the credential broker.
 - [ ] Vendor-specific operations exposed where agents need vendor depth.
-- [ ] Normalization uses the shared schema package; unmapped fields null and listed; `actor.kind` from the vendor's documented field.
+- [ ] Parse and map are separate; mapper versioned; JMESPath expressions for extraction only (ADR-0019); unmapped vendor fields in `unmapped`; `actor.kind` from the vendor's documented field.
+- [ ] Source record ID, fingerprint inputs (no mutable fields), and `AssetRef` for resources defined (`CONNECTOR_FRAMEWORK.md` section 6).
 - [ ] Webhook verification implemented if the vendor pushes events (`docs/HLD.md` 7.4).
-- [ ] Health check operation.
+- [ ] Conformance suite and HTTP contract cassettes pass; `core` tier also passes live acceptance (`ICUHUB_ACC=1`) before release.
 - [ ] MCP-backed: every upstream tool classified; unclassified tools hidden.
 
 ## 4. Fixture proof (earned-executable)

@@ -27,19 +27,21 @@ audit, OCSF/SARIF normalization.
 
 ## 3. Status
 
-**Phase 1 (`docs/ROADMAP.md`).** Decisions D1-D14 are closed. The shared schema package
+**Phase 1 (`docs/ROADMAP.md`).** Decisions D1-D17 are closed. The shared schema package
 `packages/icuhub-schemas` (OCSF 1.9.0, SARIF 2.1.0, CloudEvents envelope, finding
 fingerprint) and the CI license check exist. The service itself (`src/icuhub`) has no
 runtime code yet. Do not describe features as implemented until they are.
 
 | Document | Content | IDs to cite |
 |---|---|---|
-| `docs/BRD.md` | Business requirements, scope, risks, decisions | `BR-*`, `FR-*`, `NFR-*`, `NG*`, `D1`-`D14`, `R1`-`R13` |
+| `docs/BRD.md` | Business requirements, scope, risks, decisions | `BR-*`, `FR-*`, `NFR-*`, `NG*`, `D1`-`D17`, `R1`-`R13` |
 | `docs/HLD.md` | Architecture, data model, APIs, MCP, events, connector framework, roadmap | section numbers |
 | `docs/COMMATRIX.md` | Every network flow | `F-*`, `X-*` |
 | `docs/INTEGRATION_INVENTORY.md` | Integrations found in existing consumers and their ICUHUB disposition | `INV-*` |
 | `docs/OPTIONS.md` | Technology options per concern and the decision outcomes | section numbers |
 | `docs/ROADMAP.md` | Delivery phases P0-P10, each run as brainstorm, write, plan, implement, test | `P*`, `R-*` |
+| `docs/PRIOR_ART.md` | How comparable security, DevOps, and platform projects implement integrations; cross-cutting lessons | `PA-*`, `AP-*` |
+| `docs/CONNECTOR_FRAMEWORK.md` | Connector contract, manifest, sync engine, mapping, identity, actions, testing kit | section numbers |
 | `docs/CONNECTOR_GUIDE.md` | How to add a connector | checklist |
 | `docs/adr/` | Architecture decision records | `ADR-NNNN` |
 
@@ -48,9 +50,9 @@ ID (for example `FR-POL-03`, `F-100`).
 
 ## 4. Decisions: do not resolve them yourself
 
-`docs/BRD.md` section 18 records decisions D1-D14, all closed by ADR-0004..0016. Any new
+`docs/BRD.md` section 18 records decisions D1-D17, all closed by ADR-0004..0019. Any new
 choice with real tradeoffs (a new dependency, a new engine, a scope change) is appended
-there as D15 onward with options and a recommendation. An agent MUST NOT pick an option,
+there as D18 onward with options and a recommendation. An agent MUST NOT pick an option,
 add a dependency that implies an option, or write code that assumes one. Ask the
 operator. When a decision is made, record it as an ADR in `docs/adr/` and update BRD
 section 18. A dependency named in an accepted ADR may be added when its phase starts.
@@ -131,7 +133,7 @@ section 18. A dependency named in an accepted ADR may be added when its phase st
 
 ```
 icuhub/
-├── docs/                      # BRD, HLD, COMMATRIX, INTEGRATION_INVENTORY, OPTIONS, ROADMAP, CONNECTOR_GUIDE, adr/
+├── docs/                      # BRD, HLD, COMMATRIX, INTEGRATION_INVENTORY, OPTIONS, PRIOR_ART, CONNECTOR_FRAMEWORK, ROADMAP, CONNECTOR_GUIDE, adr/
 ├── packages/
 │   ├── icuhub-schemas/        # OCSF models, SARIF codec, CloudEvents envelope (P1)
 │   ├── icuhub-sdk/            # generated client (P3)

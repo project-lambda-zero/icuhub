@@ -18,8 +18,11 @@
 | [0014](0014-durable-execution-postgres.md) | Durable actions and approvals: PostgreSQL state machine and job queue | Accepted |
 | [0015](0015-ticket-routing-in-icuhub.md) | Finding-to-ticket routing lives in ICUHUB | Accepted |
 | [0016](0016-http-toolkit-stack.md) | HTTP toolkit dependency set | Accepted |
+| [0017](0017-connector-manifest-generated.md) | Connector manifests are generated from code and committed | Accepted |
+| [0018](0018-connectors-first-party-in-process.md) | Connectors are first-party and run in-process | Accepted |
+| [0019](0019-jmespath-mapping-expressions.md) | JMESPath for declarative field extraction in mappers | Accepted |
 
 Format: Status, Date, Closes (decision ID, when applicable), Context, Decision,
-Consequences, Requirements affected. Decisions D1-D14 are closed (`docs/BRD.md`
-section 18). New open decisions are appended there as D15 onward until an ADR closes
+Consequences, Requirements affected. Decisions D1-D17 are closed (`docs/BRD.md`
+section 18). New open decisions are appended there as D18 onward until an ADR closes
 them.

@@ -27,6 +27,9 @@ Outcome of the operator decisions (BRD section 18):
 | D12 durable execution | 10 | Own Postgres state machine and job queue | 0014 |
 | D13 ticket routing | -- | In ICUHUB, prioritization in consumers | 0015 |
 | D14 HTTP toolkit | 2 | httpx2, tenacity, aiolimiter, Authlib, asyncpg | 0016 |
+| D15 manifest authoring | 1 | Generated from code, committed, CI diff | 0017 |
+| D16 connector runtime | 1 | In-process only, first-party connectors (the recommendation added a later subprocess tier for third-party code) | 0018 |
+| D17 declarative mapping | 17 | JMESPath (the recommendation was own helpers) | 0019 |
 
 Evaluation criteria applied to every concern:
 
@@ -378,3 +381,19 @@ Not needed: ADR-0011 (D9) keeps remote host execution in the consumers.
 
 `py-ocsf-models`, `sarif-om`, and `cyclonedx-python-lib` are not needed for Phase 1: the
 package owns its models and validates them against the official schemas.
+
+## 17. Declarative mapping expressions (decision D17)
+
+| Option | License | Fit | Air-gap | Verdict |
+|---|---|---|---|---|
+| Own helpers (dotted paths, enum tables, timestamps) | -- | Smallest surface; no filters or projections | Excellent | Recommended; not chosen |
+| JMESPath (`jmespath` 1.1.0) | MIT | Standard, specified grammar with a compliance suite; filters and projections over nested JSON; pure Python | Excellent | Chosen (ADR-0019) |
+| jq (Python bindings) | MIT (jq), bindings vary | Most expressive, Turing-complete; native extension | Needs native wheels per platform | Rejected: mappings become programs |
+
+Guard rails from the survey (`PRIOR_ART.md` PA-20): expressions compile at module load,
+built-in functions only, extraction only, typed validation in the OCSF models, and every
+expression change bumps the mapper version and its golden fixtures
+(`CONNECTOR_FRAMEWORK.md` section 6.1). Version re-checked at adoption (P2).
+
+Sources: jmespath.org (specification), pypi.org/project/jmespath (1.1.0, MIT,
+Python >= 3.9), jqlang.org.

@@ -6,7 +6,7 @@
 | Status | v0.1 |
 | Date | 2026-11-06 |
 | Method | Read-only code scans of each consumer repository; one row per external system, grounded in code locations |
-| Companion documents | `BRD.md` v0.2 (BR-16..27, NG8..13, FR-CNR-08..11, FR-TKT, FR-NTF, FR-DIR, FR-FET, FR-MCPG, FR-FEED, FR-MIG, NFR-13..16; decisions D1..D14 closed in ADR-0004..0016), `OPTIONS.md`, `ROADMAP.md` |
+| Companion documents | `BRD.md` v0.2 (BR-16..27, NG8..13, FR-CNR-08..11, FR-TKT, FR-NTF, FR-DIR, FR-FET, FR-MCPG, FR-FEED, FR-MIG, NFR-13..16; decisions D1..D17 closed in ADR-0004..0016), `OPTIONS.md`, `ROADMAP.md` |
 
 ---
 
