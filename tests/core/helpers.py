@@ -6,6 +6,7 @@ import os
 import uuid
 from typing import Any
 
+from icuhub.connectors.smtp import Smtp
 from icuhub.core.auth_types import Caller
 from icuhub.core.connections import create_connection
 from icuhub.core.services import configure
@@ -17,6 +18,7 @@ REGISTRY = {
     "sample_scanner": SampleScanner,
     "sample_scanner_b": SampleScannerB,
     "sample_tracker_core": SampleTracker,
+    "smtp": Smtp,
 }
 
 
@@ -46,7 +48,13 @@ def caller_for(tenant_id: uuid.UUID, name: str = "admin", roles: set[str] | None
 
 
 async def new_connection(
-    session: Any, services: Any, tenant_id: uuid.UUID, kind: str = "sample_scanner", slug: str | None = None
+    session: Any,
+    services: Any,
+    tenant_id: uuid.UUID,
+    kind: str = "sample_scanner",
+    slug: str | None = None,
+    config: dict[str, Any] | None = None,
+    secrets: dict[str, str] | None = None,
 ) -> Any:
     return await create_connection(
         session,
@@ -54,8 +62,8 @@ async def new_connection(
         kind=kind,
         slug=slug or f"{kind}-{uuid.uuid4().hex[:6]}",
         display_name="Sample",
-        config={"base_url": "http://127.0.0.1:9", "allow_plain_http_loopback": True},
-        secrets={"api_token": "test-token"},
+        config=config if config is not None else {"base_url": "http://127.0.0.1:9", "allow_plain_http_loopback": True},
+        secrets=secrets if secrets is not None else {"api_token": "test-token"},
         caller=caller_for(tenant_id),
         registry=REGISTRY,
         broker=services.broker,

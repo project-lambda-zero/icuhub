@@ -547,6 +547,8 @@ class Connector(ABC):
     config_model: ClassVar[type[ConnectorConfig]]
     auth_modes: ClassVar[tuple[str, ...]]
     capabilities: ClassVar[tuple[str, ...]]
+    #: Non-HTTP connectors (for example SMTP) set this to False so the runtime attaches no HTTP client.
+    uses_http: ClassVar[bool] = True
     scopes: ClassVar[tuple[Scope, ...]] = ()
     flows: ClassVar[tuple[str, ...]]
     rate_limits: ClassVar[dict[str, tuple[float, float]]] = {}

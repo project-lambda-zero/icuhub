@@ -84,7 +84,8 @@ async def amake_connector(
     )
     connector = cls(config, ctx)
     auth = await connector.build_auth()
-    ctx.http = build_http(config, auth, transport=transport, clock=_fixed_clock)
+    if cls.uses_http:
+        ctx.http = build_http(config, auth, transport=transport, clock=_fixed_clock)
     return connector
 
 

@@ -20,8 +20,8 @@ __all__ = ["JOB_HANDLERS", "notify_approval", "run_notify_job"]
 async def notify_approval(session: AsyncSession, approval: Approval) -> Notification | None:
     """Queue one approval notification when the tenant has an smtp connection."""
     request = await session.get(ActionRequest, approval.action_request_id)
-    if request is None:
-        return None
+    if request is None or request.action == "send_notification":
+        return None  # never notify about the notification send itself
     smtp = (
         await session.execute(
             select(Connection).where(Connection.tenant_id == approval.tenant_id, Connection.kind == "smtp")
@@ -62,9 +62,15 @@ async def notify_approval(session: AsyncSession, approval: Approval) -> Notifica
 
 
 async def run_notify_job(payload: dict[str, Any], lease: Any = None) -> dict[str, Any]:
-    """Worker handler for the ``notify`` job kind."""
-    from icuhub.core.actions import submit_action  # noqa: PLC0415
+    """Worker handler for the ``notify`` job kind.
+
+    Notification sends are system consequences of an already-approved action: the send
+    itself is auto-approved by the system caller (never a second human approval loop),
+    then executed through the normal apply path so audit and outbox stay intact.
+    """
+    from icuhub.core.actions import decide, run_apply_job, submit_action  # noqa: PLC0415
     from icuhub.core.auth_types import Caller  # noqa: PLC0415
+
     tenant_id = uuid.UUID(payload["tenant_id"])
     async with session_scope(tenant_id) as session:
         notification = await session.get(Notification, uuid.UUID(payload["notification_id"]))
@@ -83,13 +89,30 @@ async def run_notify_job(payload: dict[str, Any], lease: Any = None) -> dict[str
             },
             idempotency_key=f"notify:{notification.id}",
         )
-        if request.state in ("succeeded", "no_op"):
-            notification.state = "sent"
-            notification.sent_at = datetime.now(UTC)
-        elif request.state in ("failed", "denied", "rejected"):
-            notification.state = "failed"
-            notification.error = request.error_class or request.state
-        return {"state": request.state}
+        request_id = request.id
+        state = request.state
+        if state == "pending_approval":
+            approval = (
+                await session.execute(
+                    select(Approval).where(Approval.action_request_id == request.id, Approval.decision.is_(None))
+                )
+            ).scalar_one()
+            auto = Caller(id="notifier-auto-approval", tenant_id=tenant_id, roles=frozenset({"system"}))
+            request = await decide(session, auto, approval.id, "approved", reason="system notification send")
+            state = request.state
+    if state in ("approved", "accepted_async"):
+        outcome = await run_apply_job({"action_request_id": str(request_id), "tenant_id": str(tenant_id)})
+        state = outcome["state"]
+    async with session_scope(tenant_id) as session:
+        notification = await session.get(Notification, uuid.UUID(payload["notification_id"]))
+        if notification is not None:
+            if state in ("succeeded", "no_op"):
+                notification.state = "sent"
+                notification.sent_at = datetime.now(UTC)
+            elif state in ("failed", "denied", "rejected", "stale_plan"):
+                notification.state = "failed"
+                notification.error = state
+        return {"state": state}
 
 
 JOB_HANDLERS = {"notify": run_notify_job}

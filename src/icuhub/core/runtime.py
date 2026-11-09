@@ -92,15 +92,16 @@ class ConnectorRuntime:
             cert_pem = await self._broker.resolve(tenant_id, config.client_cert, session=session)
         if getattr(config, "client_key", None) is not None:
             key_pem = await self._broker.resolve(tenant_id, config.client_key, session=session)
-        ctx.http = build_http(
-            config,
+        if cls.uses_http:
+            ctx.http = build_http(
+                config,
             auth,
-            transport=self._transport,
-            limiter=self._limiter_for(connection, cls),
-            extra_hosts=tuple(getattr(config, "extra_hosts", ()) or ()),
-            client_cert_pem=cert_pem,
-            client_key_pem=key_pem,
-        )
+                transport=self._transport,
+                limiter=self._limiter_for(connection, cls),
+                extra_hosts=tuple(getattr(config, "extra_hosts", ()) or ()),
+                client_cert_pem=cert_pem,
+                client_key_pem=key_pem,
+            )
         return connector
 
     async def _rules(self, session: AsyncSession, tenant_id: uuid.UUID) -> list[PolicyRule]:
