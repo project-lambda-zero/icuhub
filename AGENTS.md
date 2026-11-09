@@ -27,7 +27,7 @@ audit, OCSF/SARIF normalization.
 
 ## 3. Status
 
-**Phase 1 (`docs/ROADMAP.md`).** Decisions D1-D17 are closed. The shared schema package
+**Phase 1 (`docs/ROADMAP.md`).** Decisions D1-D21 are closed. The shared schema package
 `packages/icuhub-schemas` (OCSF 1.9.0, SARIF 2.1.0, CloudEvents envelope, finding
 fingerprint) and the CI license check exist. The service itself (`src/icuhub`) has no
 runtime code yet. Do not describe features as implemented until they are.
@@ -35,6 +35,7 @@ runtime code yet. Do not describe features as implemented until they are.
 | Document | Content | IDs to cite |
 |---|---|---|
 | `docs/BRD.md` | Business requirements, scope, risks, decisions | `BR-*`, `FR-*`, `NFR-*`, `NG*`, `D1`-`D17`, `R1`-`R13` |
+| `docs/MVP.md` | MVP scope, per-kind done gates, and delivery phases M1..M7 | `M1`-`M7` |
 | `docs/HLD.md` | Architecture, data model, APIs, MCP, events, connector framework, roadmap | section numbers |
 | `docs/COMMATRIX.md` | Every network flow | `F-*`, `X-*` |
 | `docs/INTEGRATION_INVENTORY.md` | Integrations found in existing consumers and their ICUHUB disposition | `INV-*` |
@@ -52,9 +53,9 @@ ID (for example `FR-POL-03`, `F-100`).
 
 ## 4. Decisions: do not resolve them yourself
 
-`docs/BRD.md` section 18 records decisions D1-D17, all closed by ADR-0004..0019. Any new
+`docs/BRD.md` section 18 records decisions D1-D21, all closed by ADR-0004..0021. Any new
 choice with real tradeoffs (a new dependency, a new engine, a scope change) is appended
-there as D18 onward with options and a recommendation. An agent MUST NOT pick an option,
+there as D22 onward with options and a recommendation. An agent MUST NOT pick an option,
 add a dependency that implies an option, or write code that assumes one. Ask the
 operator. When a decision is made, record it as an ADR in `docs/adr/` and update BRD
 section 18. A dependency named in an accepted ADR may be added when its phase starts.
@@ -135,7 +136,7 @@ section 18. A dependency named in an accepted ADR may be added when its phase st
 
 ```
 icuhub/
-├── docs/                      # BRD, HLD, COMMATRIX, INTEGRATION_INVENTORY, OPTIONS, PRIOR_ART, CONNECTOR_FRAMEWORK, VENDOR_CONNECTORS, COVERAGE_GAPS, ROADMAP, CONNECTOR_GUIDE, adr/
+├── docs/                      # BRD, MVP, HLD, COMMATRIX, INTEGRATION_INVENTORY, OPTIONS, PRIOR_ART, CONNECTOR_FRAMEWORK, VENDOR_CONNECTORS, COVERAGE_GAPS, ROADMAP, CONNECTOR_GUIDE, adr/
 ├── packages/
 │   ├── icuhub-schemas/        # OCSF models, SARIF codec, CloudEvents envelope (P1)
 │   ├── icuhub-sdk/            # generated client (P3)

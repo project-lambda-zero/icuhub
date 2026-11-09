@@ -5,7 +5,7 @@ Each vendor integration is built once, and every internal platform uses it throu
 governed, audited path. The first consumer is AILA; others include the posture management
 console and other enterprise hubs.
 
-**Status: Phase 1.** Decisions D1-D17 are closed (`docs/adr/`). The shared schema package
+**Status: Phase 1.** Decisions D1-D21 are closed (`docs/adr/`). The shared schema package
 [`packages/icuhub-schemas`](packages/icuhub-schemas) (OCSF 1.9.0, SARIF 2.1.0, CloudEvents
 envelope, finding fingerprint) is implemented; the service is not built yet. See
 [`docs/ROADMAP.md`](docs/ROADMAP.md) for the phases.
@@ -34,6 +34,7 @@ envelope, finding fingerprint) is implemented; the service is not built yet. See
 | Document | Content |
 |---|---|
 | [`docs/BRD.md`](docs/BRD.md) | Business requirements |
+| [`docs/MVP.md`](docs/MVP.md) | MVP scope, per-kind done gates, and delivery phases M1..M7 |
 | [`docs/HLD.md`](docs/HLD.md) | High-level design |
 | [`docs/COMMATRIX.md`](docs/COMMATRIX.md) | Communication matrix (network flows) |
 | [`docs/INTEGRATION_INVENTORY.md`](docs/INTEGRATION_INVENTORY.md) | Integrations in existing consumers and their ICUHUB disposition |

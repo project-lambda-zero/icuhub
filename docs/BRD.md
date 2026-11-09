@@ -4,12 +4,13 @@
 |---|---|
 | Document | ICUHUB Business Requirements |
 | Prototype name | ICUHUB (working name, no branding work planned) |
-| Status | Draft v0.3 |
-| Date | 2026-11-07 |
+| Status | Draft v0.4 |
+| Date | 2026-11-09 |
 | Companion documents | `HLD.md` (high-level design), `COMMATRIX.md` (communication matrix), `INTEGRATION_INVENTORY.md` (integrations in existing consumers), `OPTIONS.md` (technology options), `ROADMAP.md` (delivery phases) |
 
 v0.2 appends requirements derived from `INTEGRATION_INVENTORY.md` (inventory rows are
-cited as `INV-nn`). Existing IDs are unchanged.
+cited as `INV-nn`). v0.4 appends the MVP requirements (ADR-0020, `MVP.md`): FR-COR-01..05
+and FR-GRC-01..04. Existing IDs are unchanged.
 
 ---
 
@@ -349,6 +350,25 @@ FR-RX-01..10 are withdrawn by ADR-0011 (D9): remote host execution stays in cons
 | FR-KB-02 | Report publishing creates or updates a page keyed by a caller-supplied natural key (space, parent, title or label); a repeat publish updates the same page using the vendor version number as precondition; publishing is classified `write` |
 | FR-KB-03 | Confluence Cloud and Confluence Data Center are separate connector kinds sharing the capability; page bodies are converted from the normalized report through one template path per format (`VENDOR_CONNECTORS.md`) |
 
+### 9.18 Cross-scanner correlation (ADR-0020)
+
+| ID | Requirement |
+|---|---|
+| FR-COR-01 | Every stored finding is a source observation with its own per-connector fingerprint; ICUHUB links observations to a tenant-scoped correlation case and never merges or overwrites observation fields (`MVP.md` section 3) |
+| FR-COR-02 | The correlation key is versioned and computed from vendor-neutral identity: vulnerability identifier (CVE, else CWE plus rule family), canonical asset reference (repository, package URL, host, URL origin and path, cloud resource, image digest), and component; observations without a strong key get a case of their own |
+| FR-COR-03 | Operators can split and merge cases; both are audited and keep the observation history |
+| FR-COR-04 | Ticket creation is idempotent per `(tenant, route, correlation case)`; repeated scans, retries, and several scanners reporting one case produce one linked ticket per route |
+| FR-COR-05 | State ownership is explicit: scanners own detection and source resolution, the tracker owns remediation status, the GRC system owns exception approval; a tracker `done` never marks a source finding resolved |
+
+### 9.19 GRC records (`RiskRegister`) (ADR-0020)
+
+| ID | Requirement |
+|---|---|
+| FR-GRC-01 | `RiskRegister` discovers GRC applications, levels, fields, and values lists, and maps logical record types (finding, risk, exception, application) to tenant-configured application and field identifiers; field identifiers are never hard-coded |
+| FR-GRC-02 | Streams read GRC records incrementally by a configured last-updated field and in full snapshots; a permission-limited or partial search never implies absence |
+| FR-GRC-03 | Actions create and update finding and exception records, link them to applications and risks through cross-reference fields, and attach evidence with a digest; create is reconciled by a search on the ICUHUB correlation key stored in a configured field before any retry |
+| FR-GRC-04 | An exception record approved in the GRC system can drive a source suppression only through a separate action request with its own plan and policy decision |
+
 ## 10. Non-functional requirements
 
 | ID | Category | Requirement |
@@ -380,18 +400,21 @@ risks) are in `VENDOR_CONNECTORS.md`.
 Wave order is a proposal; the first wave is driven by the first consumers (AILA VR
 exploit-and-fix loop, posture console) and, since v0.2, by migration parity for the
 existing consumers (BR-18). Waves map to roadmap phases: wave 1 = `ROADMAP.md` P5,
-wave 2 = P7 to P9, wave 3 = P10.
+wave 2 = P7 to P9, wave 3 = P10. Since v0.4 the MVP (ADR-0020, `MVP.md`) adds Jira,
+Fortify, Nessus, GitLab, GitHub, Mend, Invicti, OpenShift, Archer GRC, and Prisma Cloud
+to wave 1 with every specced edition; F5 BIG-IP, Google Threat Intelligence, and the
+SMTP notifier stay in wave 1.
 
 | Category | Vendors / systems | Connector type | Wave |
 |---|---|---|---|
-| SCM | GitHub, GitLab (1); Bitbucket Cloud, Bitbucket Data Center, Azure DevOps, Gitea (3) | Native (PR-Agent provider pattern + write side); GitLab MCP optional | 1 / 3 |
+| SCM | GitHub and GitHub Enterprise Server, GitLab and GitLab Self-Managed (1, MVP); Bitbucket Cloud, Bitbucket Data Center, Azure DevOps, Gitea (3) | Native (PR-Agent provider pattern + write side); GitLab MCP optional | 1 / 3 |
 | CI/CD | GitLab CI, Jenkins, GitHub Actions, Azure Pipelines; inbound CI callbacks (INV-06) | Native; Jenkins MCP plugin optional | 2 |
-| Ticketing | Jira Cloud and Data Center, several instances per tenant (INV-10, INV-11) | Native | 1 |
+| Ticketing | Jira Cloud and Data Center, several instances per tenant (INV-10, INV-11) | Native | 1 (MVP) |
 | Knowledge base | Confluence Cloud and Data Center: report publishing, page and space reads, search (FR-KB-*) | Native | 2 (Cloud), 3 (Data Center) |
 | ITSM | ServiceNow, Micro Focus Service Manager, IBM Maximo (SOAP) (INV-12..14) | Native | 2 |
-| GRC | RSA Archer (INV-15) | Native | 3 |
-| SAST / SCA / DAST | Fortify SSC + FPR parser, Fortify on Demand, Mend SCA, OWASP Dependency-Track (2); Invicti Enterprise, Invicti Standard (file ingestion), Snyk, SonarQube, Checkmarx (3) | Native + file parsers | 2 / 3 |
-| Vulnerability scanners | Tenable Vulnerability Management, Tenable Security Center, Nessus + `.nessus` parser (2); Qualys VMDR and WAS, Rapid7 (3) | Native + file parsers | 2 / 3 |
+| GRC | Archer GRC (Archer Integrated Risk Management), on premises and SaaS (INV-15, FR-GRC-*) | Native | 1 (MVP) |
+| SAST / SCA / DAST | Fortify SSC + FPR parser, Fortify on Demand, Mend SCA, Invicti Enterprise, Invicti Standard (file ingestion) (1, MVP); OWASP Dependency-Track (2); Snyk, SonarQube, Checkmarx (3) | Native + file parsers | 1 / 2 / 3 |
+| Vulnerability scanners | Nessus + `.nessus` parser (1, MVP); Tenable Vulnerability Management, Tenable Security Center (2); Qualys VMDR and WAS, Rapid7 (3) | Native + file parsers | 2 / 3 |
 | Notifications | SMTP (1); Teams, Slack, Google Chat incoming webhooks (2) | Native (`Notifier`) | 1 / 2 |
 | Directory | LDAPS, Microsoft Graph users and groups (INV-51, INV-52) | Native (`Directory`) | 2 |
 | Generic egress | Governed `web.fetch` (INV-80) | Native | 2 |
@@ -402,9 +425,9 @@ wave 2 = P7 to P9, wave 3 = P10.
 | EDR / XDR | CrowdStrike Falcon, Microsoft Defender, SentinelOne | Native or MCP-backed | 2 |
 | SIEM | Splunk, Microsoft Sentinel, Google SecOps, Elastic, QRadar | Native or MCP-backed | 2 |
 | SOAR | Google SecOps SOAR, Cortex XSOAR, Splunk SOAR | Native or MCP-backed | 3 |
-| CSPM / CNAPP | Prisma Cloud (CSPM alerts and Compute), Wiz, Google SCC, AWS Security Hub | Native or MCP-backed | 2 |
+| CSPM / CNAPP | Prisma Cloud (CSPM alerts and Compute) (1, MVP); Wiz, Google SCC, AWS Security Hub (2) | Native | 1 / 2 |
 | DLP | Microsoft Purview, Symantec DLP, Forcepoint | Native | 3 |
-| Container platforms | Kubernetes, OpenShift | MCP-backed (`containers/kubernetes-mcp-server`) or native | 2 |
+| Container platforms | Kubernetes, OpenShift | Native | 1 (MVP) |
 | Threat intelligence | Google Threat Intelligence (VirusTotal), MISP, OpenCTI | MCP-backed (`google/mcp-security`) or native | 1 (GTI) |
 | Cloud log collectors | AWS S3+SQS, GCP Pub/Sub, Azure Event Hubs, syslog/CEF | Streaming collectors | 3 |
 | Identity | Okta, Entra ID | Native | 3 |
@@ -482,7 +505,7 @@ applies it. The table below lists the approaches adopted before that survey.
 
 ## 18. Decisions
 
-All decisions D1-D17 are closed. New open decisions are appended as D18 onward with
+All decisions D1-D21 are closed. New open decisions are appended as D22 onward with
 options and a recommendation, and stay open until an ADR closes them.
 
 | ID | Decision | Options considered | Outcome | ADR |
@@ -504,6 +527,10 @@ options and a recommendation, and stay open until an ADR closes them.
 | D15 | Connector manifest authoring | Generated from code and committed; handwritten YAML; class attributes only (`CONNECTOR_FRAMEWORK.md` section 15) | Generated from code, committed, CI diff | [0017](adr/0017-connector-manifest-generated.md) |
 | D16 | Where connector code runs | First-party in-process plus later subprocess tier; container per connector; in-process only | In-process only; first-party connectors in this repository; no third-party loading | [0018](adr/0018-connectors-first-party-in-process.md) |
 | D17 | Declarative mapping | Own helpers; JMESPath; jq (`OPTIONS.md` section 17) | JMESPath for extraction, kit helpers for enums and timestamps, Python for the rest | [0019](adr/0019-jmespath-mapping-expressions.md) |
+| D18 | MVP editions | Every specced edition; one primary edition per vendor | Every specced edition plus a new `archer` kind (operator) | [0020](adr/0020-mvp-scope.md) |
+| D19 | Hub runtime depth in the MVP | Kit and connectors only; kit, core, REST, webhooks; full runtime with Kafka relay and MCP | Full runtime including the Kafka relay and MCP (operator) | [0020](adr/0020-mvp-scope.md) |
+| D20 | Service stack dependencies | FastAPI, uvicorn, SQLAlchemy and Alembic, defusedxml, cryptography; the same without an ORM | FastAPI, uvicorn, SQLAlchemy 2 and Alembic, defusedxml, cryptography, aiokafka, mcp (operator) | [0021](adr/0021-service-stack-dependencies.md) |
+| D21 | ADR-0010 wave 1 under the MVP | MVP replaces wave 1; MVP adds to wave 1 | MVP adds to wave 1; F5, GTI, SMTP stay (operator) | [0020](adr/0020-mvp-scope.md) |
 
 ## 19. Glossary
 

@@ -3,6 +3,7 @@
 - Status: Accepted
 - Date: 2026-11-07
 - Closes: D8
+- Amended by: ADR-0020
 
 ## Context
 

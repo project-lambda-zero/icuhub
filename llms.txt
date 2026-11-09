@@ -6,7 +6,8 @@
 - [AGENTS.md](AGENTS.md): canonical rules for AI coding agents and humans
 
 ## Design
-- [Business requirements](docs/BRD.md): goals, scope, requirements (BR/FR/NFR), integration catalog, risks, decisions D1-D17
+- [Business requirements](docs/BRD.md): goals, scope, requirements (BR/FR/NFR), integration catalog, risks, decisions D1-D21
+- [MVP plan](docs/MVP.md): MVP scope, per-kind done gates, and delivery phases M1..M7
 - [High-level design](docs/HLD.md): components, data model, connector framework, pipelines, REST/MCP/events/webhooks, security, deployment, consumer contract, roadmap
 - [Communication matrix](docs/COMMATRIX.md): every network flow with ports, auth, and examples
 - [Prior art](docs/PRIOR_ART.md): integration designs of comparable security, DevOps, and platform projects; lessons PA-01..PA-41

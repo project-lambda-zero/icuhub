@@ -8,9 +8,9 @@
 | Inputs | Vendor API documentation, OpenAPI specifications, and vendor and open-source repositories (research 2026-11-07); `CONNECTOR_FRAMEWORK.md`; `BRD.md` section 11; `adr/0010-wave-1-connectors.md`; `HLD.md` section 5.1 |
 | Feeds | ROADMAP P5, P7, P8, P10 |
 
-This document defines, for 20 products, the vendor facts that shape an ICUHUB connector and the connector specification for each connector kind. It covers 22 kind IDs: GitHub, GitLab, Bitbucket, Jira, Confluence, and Invicti each split into separate kinds for edition-specific contracts, and Prisma Cloud and Qualys each carry two profiles under one kind.
+This document defines, for 21 products, the vendor facts that shape an ICUHUB connector and the connector specification for each connector kind. It covers 23 kind IDs: GitHub, GitLab, Bitbucket, Jira, Confluence, and Invicti each split into separate kinds for edition-specific contracts, and Prisma Cloud and Qualys each carry two profiles under one kind.
 
-Section numbers such as "5.3" refer to `CONNECTOR_FRAMEWORK.md`. Waves follow `BRD.md` section 11. Every kind listed here is `core` tier: maintainer-owned, with live acceptance against a vendor sandbox or test tenant before release (`CONNECTOR_FRAMEWORK.md` section 9); a kind without sandbox access cannot release as `core`, which is tracked in section 9 of this document. Facts in sections 3 to 8 cite primary sources; `[UNVERIFIED]` marks claims the research did not confirm.
+Section numbers such as "5.3" refer to `CONNECTOR_FRAMEWORK.md`. Waves follow `BRD.md` section 11. Every kind listed here is `core` tier: maintainer-owned, with live acceptance against a vendor sandbox or test tenant before release (`CONNECTOR_FRAMEWORK.md` section 9); a kind without sandbox access cannot release as `core`, which is tracked in section 9 of this document. Facts in sections 3 to 8 and 10 cite primary sources; `[UNVERIFIED]` marks claims the research did not confirm.
 
 ## 1. Summary
 
@@ -38,6 +38,7 @@ Section numbers such as "5.3" refer to `CONNECTOR_FRAMEWORK.md`. Waves follow `B
 | `tenable_vm` | Tenable Vulnerability Management (cloud) | Asynchronous vulnerability and asset exports, read-only | vulnerability_export (2002), asset_export (non-finding) | none | None; polling only | `X-ApiKeys` header with access and secret keys | 2 | core |
 | `tenable_sc` | Tenable Security Center (on-premises) | Cumulative and patched vulnerability analysis; alert and notification read | analysis_cumulative (2002), analysis_patched (2002, inferred), notifications (event) | none | None; polling only | `x-apikey` header; token and session mechanics `[UNVERIFIED]` | 2 | core |
 | `nessus` | Nessus (file and live export) | `.nessus` file parser primary; license-gated live scan export secondary | scan_runs (non-finding), export_findings (2002 and 2004) | none | None | `X-ApiKeys` for Manager and cloud; standalone key header `[UNVERIFIED]` | 2 | core |
+| `archer` | Archer GRC (on-premises and SaaS; Integrated Risk Management) | Vulnerability scan results, assessment findings, risks, exception and remediation workflow records, application and device inventory, attachments as evidence; plan/apply writes | vulnerability_scan_results (2002), assessment_findings (2003), risks, exception_requests, remediation_plans, applications_devices, vulnerability_library (non-finding), attachments (non-finding evidence), history, data_feed_runs | create_finding_or_exception, update_finding_or_exception, upload_attachment, execute_data_feed (write); delete_content (destructive, disabled by default) | None; polling and scheduled reconciliation | Session login (REST) or domain session (SOAP); dedicated identity; PAT not assumed `[UNVERIFIED]` | 1 | core |
 
 ## 2. Cross-vendor patterns
 
@@ -1730,3 +1731,160 @@ Top risks:
 - Nessus: official schema documentation URL for the .nessus format; structure taken from DefectDojo (Nessus (scan export and .nessus file format) / 7. Data and natural OCSF 1.9.0 mapping)
 - Nessus: fingerprint inputs for the `scan_runs` stream are not sourced (Nessus (scan export and .nessus file format) / Proposed ICUHUB connector)
 - Nessus: OCSF class for scan-run records is not sourced; classified non-finding by ICUHUB rule (Nessus (scan export and .nessus file format) / Proposed ICUHUB connector)
+- Archer: SaaS personal access token endpoint, header, expiry, and backward compatibility (Archer GRC / Facts, Authentication and scopes)
+- Archer: universal API sunset dates and mapping of release trains to REST, Content API, and SOAP behavior (Archer GRC / Facts, Editions)
+- Archer: numeric rate limits and a standard `Retry-After` contract (Archer GRC / Facts, Rate limits and pagination)
+- Archer: generic signed outbound notification schema, HMAC header, delivery ID, and retry schedule (Archer GRC / Facts, Webhooks)
+- Archer: official MCP server (Archer GRC / Facts, MCP server and SDKs)
+- Archer: source license of the NuGet `RSA.Archer.Api.Client` package and of the community `rsa_archer` package (Archer GRC / Facts, MCP server and SDKs)
+- Archer: custom role names that grant each read and write probe in the scope table, which vary by release and tenant (Archer GRC / Capability scopes)
+- Archer: whether the `history` endpoint exposes a monotonic history ID across installations (Archer GRC / Connector spec)
+
+## 10. Archer GRC
+
+Archer GRC (RSA Archer; Archer Integrated Risk Management) runs on-premises and as SaaS. Its applications, levels, fields, and values lists are configured per installation, so this subsection defines `archer` as a metadata-driven connector: numeric IDs are resolved at runtime and never hardcoded. The subsection defines native REST synchronization with a SOAP search fallback, attachments as evidence, and plan/apply writes with explicit preconditions.
+
+### Archer GRC
+
+#### Facts
+
+| Topic | Fact |
+|---|---|
+| Editions and API versions and sunsets | Archer documents separate on-premises and SaaS release trains. The 2024.11 on-premises notes say updates are cumulative and describe the 6.x upgrade lineage. The 2025 SaaS notes show separate non-production and production rollouts. The REST base changed from `/api/` to `/platformapi/` in release 6.5. This subsection uses the 2025.04 REST, Content API, SOAP, and data-feed documentation as a baseline, with target-version probing rather than assuming feature parity. Universal API sunset dates were not found `[UNVERIFIED]`. [On-premises releases](https://help.archerirm.cloud/archerreleasenotes/content/rnhome/2024/2024_11_onprem.htm), [SaaS releases](https://help.archerirm.cloud/archerreleasenotes/content/rnhome/2025/archer_releases_saas_2025.htm), [REST usage](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/starting.htm). |
+| Authentication and scopes | Baseline REST login is `POST /platformapi/core/security/login` with instance, username, domain where needed, and password. The response contains `RequestedObject.SessionToken`; later calls use `Authorization: Archer session-id="<token>"`. Refresh with single-flight locking and retry a safe read once after 401. SOAP uses `CreateUserSessionFromInstance` or the domain variant on `/ws/general.asmx`; `CreateUserSession` is disabled. Archer SaaS 2025.10 introduced PATs, but the PAT endpoint, header, expiry, and backwards compatibility are `[UNVERIFIED]`, so PATs do not replace the baseline flow. Use a dedicated identity because the official API test-tool notes warn that simultaneous login by the same user can terminate an existing session. [REST authentication](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/segmentsresources/authentication.htm), [supported SOAP login](https://help.archerirm.cloud/api_2025_04/content/api/webapi/createusersessionfrominstance.htm), [disabled SOAP login](https://help.archerirm.cloud/api_2025_04/content/api/webapi/createusersession.htm), [API test utility](https://help.archerirm.cloud/exchange/content/exchange/tools_utilities/api_testing.htm). |
+| Base URLs | Configure the Archer application root supplied by the operator. REST paths are `/platformapi/core/...`, Content API paths are `/contentapi/...`, and SOAP services are `/ws/<service>.asmx`. Do not hardcode `/RSAArcher`, an instance name, or a SaaS region into every installation. Content API discovery at `/contentapi/` returns permission-filtered level and cross-reference entity sets. [API overview](https://help.archerirm.cloud/platform_2025_04/en-us/content/api/archer_apis_platform.htm), [Content API discovery](https://help.archerirm.cloud/api_2024_06/en-us/content/api/contentapi/contentapi_get_endpoints.htm), [SOAP access](https://help.archerirm.cloud/api_2025_04/content/api/webapi/access_web_services_api.htm). |
+| Rate limits and pagination | Many REST reads are `POST` with `X-Http-Method-Override: GET`; this does not make real POST writes idempotent. OData queries are passed in the request body and use `$top`, `$skip`, `$select`, and `$orderby`. A configurable server-side maximum page size can cap the requested `$top`. No universal numeric API rate limit or standard `Retry-After` contract was established `[UNVERIFIED]`. Use bounded pages, low initial concurrency, and adaptive backoff. [OData](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/odata.htm). |
+| Incremental support | Use a configured Date or Last Updated field plus `Content.Id` as the durable `time_id` tie-breaker, ascending, with bounded overlap. SOAP `ExecuteSearch` supports search XML, `PageSize`, and a separate `pageNumber`; these are request state only. Full snapshots per application/level are required for absence closure. The source does not provide a universal signed change feed. XSOAR demonstrates timestamp polling, but its request hardcodes `PageNumber` 1 and `MaxRecordCount`, so its fetch is not a complete-pagination model to copy. [ExecuteSearch](https://help.archerirm.cloud/api_2025_04/content/api/webapi/executesearch.htm), [XSOAR implementation](https://raw.githubusercontent.com/demisto/content/master/Packs/ArcherRSA/Integrations/ArcherV2/ArcherV2.py). |
+| Webhooks (header, algorithm) | Initial declaration is `none`. Archer notifications can be queued on record save, schedules, workflow stage changes, or filtered record searches and delivered through configured channels. No generic signed outbound JSON webhook, HMAC header, delivery ID, or retry contract was established `[UNVERIFIED]`. A notification integration may trigger a targeted poll, never direct finding acceptance or closure. [Notifications](https://help.archerirm.cloud/platform_2025_04/en-us/content/platform/notifications/note_basics.htm). |
+| MCP server and SDKs | No official Archer MCP server was confirmed `[UNVERIFIED]`. Do not make an unreviewed community MCP server a synchronization dependency. The NuGet `RSA.Archer.Api.Client` package was located, but no source or license was established `[UNVERIFIED]`, so it is not a reuse baseline. The useful opened implementations are XSOAR ArcherV2 (MIT), pyarcher (MIT), and Splunk SOAR Archer (Apache-2.0). The community `rsa_archer` package ([repository](https://github.com/aleksei-aikashev/rsa_archer)) was located and its repository page opened, but its LICENSE text was not confirmed; package metadata reports MIT `[UNVERIFIED for source text]`, and it is not a reuse baseline. Native HTTP remains authoritative. |
+| Comparable open-source integrations | [XSOAR ArcherV2](https://raw.githubusercontent.com/demisto/content/master/Packs/ArcherRSA/Integrations/ArcherV2/ArcherV2.py) caches level/field/value-list metadata, refreshes REST sessions after 401, regenerates SOAP tokens after bounded 500 responses, maps numeric field IDs to names, and polls a configured date field. [pyarcher](https://raw.githubusercontent.com/kylecribbs/pyarcher/master/pyarcher/base.py) shows `/api`, `/platformapi`, and `/contentapi` URL separation, but has incomplete methods and no robust refresh loop. [Splunk SOAR Archer](https://raw.githubusercontent.com/splunk-soar-connectors/archer/main/archer_connector.py) provides another polling and action surface. Copy the metadata and reconciliation ideas, not unbounded recursion, empty-on-error behavior, or timestamp-only checkpoints. |
+| Gotchas | Application, level, field, values-list, and cross-reference IDs are installation-specific. `FieldContents` is keyed by numeric field ID and typed by field metadata. `PUT /platformapi/core/content` requires the current `Version` for optimistic concurrency. Creating an existing record or updating a nonexistent record can return 403. Content API rejects a no-change update with HTTP 400. REST, SOAP, and data feeds can modify records locked in the UI. REST writes and workflow can have side effects beyond the submitted fields. [Content and attachments](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/segmentsresources/content.htm), [Content API behavior](https://help.archerirm.cloud/platform_2025_04/en-us/content/api/contentapi/contentapi_get_endpoints.htm). |
+
+#### Domain mapping
+
+Use configured application aliases, then resolve actual module, level, field, values-list, and cross-reference IDs at runtime. Cache by Archer instance plus application/level identity and refresh on schema drift or unknown IDs.
+
+- IT Security Vulnerabilities: Vulnerability Scan Results, Vulnerability Tickets, Devices, Applications, Vulnerability Library, Findings, Exception Requests, Remediation Plans, and Vulnerability Historical Data. A Vulnerability Scan Result maps to Vulnerability Finding 2002 only when configured fields contain actual vulnerability evidence. Assessment Findings map to Compliance Finding 2003. [Application model](https://help.archerirm.cloud/itsecrisk_itsecvuln_692/en-us/Content/Solutions/ITSecRisk/itsrm_vulnmgt_design.htm).
+- Issues Management: Finding, Remediation Plan, Remediation Plan Status Update, and Exception Request remain distinct records. Do not collapse an exception or remediation ticket into the finding itself. [Issues model](https://help.archerirm.cloud/archersolutions/en-us/Content/ArcherSolutions/issues_management.htm).
+- Risk Management: Risks, Controls, Risk Hierarchy, Risk Snapshot, Loss Events, Metrics, and Metric Results remain typed GRC or metrics records. They are not automatically OCSF findings. [Risk model](https://help.archerirm.cloud/archersolutions/en-us/Content/ArcherSolutions/risk%5Fmanagement.htm).
+- ITSRM integration guidance recommends summary metrics, threshold signals, and control-effectiveness evidence over copying every raw vulnerability into Archer. ICUHUB should ingest configured detail where needed but should offer aggregate metrics as a first-class outbound pattern. [Integration guidance](https://help.archerirm.cloud/archersolutions/en-us/Content/ArcherSolutions/itsrm_integration_guide.htm).
+
+#### Connection configuration
+
+| Field | Type | Rule |
+|---|---|---|
+| `base_url` | URL | Operator-supplied application root; HTTPS; CA configuration without skip-verify defaults |
+| `instance_name` | string | Required for session login and SOAP `CreateUserSessionFromInstance` |
+| `auth_mode` | enum | `session` (REST `security/login`) or `domain_session` (SOAP domain variant) |
+| `user` | string | Dedicated identity; simultaneous login by the same user is not assumed safe |
+| `password` | SecretRef | Never stored in plain config |
+| `user_domain` | string, optional | Required when the instance authenticates by domain |
+| `record_type_map` | per connection | Application IDs, level IDs, and field IDs per logical type, resolved and verified at connection probe |
+| `write_enabled` | bool | Default `false`; enables `create`, `update`, `upload`, and `execute` actions |
+| `destructive_enabled` | bool | Default `false`; enables `delete_content` only |
+
+#### Connector spec
+
+| Stream | OCSF class or record type | Cursor kind | Modes | Source record ID | Fingerprint inputs | AssetRef form |
+|---|---|---|---|---|---|---|
+| `vulnerability_scan_results` | Vulnerability Finding (2002) | `time_id` incremental; `snapshot` full | `incremental`, `full` | `Content.Id`; retain `LevelId`, `Version`, `LastUpdated` | Mapping version + application/level + vulnerability/library/CVE key + device or application + port/plugin/source key; exclude severity, status, Version | Related Device or Application content identity; fallback `archer_content:<connection>/<level-id>/<content-id>` |
+| `assessment_findings` | Compliance Finding (2003) | `time_id`; `snapshot` | `incremental`, `full` | `Content.Id` | Mapping version + assessment/control/rule identity + assessed target + source native key; exclude workflow state | Assessed system, control, application, or device reference |
+| `risks` | Non-finding GRC risk | `time_id`; `snapshot` | `incremental`, `full` | `Content.Id` | Not fingerprint-sourced | Risk content plus related business unit, system, and controls |
+| `exception_requests` | Non-finding exception/workflow | `time_id`; `snapshot` | `incremental`, `full` | `Content.Id` | Not fingerprint-sourced; link to finding by cross-reference IDs | Exception content and linked finding/assets |
+| `remediation_plans` | Non-finding remediation/work item | `time_id`; `snapshot` | `incremental`, `full` | `Content.Id` | Not fingerprint-sourced; status updates remain child records | Remediation content and linked findings |
+| `applications_devices` | Non-finding inventory | `time_id`; `snapshot` | `incremental`, `full` | `Content.Id` | Not fingerprint-sourced | Application or Device content identity plus configured external asset key |
+| `vulnerability_library` | Non-finding vulnerability intelligence | `time_id`; `snapshot` | `incremental`, `full` | `Content.Id` | Not finding fingerprint input by itself | CVE/plugin/reference identity and linked technologies |
+| `attachments` | Non-finding evidence | `snapshot`; parent `time_id` for discovery | `full`, targeted read | Attachment ID and owning `Content.Id` | Not fingerprint-sourced; hash bytes for evidence identity | Owning content record; evidence SHA-256 |
+| `history` | Non-finding audit/history | `snapshot`; optional parent `time_id` | `full`, targeted read | Parent content ID plus history entry identity supplied by the target | Not fingerprint-sourced | Parent content identity; no universal monotonic history ID assumed |
+| `data_feed_runs` | Non-finding integration execution | `snapshot` | `full`, targeted read | Data-feed history ID and DataFeedGuid | Not fingerprint-sourced | DataFeedGuid and history ID |
+
+Cursor rules:
+
+- Partition each stream by connection, configured application, level, saved-search/filter, and any record-permission scope. Persist the selected date-field ID and ascending content-ID tie-breaker with `time_id`. Re-read an overlap and dedupe on `(Content.Id, Version)` while retaining every changed version required by the event model.
+- A full snapshot enumerates every page for every configured level/filter. `$skip` or SOAP `pageNumber` stays inside that snapshot. Any inaccessible record, failed values-list expansion, or page error makes only the affected partition incomplete, but never treats it as empty.
+- Attachments are bounded evidence downloads linked to a successfully committed parent record. Do not let a large or failed attachment invalidate already committed finding identity; mark its evidence incomplete and keep snapshot closure disabled until the declared evidence policy is satisfied.
+
+#### Read operations
+
+| Operation | Endpoint | Notes |
+|---|---|---|
+| `get_version` | `POST /platformapi/core/system/applicationinfo/version` with `X-Http-Method-Override: GET` | Record target release before selecting API behavior |
+| `list_applications` | `POST /platformapi/core/system/application` with override GET | Resolve configured application aliases to module IDs and GUIDs |
+| `list_levels` | `POST /platformapi/core/system/level/module/{applicationId}` with override GET | Discover levels and do not assume the first level is the intended one |
+| `list_fields` | `POST /platformapi/core/system/fielddefinition/level/{levelId}` with override GET | Cache numeric IDs, names, aliases, types, required flags, and related values-list IDs |
+| `list_values` | `POST /platformapi/core/system/valueslistvalue/valueslist/{valuesListId}` with override GET | Preserve hierarchy, selectable state, ID, and display name; cache by field and depth |
+| `discover_content_api` | `GET /contentapi/` | Optional permission-filtered level and cross-reference discovery |
+| `search_content` | `POST /ws/search.asmx`, `ExecuteSearch` | Supported Read privilege; XML search plus `PageSize` and `pageNumber`; sort by configured date field and content ID where supported |
+| `get_content` | `POST /platformapi/core/content/contentid?id=<contentId>` with override GET | Read typed fields, `Version`, `LastUpdated`, and identity locators |
+| `get_record_soap` | `POST /ws/record.asmx`, `GetRecordById` | Fallback when a target workflow requires record XML; parse with hardened XML limits |
+| `get_history` | `POST /platformapi/core/content/history/{contentId}` with override GET | Optional history/audit enrichment; no global sequence assumed |
+| `get_attachment` | `POST /platformapi/core/content/attachment/{attachmentId}` with override GET | Stream bytes with size limits and SHA-256; do not log contents |
+| `get_data_feed_history` | `POST /platformapi/core/datafeed/history` with override GET | Reconcile run status, created/updated/deleted counts, and history messages |
+
+Primary references for these operations: [applications and version](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/segmentsresources/metadata_application.htm), [levels](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/segmentsresources/metadata_level.htm), [fields](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/segmentsresources/metadata_field.htm), [values lists](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/segmentsresources/metadata_values_list.htm), [content](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/segmentsresources/content.htm), [record XML](https://help.archerirm.cloud/api_2025_04/content/api/webapi/getrecordbyid.htm), and [data feeds](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/segmentsresources/data_feed.htm).
+
+#### Actions
+
+| Action | Classification | Idempotency | Precondition and reconciliation |
+|---|---|---|---|
+| `create_finding_or_exception` | write | `natural_key`: connection + level + configured external correlation field value | Resolve required fields and values-list IDs; search for an existing natural key before `POST /platformapi/core/content`; read back the created content. Timeout becomes `outcome_unknown` and repeats the natural-key search before any retry. |
+| `update_finding_or_exception` | write | `natural_key`: content ID + expected Version + exact typed field-diff hash | Plan from current content. `PUT /platformapi/core/content` carries `Content.Id`, `LevelId`, only intended `FieldContents`, and current `Version`; 409/403 or a changed version becomes `stale_plan`. No-change plans do not call the API. Read back every mapped field. |
+| `upload_attachment` | write | `natural_key`: content ID + field ID + evidence SHA-256 | Upload through `/content/attachment` or `/content/multipartattachment`, then associate the returned attachment ID through a versioned content update. Preserve existing attachment IDs, verify the association and downloadable hash, and reconcile an orphaned upload explicitly. |
+| `execute_data_feed` | write | `natural_key`: DataFeedGuid + approved plan hash; no native idempotency assumed | `POST /platformapi/core/datafeed/execution` with `DataFeedGuid` and explicit `IsReferenceFeedsIncluded`. Persist before send, never blind-retry, and reconcile through recent/run history and history messages. |
+| `delete_content` | destructive | none | Read current content, require explicit approval and expected identity/version at planning and immediately before deletion. The delete API has no documented generic idempotency token. Never retry an ambiguous delete; reconcile by content ID and report `outcome_unknown` until absence is proven. |
+
+#### Notifications
+
+| Field | Value |
+|---|---|
+| scheme | `none` initially |
+| header | `none`; no generic signed notification header was established |
+| dedupe key | Not applicable initially; a later notification adapter uses connection + raw-body digest + notification timestamp only as a wake-up hint |
+| replay protection | Not applicable initially; durable poll checkpoints and content versions provide reconciliation |
+| known gaps | Generic outbound JSON schema, HMAC, delivery ID, retry schedule, and notification completeness `[UNVERIFIED]` |
+
+#### Capability scopes
+
+| Capability | Scope or permission and probe |
+|---|---|
+| Version and application discovery | Independent probe of version, application, level, and field metadata reads |
+| Content reads | Read privilege per configured application/level and record-permission scope; verify saved-search and direct content read separately |
+| Values-list and cross-reference reads | Separate metadata probes; a denied expansion degrades mapping rather than dropping the value |
+| Attachment evidence | Attachment read permission and a bounded test download, separately from content read |
+| Finding/exception create and update | Separate create and update probes on write-enabled connections; do not infer one from the other |
+| Attachment upload and association | Attachment create plus content update, with a non-production test record |
+| Data-feed execution and history | Data-feed run permission plus independent history-read permission |
+| Delete content | Delete permission only on explicitly destructive-enabled connections |
+
+#### Top risks
+
+- Hardcoded example field or level IDs silently map the wrong data. Dynamic metadata and typed contract tests are mandatory.
+- Timestamp-only polling can skip records sharing a timestamp or records beyond a capped first page. Use ID tie-breakers, overlap, and complete pagination.
+- Partial record permissions can look like an empty application. A 403 or omitted permission-filtered entity is degraded coverage, never closure.
+- UI locks do not prevent API writes. Optimistic `Version`, exact diffs, and read-back are the defense against lost updates and workflow side effects.
+- SOAP XML and attachment bodies require parser and size limits. Do not copy legacy unbounded retry or insecure XML patterns.
+- Data feeds and content saves can trigger workflows and referenced feeds. The plan must disclose those effects and reconcile history.
+- Session refresh storms can terminate other sessions for the same identity. Use a dedicated account and single-flight refresh.
+
+#### Recommended ICUHUB recipe
+
+| Area | Required implementation |
+|---|---|
+| Connector and authentication | `archer`, operator-supplied base URL, REST session login with single-flight 401 refresh, optional SOAP `CreateUserSessionFromInstance`, dedicated identity, and CA configuration without skip-verify defaults. |
+| Streams and cursors | Enable `vulnerability_scan_results` 2002, `assessment_findings` 2003, `risks`, `exception_requests`, `remediation_plans`, `applications_devices`, `attachments`, and optional `vulnerability_library`, `history`, and `data_feed_runs`. Use configured Last Updated + Content.Id `time_id` with overlap for discovery and per-level `snapshot` runs for closure. |
+| Read operations | Implement version, applications, levels, fields, values lists, content search/get, attachment get, optional history, and data-feed history before enabling any write. |
+| Actions | Start with `create_finding_or_exception`, `update_finding_or_exception`, and `upload_attachment` as `write`; add `execute_data_feed` only with run-history reconciliation; keep `delete_content` `destructive` and disabled by default. |
+| Scopes | Probe application/level read, content read, create, update, attachment read, attachment write, data-feed run, and delete independently. Missing permission produces `not_evaluated` for that capability. |
+| Notifications | Declare `none`. Optionally accept a separately authenticated notification as a wake-up signal for targeted search, never as a complete feed. |
+| Principal risks | Metadata drift, partial record permissions, capped or skipped SOAP pages, timestamp ties, UI-locked record writes, workflow side effects, session refresh races, and large evidence. |
+| Build order | First metadata discovery and read-only mappings, then full snapshot closure and HTTP cassettes, then versioned writes and attachments, and only then data-feed execution or destructive actions. |
+
+Fixtures and reusable evidence:
+
+| Fixture or code source | Use | License |
+|---|---|---|
+| [XSOAR ArcherV2 tests](https://raw.githubusercontent.com/demisto/content/master/Packs/ArcherRSA/Integrations/ArcherV2/ArcherV2_test.py) | Inline login, level/field, nested values-list, SOAP token, search, and attachment-association cases. Add new cases for SOAP fault bodies, page 2, equal timestamps, version conflict, and partial permissions. | MIT, [license](https://raw.githubusercontent.com/demisto/content/master/LICENSE) |
+| [Official get-content JSON](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/segmentsresources/json_examples/get-content-by-id.txt) | Vendor-shaped `FieldContents`, `LastUpdated`, `Version`, identity, and update metadata reference. Replace all example IDs with synthetic connection-local mappings. | Vendor documentation, no open-source reuse license established; schema reference only |
+| [Official create-content JSON](https://help.archerirm.cloud/api_2025_04/content/api/restfulapi/segmentsresources/json_examples/post_content_request_body.txt) | Request-shape reference only. The opened example contains malformed quoting/commas; correct and sanitize it before JSON use and record that provenance. | Vendor documentation, no open-source reuse license established; do not treat the malformed sample as a golden without repair |
+| [pyarcher client](https://raw.githubusercontent.com/kylecribbs/pyarcher/master/pyarcher/base.py) | URL-family and metadata ideas only; do not inherit its incomplete refresh, unchecked login, or legacy defaults. | MIT, [license](https://raw.githubusercontent.com/kylecribbs/pyarcher/master/LICENSE) |
+| [Splunk SOAR Archer connector](https://raw.githubusercontent.com/splunk-soar-connectors/archer/main/archer_connector.py) | Additional action and polling contract cases; bound all retries in ICUHUB. | Apache-2.0, [license](https://raw.githubusercontent.com/splunk-soar-connectors/archer/main/LICENSE) |

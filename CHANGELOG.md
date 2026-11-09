@@ -22,6 +22,10 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Coverage gap analysis of the vendor connector specs against open-source integration platforms, with 192 vendor gaps and 25 platform-level gaps (`docs/COVERAGE_GAPS.md`).
 - Per-vendor API facts and connector specifications for GitHub, GitLab, Bitbucket, Jira, Confluence, Kubernetes, OpenShift, Prisma Cloud, Fortify SSC and on Demand, Invicti, Mend, Qualys, Tenable, and Nessus (`docs/VENDOR_CONNECTORS.md`); `KnowledgeBase` capability and FR-KB-01..03; COMMATRIX F-122..123 and F-226..229.
 - ADR-0017..0019 closing decisions D15-D17 (generated connector manifests, first-party in-process connectors, JMESPath extraction in mappers); `OPTIONS.md` section 17.
+- Archer GRC (`archer`) API facts, connector specification, and capability scopes in `docs/VENDOR_CONNECTORS.md` section 10, with the summary row and open questions.
+- MVP plan defining MVP scope, per-kind done gates, and delivery phases M1..M7 (`docs/MVP.md`).
+- ADR-0020 (MVP scope) and ADR-0021 (service stack dependencies) recording the MVP scope and service stack decisions (`docs/adr/`).
+- BRD v0.4: decisions D18..D21, FR-COR-01..05, and FR-GRC-01..04.
 
 ### Changed
 

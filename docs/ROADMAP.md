@@ -70,6 +70,20 @@ flowchart TB
 | P9 | Governed fetch, MCP governance, vuln-intel mirror | ADR-0012 | FR-FET-*, FR-MCPG-*, FR-FEED-* |
 | P10 | Scale and hardening | -- | FR-ING-01..03, FR-AUD-03, NFR-02, 05, 10, 13, 14 |
 
+### 2.1 MVP track
+
+The MVP track covers the 16 vendor kinds plus `f5_bigip`, `google_threat_intelligence`, and the SMTP notifier, as defined by `ADR-0020`. See [docs/MVP.md](MVP.md) for detail.
+
+| Phase | Name | Exit criterion |
+|---|---|---|
+| M1 | Write (planning docs) | MVP planning documents are written and linked. |
+| M2 | Kit (`icuhub.kit`) | The connector kit meets the planned `icuhub.kit` contract and acceptance checks. |
+| M3 | Core runtime (storage with RLS, credential broker, policy, actions with approvals, audit, queue, sync engine, webhook ingress, file import, outbox with Kafka relay, REST `/v1`, MCP `/mcp`, SMTP notifier) | The listed runtime surfaces meet their planned acceptance criteria. |
+| M4 | Connectors (one task per kind family) | Each connector kind family has its planned task and acceptance evidence. |
+| M5 | Cross-vendor flows F1..F7 | F1..F7 meet their planned cross-vendor flow criteria. |
+| M6 | Acceptance and release (offline E2E smoke; operator live acceptance with `ICUHUB_ACC=1`; release 0.0.2) | Offline E2E smoke passes; the operator completes live acceptance with `ICUHUB_ACC=1`; release 0.0.2 is ready. |
+| M7 | Post-MVP backlog | Remaining work is recorded in the post-MVP backlog. |
+
 ## 3. Phases
 
 ### P0 -- Decisions, skeleton, CI
@@ -155,6 +169,8 @@ Exit: HLD example 16.3 runs with recorded vendor payloads; approvals notify appr
 Exit: fixture proofs pass; HLD examples 16.1 to 16.3 run against vendor sandboxes where
 available.
 
+- MVP track: maps to M4 Connectors and M5 Cross-vendor flows F1..F7 (section 2.1). The MVP track brings `github`, `github_enterprise_server`, `gitlab`, `gitlab_self_managed`, `jira_cloud`, `jira_dc`, `f5_bigip`, and `google_threat_intelligence` with the ticket-routing flows into MVP scope.
+
 ### P6 -- AILA consumer
 
 | Step | Content |
@@ -196,6 +212,8 @@ re-run.
 Exit: every in-scope AppSec middleware row has a parity fixture and a live mapping; the
 rewrite of that consumer can start against ICUHUB only.
 
+- MVP track: maps to M4 Connectors and M5 Cross-vendor flows F1..F7 (section 2.1). The MVP track brings `fortify_ssc`, `fortify_fod`, `nessus`, `mend_sca`, `invicti_enterprise`, `invicti_standard`, `kubernetes`, `openshift`, `prisma_cloud`, and `archer` into MVP scope; kinds named in this phase that are not in the MVP vendor list (for example `tenable_vm`, `tenable_sc`, `confluence_cloud`) fall under M7 Post-MVP backlog.
+
 ### P9 -- Governed fetch, MCP governance, vulnerability-intelligence mirror
 
 | Step | Content |
@@ -222,7 +240,9 @@ mirror passes parity fixtures against AILA's current clients.
 Exit: installed on OpenShift restricted SCC; failover and restore rehearsed with recorded
 results.
 
+- MVP track: maps to M6 Acceptance and release and M7 Post-MVP backlog (section 2.1). The MVP track covers the offline E2E smoke, operator live acceptance with `ICUHUB_ACC=1`, and release 0.0.2 under M6; the collector, wave-3, HA, and hardening items of this phase are not in MVP scope and fall under M7.
+
 ## 4. Decisions
 
-D1..D17 are closed (BRD section 18, ADR-0004..0019). They no longer gate any phase. A
-decision opened later (D18 onward) is added here with the phase it blocks.
+D1..D21 are closed (BRD section 18, ADR-0004..0021). They no longer gate any phase. A
+decision opened later (D22 onward) is added here with the phase it blocks.
