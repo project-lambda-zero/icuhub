@@ -8,6 +8,9 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Core runtime: typed policy decisions, plan/approve/apply actions with SoD and stale-plan rejection, correlation cases, sync engine with target discovery and per-target checkpoints, ticket routing with echo suppression, verified webhook ingress with rotation windows, SMTP approval notifications, worker queues and scheduler, outbox relay, and system-lookup migrations.
+- REST `/v1` surface with service-account/OIDC auth, connector catalog, operations, actions, sync, report upload, approvals, policy, routes, webhooks, and audit verification; `/hooks/{endpoint_id}` ingress and MCP `/mcp`.
+- Connectors: `fortify_ssc`, `fortify_fod`, `jira_dc` (partial DoD completion in progress), `nessus` (scans, history exports, compliance, `.nessus` uploads), `f5_bigip` (inventory and Enforcer block/unblock), `google_threat_intelligence` (lookup), `smtp` (notification send).
 - Integration inventory of the existing consumer platforms with an ICUHUB disposition per integration (`docs/INTEGRATION_INVENTORY.md`).
 - Technology options per design concern with licenses, air-gap fit, and sources (`docs/OPTIONS.md`).
 - Delivery roadmap P0-P10; every phase runs as brainstorm, write, plan, implement, test (`docs/ROADMAP.md`).

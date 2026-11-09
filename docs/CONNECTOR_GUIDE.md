@@ -72,3 +72,14 @@ For each mapping:
 - Cite BRD/FR IDs and COMMATRIX flow IDs.
 - List anything not verified against current vendor documentation (ports, header names, paths, API versions).
 - `CHANGELOG.md` entry under `Unreleased`.
+
+## 6. Runtime implementation rules (verified in this repository)
+
+- **Target scope**: `StreamSpec.requires_target` defaults to `True`. Connection-wide streams MUST declare `requires_target=False`. When a target-scoped stream runs without an explicit target, the sync engine calls `discover()` and executes once per discovered target, each with its own `stream_state`, `sync_run`, and checkpoint. Connectors without a `discover()` override run once with a null target.
+- **Target objects**: streams receive a kit `Target` (`source_uid`, `kind`, `display_name`, `attributes`), never the ORM row. `TargetRecord.attributes` is persisted as `target.attributes_json`.
+- **OCSF classes without shared models**: `icuhub_schemas` types only part of OCSF 1.9.0 (see GAP-SCHEMA-001). For every other class emit kit `SourceRecord` whose `data` is the full OCSF-shaped JSON including `class_uid`; never create connector-local OCSF model classes, because core treats non-`SourceRecord` mapper output as findings.
+- **Non-HTTP connectors**: set `uses_http = False` (for example SMTP). The runtime and `kit.testing.make_connector` then skip HTTP client creation; `self.http` raises if touched.
+- **Login calls inside an auth strategy**: use `VendorHttp.request(..., authenticate=False)`. This skips `_auth.apply` and the 401 refresh, so `SessionLogin` cannot deadlock on its own lock. It is only for the strategy's login request.
+- **Replay**: `replay` is a core raw-batch operation, not a stream mode. Declare only `incremental` and/or `full` in `modes`.
+- **Test module names**: pytest imports test files by basename. `tests/connectors/<kind>/test_<x>.py` and `tests/acceptance/test_<x>.py` collide when the basenames match, so connector test files use `test_<kind>_connector.py`, `test_<kind>_actions.py`, and similar distinct names.
+- **Gap log**: implementation unknowns and live-only checks go to `docs/IMPLEMENTATION_GAPS.md` (append-only IDs). Missing required implementation is not a gap; finish it.
