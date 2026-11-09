@@ -139,3 +139,25 @@ def test_import_dedupe_and_parse(tmp_path: Any, clean_database: None) -> None:
             assert stored.counts_json["findings"] == 2
 
     asyncio.run(scenario())
+
+
+def test_target_discovery_runs_each_target(tmp_path: Any, clean_database: None) -> None:
+    async def scenario() -> None:
+        from icuhub.storage.models import SyncRun, Target
+
+        state: dict[str, Any] = {"issues": [], "findings": []}
+        services, tenant_id, connection = await _setup(tmp_path, state)
+        async with session_scope(tenant_id) as session:
+            result = await run_sync_job(_payload(tenant_id, connection).copy() | {"stream": "targeted_findings", "mode": "full"})
+            assert result["outcome"] == "succeeded", result
+            assert result["findings"] == 2
+            targets = (await session.execute(select(Target))).scalars().all()
+            assert {t.source_uid for t in targets} == {"proj-1", "proj-2"}
+            runs = (await session.execute(select(SyncRun))).scalars().all()
+            assert len(runs) == 2
+            states = (await session.execute(select(StreamState))).scalars().all()
+            assert len(states) == 2
+            uids = {f.source_uid for f in (await session.execute(select(Finding))).scalars().all()}
+            assert uids == {"proj-1-finding", "proj-2-finding"}
+
+    asyncio.run(scenario())

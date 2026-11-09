@@ -120,6 +120,7 @@ class _SampleBase(Connector):
 
     async def discover(self) -> AsyncIterator[TargetRecord]:
         yield TargetRecord(source_uid="proj-1", kind="project", display_name="Project One")
+        yield TargetRecord(source_uid="proj-2", kind="project", display_name="Project Two")
 
     def webhook_verifier(self, secret: bytes) -> WebhookVerifier | None:
         return HmacSignature("x-sample-signature", secret, id_header="x-sample-delivery", event_header="x-sample-event")
@@ -128,7 +129,7 @@ class _SampleBase(Connector):
     def parse_issue(self, delivery: WebhookDelivery) -> Any:
         yield StreamRecord(stream="tickets", raw=json.loads(delivery.body))
 
-    @stream("findings", ocsf_class=2002, cursor=TimeIdCursor, modes=("incremental", "full"), capability="FindingSource")
+    @stream("findings", ocsf_class=2002, cursor=TimeIdCursor, modes=("incremental", "full"), capability="FindingSource", requires_target=False)
     async def findings(self, target: Any, checkpoint: TimeIdCursor | None, mode: str) -> AsyncIterator[RawBatch]:
         result = await self.http.request("GET", "/api/findings")
         records = result.json()["items"]
@@ -145,7 +146,29 @@ class _SampleBase(Connector):
     def map_finding(self, raw: dict[str, Any], ctx: MapContext) -> list[Any]:
         return [_finding(raw, ctx)]
 
-    @stream("tickets", record_type="ticket", cursor=TimeIdCursor, modes=("incremental",), capability="Tracker")
+    @stream(
+        "targeted_findings",
+        ocsf_class=2002,
+        cursor=TimeIdCursor,
+        modes=("full",),
+        capability="FindingSource",
+        requires_target=True,
+    )
+    async def targeted_findings(self, target: Any, checkpoint: TimeIdCursor | None, mode: str) -> AsyncIterator[RawBatch]:
+        raw = {
+            "uid": f"{target.source_uid}-finding",
+            "cve": _CVE,
+            "purl": _PURL,
+            "updated": 1_700_000_000_000,
+            "title": f"finding for {target.source_uid}",
+        }
+        yield RawBatch(records=[raw], checkpoint=checkpoint or TimeIdCursor(ts=None), complete=True)
+
+    @mapper("targeted_findings", version=1)
+    def map_targeted_finding(self, raw: dict[str, Any], ctx: MapContext) -> list[Any]:
+        return [_finding(raw, ctx)]
+
+    @stream("tickets", record_type="ticket", cursor=TimeIdCursor, modes=("incremental",), capability="Tracker", requires_target=False)
     async def tickets(self, target: Any, checkpoint: TimeIdCursor | None, mode: str) -> AsyncIterator[RawBatch]:
         result = await self.http.request("GET", "/api/tickets")
         yield RawBatch(records=result.json()["items"], checkpoint=checkpoint or TimeIdCursor(ts=None))

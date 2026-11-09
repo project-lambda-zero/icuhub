@@ -256,7 +256,7 @@ class Nessus(Connector):
             output_bounded=bounded,
         )
 
-    @stream("scan_runs", record_type="scan_run", cursor=TimeIdCursor, modes=("incremental", "full"), capability="FindingSource")
+    @stream("scan_runs", record_type="scan_run", cursor=TimeIdCursor, modes=("incremental", "full"), capability="FindingSource", requires_target=False)
     async def scan_runs(self, target: Any, checkpoint: TimeIdCursor | None, mode: str) -> AsyncIterator[RawBatch]:
         cursor = checkpoint or TimeIdCursor(ts=None)
         scans = await self.list_scans(ListScansArgs())

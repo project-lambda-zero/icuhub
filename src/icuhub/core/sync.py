@@ -408,8 +408,149 @@ async def _resolve_absent(
     return "complete"
 
 
+async def _discover_targets(session: AsyncSession, connection: Connection, connector: Connector) -> list[TargetRow]:
+    """Refresh the connection's target inventory from connector discovery."""
+    rows: list[TargetRow] = []
+    async for record in connector.discover():
+        row = (
+            await session.execute(
+                select(TargetRow).where(
+                    TargetRow.connection_id == connection.id, TargetRow.source_uid == record.source_uid
+                )
+            )
+        ).scalar_one_or_none()
+        if row is None:
+            row = TargetRow(
+                tenant_id=connection.tenant_id,
+                connection_id=connection.id,
+                source_uid=record.source_uid,
+                kind=record.kind,
+                display_name=record.display_name,
+                attributes_json=record.attributes,
+            )
+            session.add(row)
+        else:
+            row.kind = record.kind
+            row.display_name = record.display_name
+            row.attributes_json = record.attributes
+            row.missing_since = None
+        row.last_seen_at = datetime.now(UTC)
+        await session.flush()
+        if row.included and not row.paused:
+            rows.append(row)
+    return rows
+
+
+def _stream_target(row: TargetRow | None) -> Any:
+    if row is None:
+        return None
+    from icuhub.kit.types import Target  # noqa: PLC0415
+
+    return Target(
+        id=str(row.id),
+        source_uid=row.source_uid,
+        kind=row.kind,
+        display_name=row.display_name,
+        attributes=row.attributes_json or {},
+    )
+
+
+async def _run_stream_target(
+    session: AsyncSession,
+    *,
+    connection: Connection,
+    connector: Connector,
+    stream: str,
+    mode: str,
+    target_row: TargetRow | None,
+) -> dict[str, Any]:
+    """Run one stream for one target with its own stream state and sync run."""
+    spec = connector.streams()[stream]
+    target = _stream_target(target_row)
+    target_key = str(target_row.id) if target_row else ""
+    state = (
+        await session.execute(
+            select(StreamState).where(
+                StreamState.connection_id == connection.id,
+                StreamState.target_key == target_key,
+                StreamState.stream == stream,
+            )
+        )
+    ).scalar_one_or_none()
+    if state is None:
+        state = StreamState(
+            tenant_id=connection.tenant_id,
+            connection_id=connection.id,
+            target_id=target_row.id if target_row else None,
+            target_key=target_key,
+            stream=stream,
+        )
+        session.add(state)
+        await session.flush()
+    run = SyncRun(
+        tenant_id=connection.tenant_id,
+        stream_state_id=state.id,
+        connection_id=connection.id,
+        stream=stream,
+        mode=mode,
+    )
+    session.add(run)
+    await session.flush()
+    checkpoint = spec.cursor.model_validate(state.checkpoint_json) if state.checkpoint_json else None
+    version = state.version
+    totals = {"findings": 0, "records": 0, "quarantined": 0, "unchanged": 0}
+    seen: set[str] = set()
+    complete = False
+    try:
+        async for batch in getattr(connector, spec.fn.__name__)(target, checkpoint, mode):
+            result = await commit_batch(
+                session,
+                connection=connection,
+                connector=connector,
+                stream=stream,
+                records=batch.records,
+                origin="stream",
+                sync_run_id=run.id,
+                checkpoint=batch.checkpoint,
+                state=state,
+                expected_version=version,
+                target=target_row,
+            )
+            version = state.version
+            seen.update(result["seen_uids"])
+            for key in totals:
+                totals[key] += result[key]
+            complete = complete or batch.complete
+        if mode == "full" and complete:
+            outcome = await _resolve_absent(session, connection, stream, target_row, seen, run)
+            run.completeness = "complete" if outcome == "complete" else "partial"
+            if outcome == "complete":
+                state.last_full_at = datetime.now(UTC)
+        run.outcome = run.outcome if run.outcome == "held" else "succeeded"
+        run.completeness = "complete" if (mode == "full" and complete) else run.completeness
+        state.health = "degraded" if totals["quarantined"] else "healthy"
+        state.last_success_at = datetime.now(UTC)
+    except ConflictError:
+        run.outcome = "superseded"
+        run.error_class = "ConflictError"
+        state.health = "degraded"
+    except Exception as exc:  # noqa: BLE001 - failure class is recorded at this boundary
+        run.outcome = "failed"
+        run.error_class = type(exc).__name__
+        run.error_detail = str(exc)[:2000]
+        state.health = "degraded"
+    run.counts_json = totals
+    run.finished_at = datetime.now(UTC)
+    state.next_run_at = datetime.now(UTC) + timedelta(seconds=state.interval_s)
+    return {"outcome": run.outcome, **totals}
+
+
 async def run_sync_job(payload: dict[str, Any], lease: Any = None) -> dict[str, Any]:
-    """Worker handler for the ``sync`` job kind."""
+    """Worker handler for the ``sync`` job kind.
+
+    Target-scoped streams run once per discovered target when no explicit target is given;
+    every target gets its own stream state, sync run, and checkpoint.
+    """
     services = get_services()
     tenant_id = uuid.UUID(payload["tenant_id"])
     connection_id = uuid.UUID(payload["connection_id"])
@@ -420,85 +561,32 @@ async def run_sync_job(payload: dict[str, Any], lease: Any = None) -> dict[str, 
         connection = await session.get(Connection, connection_id)
         if connection is None:
             return {"skipped": True}
-        connector = await services.runtime.open(session, tenant_id, connection_id)
+        connector = await services.runtime.open(session, tenant_id, connection.id)
         spec = connector.streams()[stream]
         target = await session.get(TargetRow, target_id) if target_id else None
-        target_key = str(target_id) if target_id else ""
-        state = (
-            await session.execute(
-                select(StreamState).where(
-                    StreamState.connection_id == connection_id,
-                    StreamState.target_key == target_key,
-                    StreamState.stream == stream,
-                )
-            )
-        ).scalar_one_or_none()
-        if state is None:
-            state = StreamState(
-                tenant_id=tenant_id,
-                connection_id=connection_id,
-                target_id=target_id,
-                target_key=target_key,
-                stream=stream,
-            )
-            session.add(state)
-            await session.flush()
-        run = SyncRun(
-            tenant_id=tenant_id,
-            stream_state_id=state.id,
-            connection_id=connection_id,
-            stream=stream,
-            mode=mode,
-        )
-        session.add(run)
-        await session.flush()
-        checkpoint = spec.cursor.model_validate(state.checkpoint_json) if state.checkpoint_json else None
-        version = state.version
+        if spec.requires_target:
+            if target:
+                targets = [target]
+            elif type(connector).discover is not Connector.discover:
+                targets = await _discover_targets(session, connection, connector)
+            else:
+                # Connection-wide stream on a connector with no discovery surface.
+                targets = [None]
+        else:
+            targets = [None]
         totals = {"findings": 0, "records": 0, "quarantined": 0, "unchanged": 0}
-        seen: set[str] = set()
-        complete = False
-        try:
-            async for batch in getattr(connector, spec.fn.__name__)(target, checkpoint, mode):
-                result = await commit_batch(
-                    session,
-                    connection=connection,
-                    connector=connector,
-                    stream=stream,
-                    records=batch.records,
-                    origin="stream",
-                    sync_run_id=run.id,
-                    checkpoint=batch.checkpoint,
-                    state=state,
-                    expected_version=version,
-                    target=target,
-                )
-                version = state.version
-                seen.update(result["seen_uids"])
-                for key in totals:
-                    totals[key] += result[key]
-                complete = complete or batch.complete
-            if mode == "full" and complete:
-                outcome = await _resolve_absent(session, connection, stream, target, seen, run)
-                run.completeness = "complete" if outcome == "complete" else "partial"
-                if outcome == "complete":
-                    state.last_full_at = datetime.now(UTC)
-            run.outcome = run.outcome if run.outcome == "held" else "succeeded"
-            run.completeness = "complete" if (mode == "full" and complete) else run.completeness
-            state.health = "degraded" if totals["quarantined"] else "healthy"
-            state.last_success_at = datetime.now(UTC)
-        except ConflictError:
-            run.outcome = "superseded"
-            run.error_class = "ConflictError"
-            state.health = "degraded"
-        except Exception as exc:  # noqa: BLE001 - failure class is recorded at this boundary
-            run.outcome = "failed"
-            run.error_class = type(exc).__name__
-            run.error_detail = str(exc)[:2000]
-            state.health = "degraded"
-        run.counts_json = totals
-        run.finished_at = datetime.now(UTC)
-        state.next_run_at = datetime.now(UTC) + timedelta(seconds=state.interval_s)
-        return {"outcome": run.outcome, **totals}
+        outcome = "succeeded"
+        for row in targets:
+            result = await _run_stream_target(
+                session, connection=connection, connector=connector, stream=stream, mode=mode, target_row=row
+            )
+            for key in totals:
+                totals[key] += result[key]
+            if result["outcome"] == "failed":
+                outcome = "failed"
+            elif result["outcome"] in ("held", "superseded") and outcome != "failed":
+                outcome = result["outcome"]
+        return {"outcome": outcome, **totals}
 
 
 async def replay(session: AsyncSession, caller: Any, raw_batch_id: uuid.UUID) -> dict[str, Any]:
