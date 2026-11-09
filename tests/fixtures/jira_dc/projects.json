@@ -1,0 +1,9 @@
+[
+  {
+    "id": "10000",
+    "key": "PROJ",
+    "name": "Synthetic Project",
+    "projectTypeKey": "software",
+    "self": "https://jira.example.test/rest/api/2/project/10000"
+  }
+]

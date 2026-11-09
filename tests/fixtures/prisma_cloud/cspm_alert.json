@@ -1,0 +1,31 @@
+{
+  "id": "alert-100",
+  "time": 1794150000000,
+  "status": "open",
+  "severity": "high",
+  "policy": {
+    "policyId": "policy-1",
+    "name": "Public storage bucket",
+    "policyType": "config",
+    "severity": "high",
+    "remediation": {
+      "description": "Block public access",
+      "cliScript": "aws s3api put-public-access-block"
+    }
+  },
+  "resource": {
+    "rrn": "rrn::aws:123456789012:us-east-1:s3:bucket/example",
+    "id": "bucket-id",
+    "name": "example",
+    "accountId": "123456789012",
+    "accountName": "sandbox",
+    "cloudType": "aws",
+    "regionId": "us-east-1",
+    "service": "s3",
+    "resourceType": "bucket"
+  },
+  "alertRules": [{"name": "default", "notificationConfig": ["email"]}],
+  "complianceMetadata": [{"standardName": "CIS", "requirementName": "Storage", "sectionId": "2.1"}],
+  "dismissalNote": null,
+  "dismissalExpirationTs": null
+}

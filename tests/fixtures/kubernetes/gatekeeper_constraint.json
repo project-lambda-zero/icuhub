@@ -1,0 +1,55 @@
+{
+  "apiVersion": "constraints.gatekeeper.sh/v1beta1",
+  "kind": "K8sRequiredLabels",
+  "metadata": {
+    "name": "namespace-must-have-team",
+    "uid": "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    "resourceVersion": "10620",
+    "creationTimestamp": "2026-11-01T08:00:00Z"
+  },
+  "spec": {
+    "enforcementAction": "deny",
+    "match": {
+      "kinds": [
+        {
+          "apiGroups": [
+            ""
+          ],
+          "kinds": [
+            "Namespace"
+          ]
+        }
+      ]
+    },
+    "parameters": {
+      "labels": [
+        "team"
+      ]
+    }
+  },
+  "status": {
+    "auditTimestamp": "2026-11-04T12:05:00Z",
+    "enforced": true,
+    "totalViolations": 2,
+    "violations": [
+      {
+        "enforcementAction": "deny",
+        "group": "",
+        "version": "v1",
+        "kind": "Namespace",
+        "message": "you must provide labels: {\"team\"}",
+        "name": "sandbox",
+        "namespace": ""
+      },
+      {
+        "enforcementAction": "deny",
+        "group": "",
+        "version": "v1",
+        "kind": "Namespace",
+        "message": "you must provide labels: {\"team\"}",
+        "name": "testing",
+        "namespace": ""
+      }
+    ]
+  }
+}

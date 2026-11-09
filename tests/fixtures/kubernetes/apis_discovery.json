@@ -1,0 +1,58 @@
+{
+  "kind": "APIGroupList",
+  "apiVersion": "v1",
+  "groups": [
+    {
+      "name": "apps",
+      "versions": [
+        {
+          "groupVersion": "apps/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "apps/v1",
+        "version": "v1"
+      }
+    },
+    {
+      "name": "networking.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "networking.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "networking.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    {
+      "name": "rbac.authorization.k8s.io",
+      "versions": [
+        {
+          "groupVersion": "rbac.authorization.k8s.io/v1",
+          "version": "v1"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "rbac.authorization.k8s.io/v1",
+        "version": "v1"
+      }
+    },
+    {
+      "name": "wgpolicyk8s.io",
+      "versions": [
+        {
+          "groupVersion": "wgpolicyk8s.io/v1alpha2",
+          "version": "v1alpha2"
+        }
+      ],
+      "preferredVersion": {
+        "groupVersion": "wgpolicyk8s.io/v1alpha2",
+        "version": "v1alpha2"
+      }
+    }
+  ]
+}

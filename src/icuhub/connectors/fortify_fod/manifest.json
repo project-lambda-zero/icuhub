@@ -1,0 +1,279 @@
+{
+  "actions": [
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "One bulk-edit request against a release's vulnerabilities.",
+        "properties": {
+          "attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Attributes"
+          },
+          "auditor_status": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Auditor Status"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "developer_status": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Developer Status"
+          },
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Severity"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Id"
+          },
+          "vulnerability_ids": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Vulnerability Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "release_id",
+          "vulnerability_ids"
+        ],
+        "title": "BulkAuditInput",
+        "type": "object"
+      },
+      "name": "bulk_audit_issues",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "OAuth2ClientCredentials"
+  ],
+  "capabilities": [
+    "FindingSource"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "OAuth client credentials and explicit destructive-action gate.",
+    "properties": {
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "base_url": {
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_id": {
+        "minLength": 1,
+        "title": "Client Id",
+        "type": "string"
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_secret": {
+        "$ref": "#/$defs/SecretRef",
+        "writeOnly": true
+      },
+      "destructive_enabled": {
+        "default": false,
+        "title": "Destructive Enabled",
+        "type": "boolean"
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      }
+    },
+    "required": [
+      "base_url",
+      "client_id",
+      "client_secret"
+    ],
+    "title": "FortifyFodConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-228"
+  ],
+  "format_version": 1,
+  "importers": [],
+  "kind": "fortify_fod",
+  "license": "AGPL-3.0-only",
+  "operations": [],
+  "owner": "@icuhub/maintainers",
+  "record_types": [
+    "vulnerability_finding"
+  ],
+  "scopes": [
+    {
+      "name": "view-issues",
+      "probe": "GET /api/v3/releases/{releaseId}/vulnerabilities",
+      "required_by": [
+        "FindingSource"
+      ]
+    },
+    {
+      "name": "manage-issues",
+      "probe": "POST /api/v3/releases/{releaseId}/vulnerabilities/bulk-edit",
+      "required_by": [
+        "FindingSource"
+      ]
+    }
+  ],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "issues",
+      "ocsf_class": 2002,
+      "record_type": "vulnerability_finding",
+      "requires_target": true,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": []
+}

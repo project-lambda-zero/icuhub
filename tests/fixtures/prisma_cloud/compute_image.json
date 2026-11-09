@@ -1,0 +1,30 @@
+{
+  "_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "hostname": "registry.example/team/service",
+  "repoTag": {"registry": "registry.example", "repo": "team/service", "tag": "1.2.3"},
+  "time": "2026-11-08T12:00:00Z",
+  "collections": ["production"],
+  "vulnerabilities": [{
+    "id": "CVE-2026-1000",
+    "cve": "CVE-2026-1000",
+    "severity": "critical",
+    "packageName": "openssl",
+    "packageVersion": "3.0.0",
+    "packagePath": "/usr/lib/libssl.so.3",
+    "packageType": "os",
+    "purl": "pkg:deb/debian/openssl@3.0.0",
+    "status": "fixed in 3.0.1",
+    "fixDate": "2026-11-01T00:00:00Z",
+    "cvss": 9.8,
+    "description": "Example vulnerability",
+    "link": "https://nvd.nist.gov/vuln/detail/CVE-2026-1000"
+  }],
+  "complianceIssues": [{
+    "id": "cis-1",
+    "title": "Run as non-root",
+    "severity": "high",
+    "description": "Container must not run as root",
+    "cause": "USER root",
+    "remediation": "Set a non-root USER"
+  }]
+}

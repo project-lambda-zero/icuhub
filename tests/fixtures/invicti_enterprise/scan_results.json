@@ -1,0 +1,14 @@
+[
+  {
+    "IssueUrl": "https://www.netsparkercloud.com/issues/6dc7a92f-94ab-4f7c-b60f-000000000301",
+    "ExternalId": "6dc7a92f-94ab-4f7c-b60f-000000000301",
+    "Title": "SQL Injection",
+    "Type": "Invicti",
+    "Url": "https://shop.example.test/products?q=1",
+    "Severity": "High",
+    "State": "Present",
+    "LastSeenDate": "2026-11-01T11:00:00Z",
+    "Classification": {"Cwe": "89"},
+    "Parameters": [{"Name": "q", "TypeName": "GET", "IsAttackParameter": true}]
+  }
+]

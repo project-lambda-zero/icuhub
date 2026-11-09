@@ -1,0 +1,14 @@
+{
+  "data": [
+    {
+      "id": 501,
+      "projectVersionId": 42,
+      "status": "PROCESSING_COMPLETE",
+      "uploadDate": "2026-03-01T09:00:00.000+0000",
+      "fileName": "scan-2026-03-01.fpr",
+      "fileURL": "/ssc/api/v1/artifacts/501/download",
+      "versionNumber": 1
+    }
+  ],
+  "count": 1
+}

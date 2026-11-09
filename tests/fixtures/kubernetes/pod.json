@@ -1,0 +1,66 @@
+{
+  "kind": "Pod",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "app-02",
+    "namespace": "staging",
+    "uid": "22222222-2222-4222-8222-222222222222",
+    "resourceVersion": "10425",
+    "creationTimestamp": "2026-11-02T10:00:00Z",
+    "labels": {
+      "app": "example-app"
+    },
+    "ownerReferences": [
+      {
+        "apiVersion": "apps/v1",
+        "kind": "ReplicaSet",
+        "name": "app-6d7f8b9c5d",
+        "uid": "33333333-3333-4333-8333-333333333333",
+        "controller": true,
+        "blockOwnerDeletion": true
+      }
+    ]
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "app",
+        "image": "registry.example.test/example/app:1.4.1",
+        "imagePullPolicy": "IfNotPresent",
+        "ports": [
+          {
+            "name": "http",
+            "containerPort": 8080,
+            "protocol": "TCP"
+          }
+        ],
+        "securityContext": {
+          "allowPrivilegeEscalation": false,
+          "readOnlyRootFilesystem": true,
+          "runAsNonRoot": true
+        }
+      }
+    ],
+    "securityContext": {
+      "runAsUser": 10001,
+      "runAsGroup": 10001,
+      "fsGroup": 10001
+    },
+    "serviceAccountName": "app-reader",
+    "nodeName": "worker-02",
+    "restartPolicy": "Always"
+  },
+  "status": {
+    "phase": "Running",
+    "conditions": [
+      {
+        "type": "Ready",
+        "status": "True",
+        "lastTransitionTime": "2026-11-02T10:01:30Z"
+      }
+    ],
+    "podIP": "10.42.1.16",
+    "hostIP": "10.10.0.16",
+    "startTime": "2026-11-02T10:00:30Z"
+  }
+}

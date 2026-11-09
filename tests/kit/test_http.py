@@ -419,3 +419,25 @@ def test_client_certificate_without_its_key_is_a_config_error() -> None:
             transport=httpx2.MockTransport(lambda request: httpx2.Response(200)),
             client_cert_pem=b"not-a-real-cert",
         )
+
+
+def test_authenticate_false_skips_auth_apply_and_401_refresh() -> None:
+    seen: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        seen.append(request)
+        return httpx2.Response(401, json={"ok": False})
+
+    token = _RotatingToken(["old", "new"])
+    http = _http(handler, auth=token)
+
+    async def go() -> HttpResult:
+        try:
+            return await http.request("POST", "/login", json={"u": "p"}, authenticate=False, expected=(401,))
+        finally:
+            await http.aclose()
+
+    result = asyncio.run(go())
+    assert result.status == 401
+    assert token.refreshes == 0
+    assert "authorization" not in seen[0].headers

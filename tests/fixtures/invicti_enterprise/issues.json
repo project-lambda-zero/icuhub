@@ -1,0 +1,39 @@
+{
+  "List": [
+    {
+      "Id": "6dc7a92f-94ab-4f7c-b60f-000000000301",
+      "WebsiteId": "6dc7a92f-94ab-4f7c-b60f-000000000101",
+      "WebsiteName": "Shop",
+      "WebsiteRootUrl": "https://shop.example.test/",
+      "Title": "SQL Injection",
+      "Type": "Invicti",
+      "Url": "https://shop.example.test/products?q=1",
+      "Severity": "High",
+      "State": "Present",
+      "IsPresent": true,
+      "IsAddressed": false,
+      "IsRetest": false,
+      "LatestVulnerabilityIsConfirmed": true,
+      "Certainty": 100,
+      "FirstSeenDate": "2026-10-01T10:00:00Z",
+      "LastSeenDate": "2026-11-01T11:00:00Z",
+      "UpdatedDate": "2026-11-01T11:00:00Z",
+      "LatestScanId": "6dc7a92f-94ab-4f7c-b60f-000000000401",
+      "Parameters": [{"Name": "q", "Value": "1", "TypeName": "GET", "IsAttackParameter": true}],
+      "ProofOfConcept": "' OR 1=1 --",
+      "VulnerabilityDetail": "The q parameter is injectable.",
+      "Remedy": "Use parameterized queries.",
+      "RemedyReferences": "https://cwe.mitre.org/data/definitions/89.html",
+      "ExternalReferences": "https://owasp.org/www-community/attacks/SQL_Injection",
+      "Classification": {"Cwe": "89", "OwaspTopTen2021": "A03", "PciDss40": "6.2.4"},
+      "ClassificationLinks": ["https://owasp.org/Top10/A03_2021-Injection/"],
+      "Tags": ["production"]
+    }
+  ],
+  "PageNumber": 1,
+  "PageSize": 200,
+  "PageCount": 1,
+  "TotalItemCount": 1,
+  "HasNextPage": false,
+  "IsLastPage": true
+}

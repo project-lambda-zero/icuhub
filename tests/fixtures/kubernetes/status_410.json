@@ -1,0 +1,19 @@
+{
+  "kind": "Status",
+  "apiVersion": "v1",
+  "metadata": {},
+  "status": "Failure",
+  "message": "The provided continue parameter is too old to display a consistent list result. You can start a new list without the continue parameter, or use the continue token returned in this response to retrieve the remainder of the results.",
+  "reason": "Expired",
+  "details": {
+    "group": "",
+    "kind": "pods",
+    "causes": [
+      {
+        "reason": "ResourceVersionTooLarge",
+        "message": "too old resource version: 10000 (10420)"
+      }
+    ]
+  },
+  "code": 410
+}

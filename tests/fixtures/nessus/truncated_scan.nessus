@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<NessusClientData_v2><Policy/><Report name="scan"><ReportHost name="web01.example.test"><HostProperties></HostProperties><ReportItem port="443" svc_name="www" protocol="tcp" severity="3" pluginID="2001" pluginName="Plugin 2001" pluginFamily="Web Servers"><plugin_output>Partial plugin output
+TRUNCATED</plugin_output></ReportItem></ReportHost></Report></NessusClientData_v2>

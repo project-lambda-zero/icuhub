@@ -1,0 +1,21 @@
+{
+  "offset": 0,
+  "limit": 1000,
+  "total": 2,
+  "records": [
+    {
+      "id": 40001,
+      "summary": "User logged in",
+      "created": "2026-11-01T08:00:00.000+0000",
+      "associatedItems": [
+        {"id": "synthetic.user", "name": "synthetic.user", "typeName": "USER"}
+      ]
+    },
+    {
+      "id": 40002,
+      "summary": "Project updated",
+      "created": "2026-11-02T08:00:00.000+0000",
+      "associatedItems": []
+    }
+  ]
+}

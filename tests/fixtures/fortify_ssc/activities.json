@@ -1,0 +1,19 @@
+{
+  "data": [
+    {
+      "id": 9001,
+      "type": "AUDIT",
+      "projectVersionId": 42,
+      "userName": "synthetic-user",
+      "timestamp": "2026-03-01T10:05:00.000+0000"
+    },
+    {
+      "id": 9002,
+      "type": "UPLOAD",
+      "projectVersionId": 42,
+      "userName": "synthetic-user",
+      "timestamp": "2026-03-01T10:10:00.000+0000"
+    }
+  ],
+  "count": 2
+}

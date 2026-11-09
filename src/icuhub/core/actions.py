@@ -276,7 +276,7 @@ async def submit_action(
         session,
         "actions",
         "apply",
-        {"action_request_id": str(request.id)},
+        {"action_request_id": str(request.id), "tenant_id": str(request.tenant_id)},
         tenant_id=caller.tenant_id,
         dedupe_key=f"{caller.tenant_id}:apply:{request.id}",
     )
@@ -320,7 +320,7 @@ async def decide(
             session,
             "actions",
             "apply",
-            {"action_request_id": str(request.id)},
+            {"action_request_id": str(request.id), "tenant_id": str(request.tenant_id)},
             tenant_id=caller.tenant_id,
             dedupe_key=f"{caller.tenant_id}:apply:{request.id}",
         )

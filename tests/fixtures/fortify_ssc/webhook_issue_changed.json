@@ -1,0 +1,7 @@
+{
+  "event": "ISSUE_CHANGED",
+  "webhookId": 77,
+  "triggeredAt": "2026-03-01T10:06:00.000+0000",
+  "projectVersionId": 42,
+  "issueId": 1001
+}

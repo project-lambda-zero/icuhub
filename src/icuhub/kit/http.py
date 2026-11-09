@@ -100,6 +100,7 @@ class _Call:
     content: bytes | None
     headers: Mapping[str, str]
     pool: str
+    authenticate: bool = True
 
 
 def _strip_query(url: str) -> str:
@@ -225,8 +226,13 @@ class VendorHttp:
         idempotency: IdempotencyMode = "safe_read",
         expected: Collection[int] = (200,),
         pool: str = "default",
+        authenticate: bool = True,
     ) -> HttpResult:
-        """Send one logical request and return its result when the status is in ``expected``."""
+        """Send one logical request and return its result when the status is in ``expected``.
+
+        ``authenticate=False`` skips the auth strategy and the 401 refresh. Use it only
+        for the strategy's own login call (SessionLogin holds its lock while logging in).
+        """
         call = _Call(
             method=method,
             url=self._resolve(path_or_url),
@@ -235,9 +241,10 @@ class VendorHttp:
             content=content,
             headers=dict(headers or {}),
             pool=pool,
+            authenticate=authenticate,
         )
         response, secrets = await self._execute(call, idempotency)
-        if response.status_code == 401 and await self._auth.refresh():
+        if authenticate and response.status_code == 401 and await self._auth.refresh():
             await response.aclose()
             response, secrets = await self._execute(call, idempotency)
         if response.status_code in expected:
@@ -316,7 +323,8 @@ class VendorHttp:
         gate = self._limiter_for(call.pool)
         request_headers = dict(call.headers)
         before = dict(request_headers)
-        await self._auth.apply(request_headers, call.method, call.url)
+        if call.authenticate:
+            await self._auth.apply(request_headers, call.method, call.url)
         secrets = tuple(value for name, value in request_headers.items() if before.get(name) != value)
         request = self._client.build_request(
             call.method,

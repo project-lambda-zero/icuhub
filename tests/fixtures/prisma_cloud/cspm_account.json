@@ -1,0 +1,10 @@
+{
+  "id": "account-1",
+  "name": "sandbox",
+  "cloudType": "aws",
+  "accountId": "123456789012",
+  "enabled": true,
+  "status": "active",
+  "lastModifiedTs": 1794140000000,
+  "owners": ["owner@example.invalid"]
+}

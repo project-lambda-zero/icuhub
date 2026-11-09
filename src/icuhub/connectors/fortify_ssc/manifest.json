@@ -1,0 +1,898 @@
+{
+  "actions": [
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Comment",
+            "type": "string"
+          },
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id",
+          "revision",
+          "comment"
+        ],
+        "title": "AddIssueCommentArgs",
+        "type": "object"
+      },
+      "name": "add_issue_comment",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "assignee": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Assignee",
+            "type": "string"
+          },
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id",
+          "revision",
+          "assignee"
+        ],
+        "title": "AssignIssueArgs",
+        "type": "object"
+      },
+      "name": "assign_issue",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "audit_state": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Audit State",
+            "type": "string"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id",
+          "revision",
+          "audit_state"
+        ],
+        "title": "AuditIssueArgs",
+        "type": "object"
+      },
+      "name": "audit_issue",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "event_types": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Event Types",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "object_version": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Object Version"
+          },
+          "target_url": {
+            "minLength": 1,
+            "title": "Target Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "target_url",
+          "event_types"
+        ],
+        "title": "CreateWebhookArgs",
+        "type": "object"
+      },
+      "name": "create_webhook",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "destructive",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "minLength": 1,
+            "title": "Approval Ref",
+            "type": "string"
+          },
+          "artifact_id": {
+            "minimum": 1,
+            "title": "Artifact Id",
+            "type": "integer"
+          },
+          "version_number": {
+            "minimum": 0,
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "version_number",
+          "approval_ref"
+        ],
+        "title": "PurgeArtifactArgs",
+        "type": "object"
+      },
+      "name": "purge_artifact",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "destructive",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "minLength": 1,
+            "title": "Approval Ref",
+            "type": "string"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "approval_ref"
+        ],
+        "title": "PurgeProjectVersionArgs",
+        "type": "object"
+      },
+      "name": "purge_project_version",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "suppressed": {
+            "title": "Suppressed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id",
+          "revision",
+          "suppressed"
+        ],
+        "title": "SetIssueSuppressionArgs",
+        "type": "object"
+      },
+      "name": "set_issue_suppression",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "auto_publish": {
+            "default": false,
+            "title": "Auto Publish",
+            "type": "boolean"
+          },
+          "fpr_base64": {
+            "minLength": 1,
+            "title": "Fpr Base64",
+            "type": "string"
+          },
+          "fpr_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Fpr Sha256",
+            "type": "string"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "fpr_sha256",
+          "fpr_base64"
+        ],
+        "title": "UploadFprArgs",
+        "type": "object"
+      },
+      "name": "upload_fpr",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "HeaderToken"
+  ],
+  "capabilities": [
+    "FindingSource",
+    "TelemetrySource"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "SSC connection settings. ``base_url`` is the operator root, normally ``https://host/ssc``.",
+    "properties": {
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "api_token": {
+        "$ref": "#/$defs/SecretRef",
+        "writeOnly": true
+      },
+      "base_url": {
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "destructive_enabled": {
+        "default": false,
+        "title": "Destructive Enabled",
+        "type": "boolean"
+      },
+      "fpr_location_semantics": {
+        "default": "source_location_v2",
+        "enum": [
+          "source_location_v2",
+          "snippet_start_v1"
+        ],
+        "title": "Fpr Location Semantics",
+        "type": "string"
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "webhook_secret": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "write_enabled": {
+        "default": false,
+        "title": "Write Enabled",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "base_url",
+      "api_token"
+    ],
+    "title": "FortifySscConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-108"
+  ],
+  "format_version": 1,
+  "importers": [],
+  "kind": "fortify_ssc",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "minimum": 1,
+            "title": "Artifact Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artifact_id"
+        ],
+        "title": "ArtifactArgs",
+        "type": "object"
+      },
+      "name": "download_fpr",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "sha256"
+        ],
+        "title": "FprArtifactRef",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "export_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Export Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "export_id"
+        ],
+        "title": "DeltaExportArgs",
+        "type": "object"
+      },
+      "name": "get_delta_export",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "export_id": {
+            "title": "Export Id",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "export_id",
+          "state"
+        ],
+        "title": "DeltaExportOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id"
+        ],
+        "title": "GetIssueArgs",
+        "type": "object"
+      },
+      "name": "get_issue",
+      "output_schema": {
+        "$defs": {
+          "FindingRecord": {
+            "additionalProperties": false,
+            "description": "Normalized SSC issue. ``revision`` drives every write precondition.",
+            "properties": {
+              "audit_state": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Audit State"
+              },
+              "category": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Category"
+              },
+              "file_path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "File Path"
+              },
+              "fingerprint_inputs": {
+                "additionalProperties": true,
+                "title": "Fingerprint Inputs",
+                "type": "object"
+              },
+              "issue_id": {
+                "title": "Issue Id",
+                "type": "integer"
+              },
+              "issue_instance_id": {
+                "title": "Issue Instance Id",
+                "type": "string"
+              },
+              "line": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Line"
+              },
+              "project_version_id": {
+                "title": "Project Version Id",
+                "type": "integer"
+              },
+              "removed": {
+                "title": "Removed",
+                "type": "boolean"
+              },
+              "revision": {
+                "title": "Revision",
+                "type": "integer"
+              },
+              "rule_guid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Rule Guid"
+              },
+              "suppressed": {
+                "title": "Suppressed",
+                "type": "boolean"
+              },
+              "updated_at": {
+                "format": "date-time",
+                "title": "Updated At",
+                "type": "string"
+              }
+            },
+            "required": [
+              "issue_instance_id",
+              "issue_id",
+              "project_version_id",
+              "revision",
+              "rule_guid",
+              "category",
+              "file_path",
+              "line",
+              "audit_state",
+              "suppressed",
+              "removed",
+              "updated_at"
+            ],
+            "title": "FindingRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "finding": {
+            "$ref": "#/$defs/FindingRecord"
+          }
+        },
+        "required": [
+          "finding"
+        ],
+        "title": "IssueOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id"
+        ],
+        "title": "ProjectVersionArgs",
+        "type": "object"
+      },
+      "name": "get_project_version",
+      "output_schema": {
+        "$defs": {
+          "ProjectVersionRecord": {
+            "additionalProperties": false,
+            "properties": {
+              "folder_guid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Folder Guid"
+              },
+              "project_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Project Name"
+              },
+              "project_version_id": {
+                "title": "Project Version Id",
+                "type": "integer"
+              },
+              "version_name": {
+                "title": "Version Name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "project_version_id",
+              "project_name",
+              "version_name",
+              "folder_guid"
+            ],
+            "title": "ProjectVersionRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "$ref": "#/$defs/ProjectVersionRecord"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "ProjectVersionInfo",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "webhook_id": {
+            "minimum": 1,
+            "title": "Webhook Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "webhook_id"
+        ],
+        "title": "WebhookDeliveryArgs",
+        "type": "object"
+      },
+      "name": "get_webhook_delivery",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "webhook_id": {
+            "title": "Webhook Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "webhook_id"
+        ],
+        "title": "WebhookDeliveryOutput",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [
+    "activity",
+    "artifact"
+  ],
+  "scopes": [],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "FindingSource",
+      "cursor": "sequence",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "activity",
+      "ocsf_class": null,
+      "record_type": "activity",
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "artifacts",
+      "ocsf_class": null,
+      "record_type": "artifact",
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "issues",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": [
+    {
+      "event_types": [
+        "ISSUE_CHANGED",
+        "ARTIFACT_PROCESSED",
+        "PROJECT_VERSION_CHANGED"
+      ],
+      "header_event": "x-ssc-event",
+      "name": "parse_delivery"
+    }
+  ]
+}

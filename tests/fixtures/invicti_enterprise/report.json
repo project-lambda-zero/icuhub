@@ -1,0 +1,23 @@
+{
+  "ReportId": "report-enterprise-001",
+  "ScanId": "6dc7a92f-94ab-4f7c-b60f-000000000401",
+  "TargetUrl": "https://shop.example.test/",
+  "ScanDate": "2026-11-01T11:00:00Z",
+  "Vulnerabilities": [
+    {
+      "Id": "6dc7a92f-94ab-4f7c-b60f-000000000301",
+      "Title": "SQL Injection",
+      "Url": "https://shop.example.test/products?q=1",
+      "Parameter": "q",
+      "AttackDetail": "' OR 1=1 --",
+      "Severity": "High",
+      "State": "Present",
+      "Confirmed": true,
+      "Cwe": "89",
+      "Cve": "CVE-2026-10001",
+      "LastSeenDate": "2026-11-01T11:00:00Z",
+      "HttpRequest": "GET /products?q=1 HTTP/1.1\r\nHost: shop.example.test\r\n",
+      "HttpResponse": "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<script>alert(1)</script>"
+    }
+  ]
+}

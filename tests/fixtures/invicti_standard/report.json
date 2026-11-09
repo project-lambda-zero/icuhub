@@ -1,0 +1,29 @@
+{
+  "ReportId": "report-standard-001",
+  "ScanId": "scan-standard-001",
+  "TargetUrl": "https://blog.example.test/",
+  "ScanDate": "2026-11-02T09:30:00Z",
+  "Vulnerabilities": [
+    {
+      "Id": "standard-issue-001",
+      "Title": "Cross-site Scripting",
+      "Name": "Cross-site Scripting",
+      "Url": "https://blog.example.test/search?term=example",
+      "Parameter": "term",
+      "AttackDetail": "\"><script>alert(1)</script>",
+      "Severity": "Medium",
+      "State": "Retest",
+      "IsRetest": true,
+      "Confirmed": false,
+      "Certainty": 75,
+      "AcceptedRisk": false,
+      "FalsePositive": false,
+      "Classification": {"Cwe": "79", "OwaspTopTen2021": "A03"},
+      "Cve": "CVE-2026-10002",
+      "FirstSeenDate": "2026-10-02T09:30:00Z",
+      "LastSeenDate": "2026-11-02T09:30:00Z",
+      "ProofOfConcept": "Reflected in the search response.",
+      "Compliance": {"PciDss40": "6.2.4"}
+    }
+  ]
+}
