@@ -16,7 +16,6 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from icuhub.connectors import CONNECTORS
 from icuhub.kit.connector import Connector, MapperSpec, StreamSpec
 
 __all__ = ["build_manifest", "check_manifest", "main", "manifest_path", "render_manifest"]
@@ -183,6 +182,8 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m icuhub manifest", description=main.__doc__)
     parser.add_argument("--write", action="store_true", help="write the manifest files instead of checking them")
     args = parser.parse_args(argv)
+
+    from icuhub.connectors import CONNECTORS  # noqa: PLC0415
 
     if args.write:
         for cls in CONNECTORS.values():

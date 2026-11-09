@@ -357,19 +357,24 @@ and committed (ADR-0017):
 ```python
 CONNECTORS: dict[str, type[Connector]] = {
     "github": GitHub,
+    "github_enterprise_server": GitHubEnterpriseServer,
     "gitlab": GitLab,
-    "bitbucket_cloud": BitbucketCloud,
-    "bitbucket_dc": BitbucketDataCenter,
-    "azure_devops": AzureDevOps,
-    "gitea": Gitea,
-    "jira": Jira,
-    "servicenow": ServiceNow,
-    "f5_bigip": F5BigIp,
-    "gti": GoogleThreatIntel,
+    "gitlab_self_managed": GitLabSelfManaged,
+    "jira_cloud": JiraCloud,
+    "jira_dc": JiraDataCenter,
     "fortify_ssc": FortifySsc,
-    "jenkins": Jenkins,
-    # MCP-backed connectors register the same way
-    "kubernetes_mcp": KubernetesMcp,
+    "fortify_fod": FortifyFod,
+    "nessus": Nessus,
+    "mend_sca": MendSca,
+    "invicti_enterprise": InvictiEnterprise,
+    "invicti_standard": InvictiStandard,
+    "kubernetes": Kubernetes,
+    "openshift": OpenShift,
+    "prisma_cloud": PrismaCloud,
+    "archer": Archer,
+    "f5_bigip": F5BigIp,
+    "google_threat_intelligence": GoogleThreatIntelligence,
+    "smtp": SmtpNotifier,
 }
 ```
 

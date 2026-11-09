@@ -40,6 +40,8 @@ class Settings(BaseModel):
     automation_enabled: bool = False
     worker_concurrency: int = Field(default=4, ge=1)
     raw_retention_days: int = Field(default=30, ge=1)
+    webhook_max_body_bytes: int = Field(default=10485760, ge=1)
+    webhook_rotation_window_s: int = Field(default=300, ge=0)
     public_base_url: str | None = None
 
     kek_provider: Literal["file", "openbao"] = "file"

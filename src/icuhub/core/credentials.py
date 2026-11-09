@@ -14,14 +14,14 @@ import zlib
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol
 from urllib.parse import quote, urlsplit
 
 import httpx2
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncEngine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from icuhub.kit.types import SecretRef
 from icuhub.storage.db import session_scope
@@ -29,6 +29,7 @@ from icuhub.storage.models import Credential
 
 __all__ = [
     "CredentialBroker",
+    "broker_from_settings",
     "CredentialDecryptionError",
     "CredentialError",
     "CredentialNotFound",
@@ -322,8 +323,15 @@ class CredentialBroker:
     def _reference(credential_id: uuid.UUID) -> SecretRef:
         return SecretRef(ref=f"cred:{credential_id}")
 
-    async def store(self, tenant_id: uuid.UUID, name: str, secret: bytes) -> SecretRef:
-        """Encrypt and persist a new secret, returning its opaque reference."""
+    async def store(
+        self, tenant_id: uuid.UUID, name: str, secret: bytes, *, session: AsyncSession | None = None
+    ) -> SecretRef:
+        """Encrypt and persist a new secret, returning its opaque reference.
+
+        When ``session`` is given the insert joins the caller's transaction (required
+        when the tenant row itself is still uncommitted); otherwise a new tenant-scoped
+        transaction is opened.
+        """
         if not name.strip() or len(name) > 200:
             raise ValueError("Credential name must contain between 1 and 200 characters")
         if not isinstance(secret, bytes):
@@ -335,35 +343,43 @@ class CredentialBroker:
         wrapped_dek = await self._kek.wrap(dek, tenant_id=tenant_id, aad=aad)
         nonce = os.urandom(_NONCE_BYTES)
         ciphertext = AESGCM(dek).encrypt(nonce, secret, aad)
-        async with session_scope(tenant_id, engine=self._engine) as session:
-            session.add(
-                Credential(
-                    id=credential_id,
-                    tenant_id=tenant_id,
-                    name=name,
-                    kek_id=kek_id,
-                    dek_wrapped=wrapped_dek,
-                    nonce=nonce,
-                    ciphertext=ciphertext,
-                    rotated_at=None,
-                )
-            )
+        credential = Credential(
+            id=credential_id,
+            tenant_id=tenant_id,
+            name=name,
+            kek_id=kek_id,
+            dek_wrapped=wrapped_dek,
+            nonce=nonce,
+            ciphertext=ciphertext,
+            rotated_at=None,
+        )
+        if session is not None:
+            session.add(credential)
+            await session.flush()
+        else:
+            async with session_scope(tenant_id, engine=self._engine) as owned:
+                owned.add(credential)
         return self._reference(credential_id)
 
-    async def resolve(self, tenant_id: uuid.UUID, ref: SecretRef) -> bytes:
+    async def resolve(self, tenant_id: uuid.UUID, ref: SecretRef, *, session: AsyncSession | None = None) -> bytes:
         """Resolve a secret only when its reference belongs to the tenant."""
         credential_id = self._credential_id(ref)
-        async with session_scope(tenant_id, engine=self._engine) as session:
-            result = await session.execute(
-                select(Credential).where(Credential.id == credential_id, Credential.tenant_id == tenant_id)
-            )
-            credential = result.scalar_one_or_none()
-            if credential is None:
+        if session is not None:
+            credential = await session.get(Credential, credential_id)
+            if credential is None or credential.tenant_id != tenant_id:
                 raise CredentialNotFound("Credential not found")
-            kek_id = credential.kek_id
-            wrapped_dek = credential.dek_wrapped
-            nonce = credential.nonce
-            ciphertext = credential.ciphertext
+        else:
+            async with session_scope(tenant_id, engine=self._engine) as owned:
+                result = await owned.execute(
+                    select(Credential).where(Credential.id == credential_id, Credential.tenant_id == tenant_id)
+                )
+                credential = result.scalar_one_or_none()
+                if credential is None:
+                    raise CredentialNotFound("Credential not found")
+        kek_id = credential.kek_id
+        wrapped_dek = credential.dek_wrapped
+        nonce = credential.nonce
+        ciphertext = credential.ciphertext
         aad = _associated_data(_CREDENTIAL_FIELD, tenant_id, credential_id, kek_id)
         dek = await self._kek.unwrap(wrapped_dek, tenant_id=tenant_id, kek_id=kek_id, aad=aad)
         return _decrypt_aes(dek, nonce, ciphertext, aad)
@@ -430,3 +446,24 @@ class CredentialBroker:
         if not decompressor.eof or decompressor.unused_data:
             raise CredentialDecryptionError("Decrypted raw payload has an invalid compressed stream")
         return payload
+
+
+def broker_from_settings(settings: Any, *, engine: AsyncEngine | None = None) -> CredentialBroker:
+    """Build the credential broker from process settings (ADR-0006).
+
+    ``file`` is the development provider and requires ``kek_file_path``; ``openbao``
+    requires ``openbao_url``, ``openbao_token_file``, and uses ``openbao_transit_key``
+    as an optional key-name template override.
+    """
+    if settings.kek_provider == "file":
+        if settings.kek_file_path is None:
+            raise KekConfigurationError("ICUHUB_KEK_FILE_PATH is required for the file KEK provider")
+        kek: KekProvider = FileKek(settings.kek_file_path)
+    else:
+        if not settings.openbao_url or not settings.openbao_token_file:
+            raise KekConfigurationError("OpenBao provider needs ICUHUB_OPENBAO_URL and ICUHUB_OPENBAO_TOKEN_FILE")
+        kwargs: dict[str, Any] = {}
+        if settings.openbao_transit_key:
+            kwargs["key_name_template"] = settings.openbao_transit_key
+        kek = OpenBaoTransitKek(settings.openbao_url, settings.openbao_token_file, **kwargs)
+    return CredentialBroker(kek, engine=engine)

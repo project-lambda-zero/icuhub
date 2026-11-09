@@ -66,6 +66,8 @@ KNOWN_CAPABILITIES: frozenset[str] = frozenset(
         "VulnIntel",
         "SbomSink",
         "Directory",
+        "Notifier",
+        "KnowledgeBase",
     }
 )
 
