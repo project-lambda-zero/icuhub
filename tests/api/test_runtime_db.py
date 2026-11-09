@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 
 from icuhub.api.app import create_app
 from icuhub.api.auth import api_key_hash
+from icuhub.api.mcp import _list_tools
 from icuhub.connectors import CONNECTORS
 from icuhub.core.sync import run_import_job
 from icuhub.storage.db import session_scope
@@ -171,3 +173,21 @@ def test_sync_report_routes_policy_and_webhook_endpoints(asgi: Any, api_env: Any
         "PUT", f"/v1/connections/{scanner['id']}/credential", _auth(ADMIN_TOKEN, **headers), payload
     )
     assert status == 204, body
+
+
+def test_mcp_lists_real_connector_tools_with_input_schemas(asgi: Any, api_env: Any) -> None:
+    call = asgi(api_env["app"])
+    headers, payload = _json(_connection_body("sample_tracker_core", "tracker-mcp"))
+    status, _, body = call("POST", "/v1/connections", _auth(ADMIN_TOKEN, **headers), payload)
+    assert status == 201, body
+
+    ctx = SimpleNamespace(request=SimpleNamespace(headers=_auth(ADMIN_TOKEN)))
+    result = asyncio.run(_list_tools(ctx, None))  # type: ignore[arg-type]
+
+    tools = {tool.name: tool for tool in result.tools}
+    assert "tracker-mcp.ping" in tools
+    ping = tools["tracker-mcp.ping"]
+    assert ping.annotations is not None and ping.annotations.read_only_hint is True
+    assert ping.input_schema["type"] == "object"
+    assert "summary" in ping.input_schema["properties"]
+    assert ping.description

@@ -8,6 +8,7 @@ for every message from the request headers the transport attaches to the handler
 
 from __future__ import annotations
 
+import inspect
 import json
 import uuid
 from typing import Any
@@ -34,8 +35,6 @@ __all__ = ["build_session_manager"]
 
 SERVER_NAME = "icuhub"
 SERVER_VERSION = "0.1.0"
-
-_OPEN_OBJECT: dict[str, Any] = {"type": "object", "additionalProperties": True}
 
 
 def build_session_manager() -> StreamableHTTPSessionManager:
@@ -76,17 +75,18 @@ async def _rules_and_switches(session: AsyncSession, caller: Caller) -> tuple[li
 
 def _tool_for(slug: str, name: str, spec: Any, read: bool) -> types.Tool:
     destructive = not read and spec.classification == "destructive"
+    function = spec.fn if read else spec.plan
     annotations = types.ToolAnnotations(
         title=f"{slug}.{name}",
         read_only_hint=read,
         destructive_hint=destructive,
-        idempotent_hint=False,
+        idempotent_hint=read or spec.idempotency != "none",
         open_world_hint=True,
     )
     return types.Tool(
         name=f"{slug}.{name}",
-        description=(spec.description or "").strip() or f"{name} on {slug}",
-        input_schema=getattr(spec, "input_schema", None) or _OPEN_OBJECT,
+        description=inspect.getdoc(function) or f"{name} on {slug}",
+        input_schema=spec.input_model.model_json_schema(),
         annotations=annotations,
     )
 
