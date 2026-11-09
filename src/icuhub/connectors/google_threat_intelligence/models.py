@@ -1,59 +1,59 @@
-"""Typed configuration and lookup contracts for Google Threat Intelligence API v3."""
+"""Google Threat Intelligence (VirusTotal API v3) lookup models (MVP 4.19)."""
 
 from __future__ import annotations
 
-import re
-from ipaddress import ip_address
-from typing import Any, Literal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from icuhub.kit.types import ConnectorConfig, SecretRef
 
-__all__ = ["GoogleThreatIntelligenceConfig", "Indicator", "IntelReport"]
-
-_SHA256 = re.compile(r"[0-9a-fA-F]{64}\Z")
+__all__ = ["GtiConfig", "Indicator", "IntelReport"]
 
 
-class GoogleThreatIntelligenceConfig(ConnectorConfig):
-    """Connection settings for the native Google Threat Intelligence REST API."""
-
+class GtiConfig(ConnectorConfig):
     base_url: str = "https://www.virustotal.com/api/v3"
     api_key: SecretRef
 
 
 class Indicator(BaseModel):
-    """An indicator whose explicit kind determines the API v3 lookup endpoint."""
-
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["file", "url", "domain", "ip"]
-    value: str = Field(min_length=1)
+    type: Literal["file", "url", "domain", "ip"]
+    value: str = Field(min_length=1, max_length=4096)
 
     @model_validator(mode="after")
-    def _validate_indicator(self) -> Indicator:
-        if self.value != self.value.strip():
-            raise ValueError("indicator value must not have surrounding whitespace")
-        if self.kind == "file":
-            if _SHA256.fullmatch(self.value) is None:
-                raise ValueError("file indicator value must be a 64-character SHA-256 hexadecimal digest")
-            self.value = self.value.lower()
-        elif self.kind == "ip":
-            try:
-                ip_address(self.value)
-            except ValueError:
-                raise ValueError("ip indicator value must be a valid IPv4 or IPv6 address") from None
-        elif self.kind == "domain" and any(char in self.value for char in ("/", "\\", "?", "#")):
-            raise ValueError("domain indicator value must be one domain name")
+    def _shape(self) -> Indicator:
+        value = self.value.strip()
+        if self.type == "file" and not all(c in "0123456789abcdefABCDEF" for c in value):
+            raise ValueError("file indicators must be a hex hash")
+        if self.type in ("domain", "ip") and any(c in value for c in "/ ?#"):
+            raise ValueError(f"invalid {self.type} indicator")
         return self
 
 
 class IntelReport(BaseModel):
-    """A vendor report with source attributes and unmodified analysis counts."""
+    """Normalized synchronous verdict; no stream is implied."""
 
-    model_config = ConfigDict(extra="forbid")
-
-    id: str
+    indicator: str
     type: str
-    attributes: dict[str, Any]
-    stats: dict[str, int] | None
+    malicious: int = 0
+    suspicious: int = 0
+    harmless: int = 0
+    undetected: int = 0
+    timeout: int = 0
+    reputation: int | None = None
+    last_analysis_date: int | None = None
+    categories: dict[str, str] = Field(default_factory=dict)
+    tags: list[str] = Field(default_factory=list)
+    reference: str | None = None
+
+    @property
+    def verdict(self) -> str:
+        if self.malicious:
+            return "malicious"
+        if self.suspicious:
+            return "suspicious"
+        if self.harmless:
+            return "harmless"
+        return "unknown"
