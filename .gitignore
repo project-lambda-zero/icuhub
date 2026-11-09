@@ -17,3 +17,6 @@ htmlcov/
 .idea/
 .vscode/
 *.log
+
+# Live acceptance results (operator-run, handed back separately)
+/acceptance/
