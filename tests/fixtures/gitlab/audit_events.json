@@ -1,0 +1,35 @@
+[
+  {
+    "id": 9001,
+    "author_id": 11,
+    "entity_id": 42,
+    "entity_type": "Project",
+    "created_at": "2026-11-03T09:30:00.000Z",
+    "details": {
+      "custom_message": "Added project member",
+      "author_name": "Example Author",
+      "author_email": "example.author@example.test",
+      "target_id": 51,
+      "target_type": "User",
+      "target_details": "example.member",
+      "ip_address": "192.0.2.10",
+      "entity_path": "example-group/example-project"
+    }
+  },
+  {
+    "id": 9002,
+    "author_id": 12,
+    "entity_id": 42,
+    "entity_type": "Project",
+    "created_at": "2026-11-03T10:00:00.000Z",
+    "event_type": "merge_request_merged",
+    "target_id": 102,
+    "target_type": "MergeRequest",
+    "details": {
+      "author_name": "Example Reviewer",
+      "author_email": "example.reviewer@example.test",
+      "ip_address": "192.0.2.11",
+      "entity_path": "example-group/example-project"
+    }
+  }
+]

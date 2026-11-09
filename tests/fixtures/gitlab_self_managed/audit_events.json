@@ -1,0 +1,33 @@
+[
+  {
+    "id": 7001,
+    "author_id": 1,
+    "entity_id": 1,
+    "entity_type": "User",
+    "created_at": "2026-11-03T08:00:00.000Z",
+    "details": {
+      "custom_message": "User signed in",
+      "author_name": "Example Administrator",
+      "author_email": "example.admin@example.test",
+      "target_id": 1,
+      "target_type": "User",
+      "target_details": "example.admin",
+      "ip_address": "192.0.2.20",
+      "entity_path": "example.admin"
+    }
+  },
+  {
+    "id": 7002,
+    "author_id": 1,
+    "entity_id": 42,
+    "entity_type": "Project",
+    "created_at": "2026-11-03T10:00:00.000Z",
+    "event_type": "project_created",
+    "details": {
+      "author_name": "Example Administrator",
+      "author_email": "example.admin@example.test",
+      "ip_address": "192.0.2.20",
+      "entity_path": "example-group/example-project"
+    }
+  }
+]

@@ -143,7 +143,7 @@ def test_import_dedupe_and_parse(tmp_path: Any, clean_database: None) -> None:
 
 def test_target_discovery_runs_each_target(tmp_path: Any, clean_database: None) -> None:
     async def scenario() -> None:
-        from icuhub.storage.models import SyncRun, Target
+        from icuhub.storage.models import SyncRun, Target  # noqa: PLC0415
 
         state: dict[str, Any] = {"issues": [], "findings": []}
         services, tenant_id, connection = await _setup(tmp_path, state)
