@@ -40,6 +40,57 @@
     },
     {
       "capability": "Enforcer",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "Create one iRule without updating an object that already exists.",
+        "properties": {
+          "apiAnonymous": {
+            "minLength": 1,
+            "title": "Apianonymous",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "partition": {
+            "default": "Common",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Partition",
+            "type": "string"
+          },
+          "subPath": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subpath"
+          }
+        },
+        "required": [
+          "name",
+          "apiAnonymous"
+        ],
+        "title": "CreateIruleArgs",
+        "type": "object"
+      },
+      "name": "create_irule",
+      "stability": "beta"
+    },
+    {
+      "capability": "Enforcer",
       "classification": "destructive",
       "idempotency": "natural_key",
       "input_schema": {
@@ -173,6 +224,11 @@
       "username": {
         "$ref": "#/$defs/SecretRef",
         "writeOnly": true
+      },
+      "write_enabled": {
+        "default": false,
+        "title": "Write Enabled",
+        "type": "boolean"
       }
     },
     "required": [
@@ -258,6 +314,232 @@
           "present"
         ],
         "title": "BlockRecordResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Enforcer",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "F5 iRule natural key: name, partition, and optional nested subPath.",
+        "properties": {
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "partition": {
+            "default": "Common",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Partition",
+            "type": "string"
+          },
+          "subPath": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subpath"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "IruleQuery",
+        "type": "object"
+      },
+      "name": "get_irule",
+      "output_schema": {
+        "$defs": {
+          "Irule": {
+            "description": "An iRule as read from the vendor: identity plus the definition used for exact verification.\n\nVendor responses carry many more keys than these; they are ignored. The definition is not\nbyte-capped on read, so one oversized rule created outside ICUHUB cannot break a collection read.",
+            "properties": {
+              "apiAnonymous": {
+                "title": "Apianonymous",
+                "type": "string"
+              },
+              "definitionChecksum": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Definitionchecksum"
+              },
+              "fullPath": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "title": "Fullpath",
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 255,
+                "minLength": 1,
+                "title": "Name",
+                "type": "string"
+              },
+              "partition": {
+                "default": "Common",
+                "maxLength": 255,
+                "minLength": 1,
+                "title": "Partition",
+                "type": "string"
+              },
+              "subPath": {
+                "anyOf": [
+                  {
+                    "maxLength": 1024,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Subpath"
+              }
+            },
+            "required": [
+              "name",
+              "fullPath",
+              "apiAnonymous"
+            ],
+            "title": "Irule",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "present": {
+            "title": "Present",
+            "type": "boolean"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Irule"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "present"
+        ],
+        "title": "IruleResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Enforcer",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "InventoryQuery",
+        "type": "object"
+      },
+      "name": "list_irules",
+      "output_schema": {
+        "$defs": {
+          "Irule": {
+            "description": "An iRule as read from the vendor: identity plus the definition used for exact verification.\n\nVendor responses carry many more keys than these; they are ignored. The definition is not\nbyte-capped on read, so one oversized rule created outside ICUHUB cannot break a collection read.",
+            "properties": {
+              "apiAnonymous": {
+                "title": "Apianonymous",
+                "type": "string"
+              },
+              "definitionChecksum": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Definitionchecksum"
+              },
+              "fullPath": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "title": "Fullpath",
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 255,
+                "minLength": 1,
+                "title": "Name",
+                "type": "string"
+              },
+              "partition": {
+                "default": "Common",
+                "maxLength": 255,
+                "minLength": 1,
+                "title": "Partition",
+                "type": "string"
+              },
+              "subPath": {
+                "anyOf": [
+                  {
+                    "maxLength": 1024,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Subpath"
+              }
+            },
+            "required": [
+              "name",
+              "fullPath",
+              "apiAnonymous"
+            ],
+            "title": "Irule",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/Irule"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "IruleListResult",
         "type": "object"
       }
     },

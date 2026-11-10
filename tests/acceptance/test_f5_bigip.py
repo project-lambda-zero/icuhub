@@ -7,7 +7,7 @@ import asyncio
 import httpx2
 
 from icuhub.connectors.f5_bigip import F5BigIp
-from icuhub.connectors.f5_bigip.models import BlockArgs, InventoryQuery, UnblockArgs
+from icuhub.connectors.f5_bigip.models import BlockArgs, CreateIruleArgs, InventoryQuery, UnblockArgs
 from icuhub.kit.testing import make_connector
 
 ACCEPTANCE_KIND = "f5_bigip"
@@ -54,3 +54,25 @@ def test_block_unblock(acceptance) -> None:
     assert removed.status == "succeeded"
     read_back = asyncio.run(connector.get_block(UnblockArgs(block_id=indicator)))
     assert not read_back.present
+
+
+def test_create_irule(acceptance) -> None:
+    name = acceptance.params.get("irule_name")
+    definition = acceptance.params.get("irule_definition")
+    if not name or not definition:
+        acceptance.record("create_irule", True, "no irule_name/irule_definition parameters; skipped")
+        return
+    acceptance.require_writes()
+    connector = _connector(acceptance)
+    args = CreateIruleArgs(name=name, definition=definition)
+    plan = asyncio.run(connector.plan_create_irule(args))
+    outcome = asyncio.run(connector.apply_create_irule(plan))
+    acceptance.record(
+        "create_irule", outcome.status == "succeeded", outcome.status, full_path=plan.request.get("fullPath")
+    )
+    assert outcome.status == "succeeded"
+    repeat = asyncio.run(connector.plan_create_irule(args))
+    acceptance.record("create_irule_idempotent", repeat.changed is False, "repeat plan is a no-op")
+    assert repeat.changed is False
+    reconciled = asyncio.run(connector.reconcile_create_irule(plan, outcome))
+    assert reconciled.status == "succeeded"
