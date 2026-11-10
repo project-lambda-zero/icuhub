@@ -1,0 +1,60 @@
+{
+  "apiVersion": "apps/v1",
+  "kind": "Deployment",
+  "metadata": {
+    "name": "synthetic-payments",
+    "namespace": "payments",
+    "uid": "55555555-5555-4555-8555-555555555555",
+    "resourceVersion": "103"
+  },
+  "spec": {
+    "template": {
+      "spec": {
+        "hostNetwork": false,
+        "hostPID": false,
+        "hostIPC": false,
+        "securityContext": {
+          "runAsNonRoot": true,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          },
+          "sysctls": [
+            {
+              "name": "net.ipv4.tcp_syncookies",
+              "value": "1"
+            }
+          ]
+        },
+        "volumes": [
+          {
+            "name": "scratch",
+            "emptyDir": {}
+          }
+        ],
+        "containers": [
+          {
+            "name": "payments",
+            "image": "registry.example.invalid/synthetic/payments:1",
+            "ports": [
+              {
+                "containerPort": 8080
+              }
+            ],
+            "securityContext": {
+              "privileged": false,
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "add": [
+                  "NET_BIND_SERVICE"
+                ],
+                "drop": [
+                  "ALL"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

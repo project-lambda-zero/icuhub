@@ -1,0 +1,13 @@
+{
+  "response": {
+    "userUuid": "00000000-0000-4000-8000-000000000001",
+    "username": "example-user",
+    "email": "example-user@example.com",
+    "jwtToken": "example-jwt",
+    "tokenType": "Bearer",
+    "orgName": "example-org",
+    "orgUuid": "00000000-0000-4000-8000-000000000002",
+    "tokenTTL": 3600,
+    "systemAccess": ["SCANNER"]
+  }
+}

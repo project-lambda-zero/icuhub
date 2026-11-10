@@ -1,0 +1,77 @@
+{
+  "additionalData": {
+    "totalItems": 3,
+    "next": null,
+    "cursor": null
+  },
+  "supportToken": "example-support-token",
+  "response": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000403",
+      "name": "CVE-2099-0002 in example-helper",
+      "type": "SECURITY_VULNERABILITY",
+      "findingInfo": {
+        "findingStatus": "ACTIVE",
+        "detectedAt": "2026-01-15T10:10:00Z",
+        "modifiedAt": "2026-01-15T10:10:00Z",
+        "comment": ""
+      },
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000101",
+        "name": "example-project-one",
+        "path": "example-group/example-project-one"
+      },
+      "application": {
+        "uuid": "00000000-0000-4000-8000-000000000201",
+        "name": "example-application"
+      },
+      "component": {
+        "uuid": "00000000-0000-4000-8000-000000000302",
+        "name": "example-helper-1.0.0",
+        "groupId": "com.example",
+        "artifactId": "example-helper",
+        "version": "1.0.0",
+        "path": "com.example:example-helper:1.0.0",
+        "rootLibrary": {
+          "uuid": "00000000-0000-4000-8000-000000000300",
+          "name": "example-root-library"
+        },
+        "directDependency": true
+      },
+      "vulnerability": {
+        "name": "CVE-2099-0002",
+        "type": "CVE",
+        "description": "Second synthetic vulnerability description.",
+        "severity": "MEDIUM",
+        "publishDate": "2026-01-11",
+        "modifiedDate": "2026-01-11",
+        "vulnerabilityScoring": [
+          {
+            "source": "EXAMPLE",
+            "url": "https://example.com/advisories/CVE-2099-0002",
+            "converted": false,
+            "score": 5.3,
+            "severity": "MEDIUM",
+            "type": "CVSS3",
+            "scoreMetadataVector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N"
+          }
+        ],
+        "references": [],
+        "effectiveInfo": {
+          "referenceCount": 0,
+          "shieldValue": 0
+        },
+        "threatAssessment": {
+          "exploitCodeMaturity": "UNPROVEN",
+          "epssPercentage": 0.02
+        }
+      },
+      "topFix": {
+        "id": "00000000-0000-4000-8000-000000000502",
+        "vulnerability": "CVE-2099-0002",
+        "type": "UPGRADE",
+        "origin": "EXAMPLE"
+      }
+    }
+  ]
+}

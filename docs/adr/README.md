@@ -23,6 +23,7 @@
 | [0019](0019-jmespath-mapping-expressions.md) | JMESPath for declarative field extraction in mappers | Accepted |
 | [0020](0020-mvp-scope.md) | MVP scope: ten vendors, every specced edition, full hub runtime | Accepted |
 | [0021](0021-service-stack-dependencies.md) | Service stack dependency set | Accepted |
+| [0022](0022-safe-kubeconfig-yaml.md) | Safe kubeconfig YAML parsing | Accepted |
 
 Format: Status, Date, Closes (decision ID, when applicable), Context, Decision,
 Consequences, Requirements affected. Decisions D1-D21 are closed (`docs/BRD.md`

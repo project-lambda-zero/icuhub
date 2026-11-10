@@ -13,7 +13,10 @@ from icuhub.connectors.invicti_enterprise import InvictiEnterprise
 from icuhub.connectors.invicti_standard import InvictiStandard
 from icuhub.connectors.jira_cloud import JiraCloud
 from icuhub.connectors.jira_dc import JiraDataCenter
+from icuhub.connectors.kubernetes import Kubernetes
+from icuhub.connectors.mend_sca import MendSca
 from icuhub.connectors.nessus import Nessus
+from icuhub.connectors.openshift import OpenShift
 from icuhub.connectors.prisma_cloud import PrismaCloud
 from icuhub.connectors.smtp import Smtp
 from icuhub.kit.connector import Connector
@@ -34,6 +37,9 @@ CONNECTORS: dict[str, type[Connector]] = {
     InvictiStandard.kind: InvictiStandard,
     JiraCloud.kind: JiraCloud,
     JiraDataCenter.kind: JiraDataCenter,
+    Kubernetes.kind: Kubernetes,
+    MendSca.kind: MendSca,
+    OpenShift.kind: OpenShift,
     F5BigIp.kind: F5BigIp,
     GoogleThreatIntelligence.kind: GoogleThreatIntelligence,
     PrismaCloud.kind: PrismaCloud,

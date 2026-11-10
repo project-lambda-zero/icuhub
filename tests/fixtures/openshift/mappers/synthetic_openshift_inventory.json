@@ -1,0 +1,32 @@
+{
+  "apiVersion": "image.openshift.io/v1",
+  "kind": "ImageStream",
+  "metadata": {
+    "name": "synthetic-api",
+    "namespace": "payments",
+    "uid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1",
+    "resourceVersion": "201"
+  },
+  "status": {
+    "dockerImageRepository": "image-registry.example.invalid/payments/synthetic-api",
+    "tags": [
+      {
+        "tag": "stable",
+        "items": [
+          {
+            "created": "2026-11-05T10:00:00Z",
+            "dockerImageReference": "image-registry.example.invalid/payments/synthetic-api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "image": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+            "generation": 2
+          },
+          {
+            "created": "2026-11-01T10:00:00Z",
+            "dockerImageReference": "image-registry.example.invalid/payments/synthetic-api@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "image": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "generation": 1
+          }
+        ]
+      }
+    ]
+  }
+}

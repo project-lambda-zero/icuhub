@@ -1,0 +1,49 @@
+{
+  "additionalData": {
+    "totalItems": 3,
+    "next": null,
+    "cursor": null
+  },
+  "supportToken": "example-support-token",
+  "response": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000801",
+      "type": "PROJECT_SCANNED",
+      "timestamp": "2026-01-16T09:30:00Z",
+      "user": {
+        "uuid": "00000000-0000-4000-8000-000000000001",
+        "name": "example-user"
+      },
+      "scope": {
+        "type": "PROJECT",
+        "uuid": "00000000-0000-4000-8000-000000000101"
+      }
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000802",
+      "type": "ALERT_STATUS_CHANGED",
+      "timestamp": "2026-01-16T09:30:00Z",
+      "user": {
+        "uuid": "00000000-0000-4000-8000-000000000001",
+        "name": "example-user"
+      },
+      "scope": {
+        "type": "PROJECT",
+        "uuid": "00000000-0000-4000-8000-000000000102"
+      }
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000803",
+      "type": "ORGANIZATION_UPDATED",
+      "timestamp": "2026-01-17T12:00:00Z",
+      "user": {
+        "uuid": "00000000-0000-4000-8000-000000000001",
+        "name": "example-user"
+      },
+      "scope": {
+        "type": "ORGANIZATION",
+        "uuid": "00000000-0000-4000-8000-000000000002"
+      }
+    }
+  ]
+}

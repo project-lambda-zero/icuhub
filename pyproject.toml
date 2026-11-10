@@ -19,6 +19,7 @@ dependencies = [
   "asyncpg==0.32.0",
   "jmespath==1.1.0",
   "defusedxml==0.7.1",
+  "PyYAML==6.0.2",
   "cryptography==50.0.2",
   "fastapi==0.162.2",
   "uvicorn==0.54.0",

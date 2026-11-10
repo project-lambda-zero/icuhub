@@ -1,0 +1,23 @@
+{
+  "apiVersion": "compliance.openshift.io/v1alpha1",
+  "kind": "ComplianceCheckResult",
+  "metadata": {
+    "name": "synthetic-scan-no-direct-root-logins",
+    "namespace": "openshift-compliance",
+    "uid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa6",
+    "resourceVersion": "206",
+    "annotations": {
+      "compliance.openshift.io/rule": "no-direct-root-logins"
+    },
+    "labels": {
+      "compliance.openshift.io/check-severity": "medium",
+      "compliance.openshift.io/check-status": "FAIL",
+      "compliance.openshift.io/scan-name": "synthetic-worker-scan"
+    }
+  },
+  "id": "xccdf_org.ssgproject.content_rule_no_direct_root_logins",
+  "description": "Synthetic check description that is not copied into typed evidence.",
+  "instructions": "Inspect the synthetic securetty configuration manually.",
+  "severity": "medium",
+  "status": "FAIL"
+}

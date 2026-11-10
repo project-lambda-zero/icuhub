@@ -1,0 +1,29 @@
+{
+  "apiVersion": "constraints.gatekeeper.sh/v1beta1",
+  "kind": "K8sRequiredLabels",
+  "metadata": {
+    "name": "namespace-must-have-team",
+    "uid": "33333333-3333-4333-8333-333333333333",
+    "resourceVersion": "102"
+  },
+  "status": {
+    "auditTimestamp": "2026-11-04T12:05:00Z",
+    "totalViolations": 2,
+    "violations": [
+      {
+        "enforcementAction": "deny",
+        "group": "",
+        "kind": "Namespace",
+        "name": "synthetic-sandbox",
+        "message": "synthetic missing team label"
+      },
+      {
+        "enforcementAction": "deny",
+        "group": "",
+        "kind": "Namespace",
+        "name": "synthetic-testing",
+        "message": "synthetic missing team label"
+      }
+    ]
+  }
+}

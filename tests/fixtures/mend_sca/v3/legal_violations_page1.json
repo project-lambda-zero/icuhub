@@ -1,0 +1,70 @@
+{
+  "additionalData": {
+    "totalItems": 2,
+    "next": null,
+    "cursor": null
+  },
+  "supportToken": "example-support-token",
+  "response": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000604",
+      "name": "Example-License-1.0 on example-library",
+      "findingStatus": "ACTIVE",
+      "severity": "HIGH",
+      "detectedAt": "2026-01-15T10:20:00Z",
+      "modifiedAt": "2026-01-15T10:20:00Z",
+      "comment": "",
+      "policy": {
+        "uuid": "00000000-0000-4000-8000-000000000700",
+        "name": "example-copyleft-policy"
+      },
+      "license": {
+        "name": "Example-License-1.0",
+        "type": "COPYLEFT"
+      },
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000101",
+        "name": "example-project-one",
+        "path": "example-group/example-project-one"
+      },
+      "component": {
+        "uuid": "00000000-0000-4000-8000-000000000301",
+        "name": "example-library-2.4.1",
+        "groupId": "com.example",
+        "artifactId": "example-library",
+        "version": "2.4.1",
+        "path": "com.example:example-library:2.4.1"
+      }
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000605",
+      "name": "Example-License-2.0 on example-helper",
+      "findingStatus": "IGNORED",
+      "severity": "LOW",
+      "detectedAt": "2026-01-14T08:00:00Z",
+      "modifiedAt": "2026-01-16T09:30:00Z",
+      "comment": "Synthetic waiver comment.",
+      "policy": {
+        "uuid": "00000000-0000-4000-8000-000000000701",
+        "name": "example-attribution-policy"
+      },
+      "license": {
+        "name": "Example-License-2.0",
+        "type": "PERMISSIVE"
+      },
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000102",
+        "name": "example-project-two",
+        "path": "example-group/example-project-two"
+      },
+      "component": {
+        "uuid": "00000000-0000-4000-8000-000000000302",
+        "name": "example-helper-1.0.0",
+        "groupId": "com.example",
+        "artifactId": "example-helper",
+        "version": "1.0.0",
+        "path": "com.example:example-helper:1.0.0"
+      }
+    }
+  ]
+}

@@ -42,7 +42,7 @@ def item(uid: str, rv: str = "1") -> dict[str, Any]:
 
 def test_paginated_list_deduplicates_by_uid_and_preserves_resource_version() -> None:
     api, http = client([
-        (200, {"metadata": {"resourceVersion": "000100"}, "items": [item("a"), item("b")], "continue": "next"}),
+        (200, {"metadata": {"resourceVersion": "000100", "continue": "next"}, "items": [item("a"), item("b")]}),
         (200, {"metadata": {"resourceVersion": "000100"}, "items": [item("b"), item("c")]}),
     ])
     result = asyncio.run(api.list_all(PODS, namespace="default"))
@@ -54,7 +54,7 @@ def test_paginated_list_deduplicates_by_uid_and_preserves_resource_version() -> 
 
 def test_expired_continue_restarts_the_partition_without_duplicates() -> None:
     api, http = client([
-        (200, {"metadata": {"resourceVersion": "10"}, "items": [item("old")], "continue": "expired"}),
+        (200, {"metadata": {"resourceVersion": "10", "continue": "expired"}, "items": [item("old")]}),
         (410, {"kind": "Status", "reason": "Expired"}),
         (200, {"metadata": {"resourceVersion": "11"}, "items": [item("new")]}),
     ])
@@ -65,7 +65,7 @@ def test_expired_continue_restarts_the_partition_without_duplicates() -> None:
 
 
 def test_repeated_continue_token_fails_closed() -> None:
-    page = {"metadata": {"resourceVersion": "1"}, "items": [], "continue": "same"}
+    page = {"metadata": {"resourceVersion": "1", "continue": "same"}, "items": []}
     api, _ = client([(200, page), (200, page)])
     with pytest.raises(VendorContractError, match="continuation token"):
         asyncio.run(api.list_all(PODS))

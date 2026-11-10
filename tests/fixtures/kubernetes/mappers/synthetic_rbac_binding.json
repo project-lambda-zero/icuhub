@@ -1,0 +1,26 @@
+{
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "kind": "ClusterRoleBinding",
+  "metadata": {
+    "name": "synthetic-anonymous-binding",
+    "uid": "77777777-7777-4777-8777-777777777777",
+    "resourceVersion": "105"
+  },
+  "roleRef": {
+    "apiGroup": "rbac.authorization.k8s.io",
+    "kind": "ClusterRole",
+    "name": "synthetic-reader"
+  },
+  "subjects": [
+    {
+      "kind": "User",
+      "name": "system:anonymous",
+      "apiGroup": "rbac.authorization.k8s.io"
+    },
+    {
+      "kind": "Group",
+      "name": "system:unauthenticated",
+      "apiGroup": "rbac.authorization.k8s.io"
+    }
+  ]
+}

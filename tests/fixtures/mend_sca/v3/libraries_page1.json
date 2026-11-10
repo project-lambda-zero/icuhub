@@ -1,0 +1,84 @@
+{
+  "additionalData": {
+    "totalItems": 3,
+    "next": null,
+    "cursor": null
+  },
+  "supportToken": "example-support-token",
+  "response": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000301",
+      "name": "example-library-2.4.1",
+      "groupId": "com.example",
+      "artifactId": "example-library",
+      "version": "2.4.1",
+      "type": "JAVA",
+      "purl": "pkg:maven/com.example/example-library@2.4.1",
+      "path": "com.example:example-library:2.4.1",
+      "dependencyType": "DIRECT",
+      "directDependency": true,
+      "libraryLocations": [
+        {
+          "localPath": "example/pom.xml"
+        }
+      ],
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000101",
+        "name": "example-project-one",
+        "path": "example-group/example-project-one",
+        "application": {
+          "uuid": "00000000-0000-4000-8000-000000000201",
+          "name": "example-application"
+        }
+      }
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000301",
+      "name": "example-library-2.4.1",
+      "groupId": "com.example",
+      "artifactId": "example-library",
+      "version": "2.4.1",
+      "type": "JAVA",
+      "purl": "pkg:maven/com.example/example-library@2.4.1",
+      "path": "com.example:example-library:2.4.1",
+      "dependencyType": "TRANSITIVE",
+      "directDependency": false,
+      "libraryLocations": [
+        {
+          "localPath": "example-two/pom.xml"
+        }
+      ],
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000102",
+        "name": "example-project-two",
+        "path": "example-group/example-project-two",
+        "application": {
+          "uuid": "00000000-0000-4000-8000-000000000202",
+          "name": "example-application-two"
+        }
+      }
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000302",
+      "name": "example-helper-1.0.0",
+      "groupId": "com.example",
+      "artifactId": "example-helper",
+      "version": "1.0.0",
+      "type": "JAVA",
+      "purl": "pkg:maven/com.example/example-helper@1.0.0",
+      "path": "com.example:example-helper:1.0.0",
+      "dependencyType": "DIRECT",
+      "directDependency": true,
+      "libraryLocations": [],
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000101",
+        "name": "example-project-one",
+        "path": "example-group/example-project-one",
+        "application": {
+          "uuid": "00000000-0000-4000-8000-000000000201",
+          "name": "example-application"
+        }
+      }
+    }
+  ]
+}

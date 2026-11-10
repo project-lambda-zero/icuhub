@@ -1,0 +1,28 @@
+{
+  "components": [
+    {
+      "name": "example-library-2.4.1",
+      "response": [
+        {
+          "name": "CVE-2099-0001",
+          "findingInfo": {
+            "findingStatus": "ACTIVE",
+            "comment": ""
+          },
+          "component": {
+            "name": "example-library-2.4.1",
+            "groupId": "com.example",
+            "artifactId": "example-library",
+            "version": "2.4.1"
+          },
+          "vulnerability": {
+            "description": "Synthetic vulnerability description.",
+            "score": 8.1,
+            "severity": "HIGH",
+            "publishDate": "2026-01-10"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "apiVersion": "security.openshift.io/v1",
+  "kind": "SecurityContextConstraints",
+  "metadata": {
+    "name": "synthetic-restricted",
+    "uid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa5",
+    "resourceVersion": "205"
+  },
+  "allowPrivilegedContainer": false,
+  "allowPrivilegeEscalation": false,
+  "allowHostNetwork": false,
+  "allowHostPID": false,
+  "allowHostIPC": false,
+  "allowHostDirVolumePlugin": false,
+  "runAsUser": {
+    "type": "MustRunAsRange",
+    "uidRangeMin": 1000,
+    "uidRangeMax": 2000
+  },
+  "volumes": [
+    "configMap",
+    "downwardAPI",
+    "emptyDir",
+    "persistentVolumeClaim",
+    "projected",
+    "secret"
+  ],
+  "allowedCapabilities": [
+    "NET_BIND_SERVICE"
+  ]
+}

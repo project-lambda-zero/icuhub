@@ -1,0 +1,12 @@
+{
+  "apiVersion": "project.openshift.io/v1",
+  "kind": "Project",
+  "metadata": {
+    "name": "synthetic-payments",
+    "uid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3",
+    "resourceVersion": "203"
+  },
+  "status": {
+    "phase": "Active"
+  }
+}

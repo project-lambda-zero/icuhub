@@ -1,0 +1,1926 @@
+{
+  "actions": [
+    {
+      "capability": "ClusterOps",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "Exact metadata annotation and label changes.",
+        "properties": {
+          "annotations": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Annotations",
+            "type": "object"
+          },
+          "expected_resource_version": {
+            "minLength": 1,
+            "title": "Expected Resource Version",
+            "type": "string"
+          },
+          "expected_uid": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Uid"
+          },
+          "group": {
+            "default": "",
+            "pattern": "^[A-Za-z0-9.-]*$",
+            "title": "Group",
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "name": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Namespace"
+          },
+          "resource": {
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "title": "Resource",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "resource",
+          "name",
+          "expected_resource_version"
+        ],
+        "title": "AnnotateResourceArgs",
+        "type": "object"
+      },
+      "name": "annotate_or_label_resource",
+      "stability": "beta"
+    },
+    {
+      "capability": "ClusterOps",
+      "classification": "destructive",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "expected_resource_version": {
+            "minLength": 1,
+            "title": "Expected Resource Version",
+            "type": "string"
+          },
+          "expected_uid": {
+            "minLength": 1,
+            "title": "Expected Uid",
+            "type": "string"
+          },
+          "grace_period_seconds": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Grace Period Seconds"
+          },
+          "name": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Namespace",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approved_plan_hash",
+          "namespace",
+          "name",
+          "expected_uid",
+          "expected_resource_version"
+        ],
+        "title": "DeletePodArgs",
+        "type": "object"
+      },
+      "name": "delete_pod",
+      "stability": "beta"
+    },
+    {
+      "capability": "ClusterOps",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "ResourceVersion-conditional scale-subresource change.",
+        "properties": {
+          "approved_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "current_replicas": {
+            "minimum": 0,
+            "title": "Current Replicas",
+            "type": "integer"
+          },
+          "expected_resource_version": {
+            "minLength": 1,
+            "title": "Expected Resource Version",
+            "type": "string"
+          },
+          "expected_uid": {
+            "anyOf": [
+              {
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Uid"
+          },
+          "group": {
+            "default": "",
+            "pattern": "^[A-Za-z0-9.-]*$",
+            "title": "Group",
+            "type": "string"
+          },
+          "name": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Namespace"
+          },
+          "replicas": {
+            "minimum": 0,
+            "title": "Replicas",
+            "type": "integer"
+          },
+          "resource": {
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "title": "Resource",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approved_plan_hash",
+          "version",
+          "resource",
+          "name",
+          "expected_resource_version",
+          "replicas",
+          "current_replicas"
+        ],
+        "title": "ScaleWorkloadArgs",
+        "type": "object"
+      },
+      "name": "scale_workload",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "BearerToken"
+  ],
+  "capabilities": [
+    "ClusterOps",
+    "FindingSource",
+    "TelemetrySource"
+  ],
+  "config_schema": {
+    "$defs": {
+      "AuditFileSource": {
+        "additionalProperties": false,
+        "description": "One local audit JSONL source with its authoritative API source and node identity.",
+        "properties": {
+          "api_source": {
+            "default": "kube-apiserver",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Api Source",
+            "type": "string"
+          },
+          "node": {
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Node",
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "node"
+        ],
+        "title": "AuditFileSource",
+        "type": "object"
+      },
+      "ManagedAuditSource": {
+        "additionalProperties": false,
+        "description": "A local replay envelope for one managed audit transport adapter.",
+        "properties": {
+          "api_source": {
+            "default": "kube-apiserver",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Api Source",
+            "type": "string"
+          },
+          "node": {
+            "default": "managed",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Node",
+            "type": "string"
+          },
+          "path": {
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "transport": {
+            "enum": [
+              "cloudwatch",
+              "event_hub",
+              "pubsub"
+            ],
+            "title": "Transport",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transport",
+          "path"
+        ],
+        "title": "ManagedAuditSource",
+        "type": "object"
+      },
+      "ResourceSelection": {
+        "additionalProperties": false,
+        "description": "One explicitly selected served resource partition.",
+        "properties": {
+          "group": {
+            "default": "",
+            "pattern": "^[A-Za-z0-9.-]*$",
+            "title": "Group",
+            "type": "string"
+          },
+          "kind": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Namespace"
+          },
+          "resource": {
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "title": "Resource",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "resource",
+          "kind"
+        ],
+        "title": "ResourceSelection",
+        "type": "object"
+      },
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "Connection settings for a vanilla Kubernetes API server.",
+    "properties": {
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "audit_api_source": {
+        "default": "kube-apiserver",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+        "title": "Audit Api Source",
+        "type": "string"
+      },
+      "audit_files": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/AuditFileSource"
+        },
+        "title": "Audit Files",
+        "type": "array"
+      },
+      "audit_webhook_auth": {
+        "default": "bearer",
+        "enum": [
+          "bearer",
+          "mtls"
+        ],
+        "title": "Audit Webhook Auth",
+        "type": "string"
+      },
+      "base_url": {
+        "default": "",
+        "title": "Base Url",
+        "type": "string"
+      },
+      "bearer_file": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Bearer File"
+      },
+      "bearer_token": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "cluster_name": {
+        "default": "cluster",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+        "title": "Cluster Name",
+        "type": "string"
+      },
+      "destructive_enabled": {
+        "default": false,
+        "title": "Destructive Enabled",
+        "type": "boolean"
+      },
+      "gatekeeper_enabled": {
+        "default": true,
+        "title": "Gatekeeper Enabled",
+        "type": "boolean"
+      },
+      "in_cluster": {
+        "default": false,
+        "title": "In Cluster",
+        "type": "boolean"
+      },
+      "include_users_groups": {
+        "default": false,
+        "title": "Include Users Groups",
+        "type": "boolean"
+      },
+      "inventory_resources": {
+        "items": {
+          "$ref": "#/$defs/ResourceSelection"
+        },
+        "title": "Inventory Resources",
+        "type": "array"
+      },
+      "kubeconfig": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "kubeconfig_context": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Kubeconfig Context"
+      },
+      "managed_audit_files": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/ManagedAuditSource"
+        },
+        "title": "Managed Audit Files",
+        "type": "array"
+      },
+      "max_audit_bytes_per_batch": {
+        "default": 1048576,
+        "maximum": 67108864,
+        "minimum": 4096,
+        "title": "Max Audit Bytes Per Batch",
+        "type": "integer"
+      },
+      "max_audit_identities": {
+        "default": 4096,
+        "maximum": 100000,
+        "minimum": 128,
+        "title": "Max Audit Identities",
+        "type": "integer"
+      },
+      "max_evidence_bytes": {
+        "default": 262144,
+        "maximum": 16777216,
+        "minimum": 1024,
+        "title": "Max Evidence Bytes",
+        "type": "integer"
+      },
+      "max_log_bytes": {
+        "default": 262144,
+        "maximum": 16777216,
+        "minimum": 1024,
+        "title": "Max Log Bytes",
+        "type": "integer"
+      },
+      "max_owner_depth": {
+        "default": 8,
+        "maximum": 32,
+        "minimum": 1,
+        "title": "Max Owner Depth",
+        "type": "integer"
+      },
+      "max_owner_objects": {
+        "default": 64,
+        "maximum": 256,
+        "minimum": 1,
+        "title": "Max Owner Objects",
+        "type": "integer"
+      },
+      "max_pages": {
+        "default": 1000,
+        "maximum": 10000,
+        "minimum": 1,
+        "title": "Max Pages",
+        "type": "integer"
+      },
+      "max_watch_events": {
+        "default": 1000,
+        "maximum": 10000,
+        "minimum": 1,
+        "title": "Max Watch Events",
+        "type": "integer"
+      },
+      "namespaces": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "title": "Namespaces",
+        "type": "array"
+      },
+      "page_size": {
+        "default": 100,
+        "maximum": 500,
+        "minimum": 1,
+        "title": "Page Size",
+        "type": "integer"
+      },
+      "policy_reports_enabled": {
+        "default": true,
+        "title": "Policy Reports Enabled",
+        "type": "boolean"
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "raw_arf_enabled": {
+        "default": false,
+        "title": "Raw Arf Enabled",
+        "type": "boolean"
+      },
+      "rbac_resources": {
+        "items": {
+          "$ref": "#/$defs/ResourceSelection"
+        },
+        "title": "Rbac Resources",
+        "type": "array"
+      },
+      "subject_access_review_enabled": {
+        "default": false,
+        "title": "Subject Access Review Enabled",
+        "type": "boolean"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "watch_timeout_s": {
+        "default": 5,
+        "maximum": 60,
+        "minimum": 1,
+        "title": "Watch Timeout S",
+        "type": "integer"
+      },
+      "workload_resources": {
+        "items": {
+          "$ref": "#/$defs/ResourceSelection"
+        },
+        "title": "Workload Resources",
+        "type": "array"
+      },
+      "write_enabled": {
+        "default": false,
+        "title": "Write Enabled",
+        "type": "boolean"
+      }
+    },
+    "title": "KubernetesConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-112"
+  ],
+  "format_version": 1,
+  "importers": [],
+  "kind": "kubernetes",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Namespace"
+          }
+        },
+        "required": [
+          "kind",
+          "name"
+        ],
+        "title": "GatekeeperConstraintArgs",
+        "type": "object"
+      },
+      "name": "get_gatekeeper_constraint",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "evaluated",
+            "enum": [
+              "evaluated",
+              "degraded",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Coverage Reason"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Data"
+          }
+        },
+        "title": "ResourceObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "ClusterOps",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "An optional path key from the OpenAPI v3 index.",
+        "properties": {
+          "subpath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subpath"
+          }
+        },
+        "title": "OpenApiSchemaArgs",
+        "type": "object"
+      },
+      "name": "get_openapi_schema",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "evaluated",
+            "enum": [
+              "evaluated",
+              "degraded",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Coverage Reason"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Data"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Path"
+          }
+        },
+        "title": "OpenApiSchemaOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "enum": [
+              "wgpolicyk8s.io",
+              "openreports.io"
+            ],
+            "title": "Group",
+            "type": "string"
+          },
+          "name": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Namespace"
+          },
+          "resource": {
+            "enum": [
+              "policyreports",
+              "clusterpolicyreports"
+            ],
+            "title": "Resource",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group",
+          "version",
+          "resource",
+          "name"
+        ],
+        "title": "PolicyReportArgs",
+        "type": "object"
+      },
+      "name": "get_policy_report",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "evaluated",
+            "enum": [
+              "evaluated",
+              "degraded",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Coverage Reason"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Data"
+          }
+        },
+        "title": "ResourceObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "ClusterOps",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "default": "",
+            "pattern": "^[A-Za-z0-9.-]*$",
+            "title": "Group",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Kind"
+          },
+          "name": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Name",
+            "type": "string"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Namespace"
+          },
+          "resource": {
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "title": "Resource",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "resource",
+          "name"
+        ],
+        "title": "GetResourceArgs",
+        "type": "object"
+      },
+      "name": "get_resource",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "evaluated",
+            "enum": [
+              "evaluated",
+              "degraded",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Coverage Reason"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Data"
+          }
+        },
+        "title": "ResourceObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "ClusterOps",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "An operation with no arguments.",
+        "properties": {},
+        "title": "EmptyArgs",
+        "type": "object"
+      },
+      "name": "get_server_version",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "evaluated",
+            "enum": [
+              "evaluated",
+              "degraded",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Coverage Reason"
+          },
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          }
+        },
+        "title": "ServerVersionOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "group": {
+            "default": "",
+            "pattern": "^[A-Za-z0-9.-]*$",
+            "title": "Group",
+            "type": "string"
+          },
+          "groups": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Namespace"
+          },
+          "resource": {
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "title": "Resource",
+            "type": "string"
+          },
+          "user": {
+            "minLength": 1,
+            "title": "User",
+            "type": "string"
+          },
+          "verb": {
+            "enum": [
+              "get",
+              "list",
+              "watch",
+              "create",
+              "patch",
+              "update",
+              "delete"
+            ],
+            "title": "Verb",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user",
+          "verb",
+          "version",
+          "resource"
+        ],
+        "title": "SubjectAccessReviewArgs",
+        "type": "object"
+      },
+      "name": "get_subject_access_review",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "allowed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Allowed"
+          },
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "evaluated",
+            "enum": [
+              "evaluated",
+              "degraded",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Coverage Reason"
+          },
+          "denied": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Denied"
+          },
+          "evaluation_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Evaluation Error"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          }
+        },
+        "title": "SubjectAccessReviewOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "ClusterOps",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "An operation with no arguments.",
+        "properties": {},
+        "title": "EmptyArgs",
+        "type": "object"
+      },
+      "name": "list_api_resources",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "core": {
+            "additionalProperties": true,
+            "title": "Core",
+            "type": "object"
+          },
+          "coverage": {
+            "default": "evaluated",
+            "enum": [
+              "evaluated",
+              "degraded",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Coverage Reason"
+          },
+          "groups": {
+            "additionalProperties": true,
+            "title": "Groups",
+            "type": "object"
+          },
+          "refreshed": {
+            "default": false,
+            "title": "Refreshed",
+            "type": "boolean"
+          },
+          "resources": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Resources",
+            "type": "array"
+          }
+        },
+        "title": "ApiResourcesOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "ClusterOps",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "continue_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Continue Token"
+          },
+          "field_selector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Field Selector"
+          },
+          "group": {
+            "default": "",
+            "pattern": "^[A-Za-z0-9.-]*$",
+            "title": "Group",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Kind"
+          },
+          "label_selector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label Selector"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "maximum": 500,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Limit"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Namespace"
+          },
+          "resource": {
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "title": "Resource",
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "resource"
+        ],
+        "title": "ListResourcesArgs",
+        "type": "object"
+      },
+      "name": "list_resources",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "continue_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Continue Token"
+          },
+          "coverage": {
+            "default": "evaluated",
+            "enum": [
+              "evaluated",
+              "degraded",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Coverage Reason"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "resource_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resource Version"
+          }
+        },
+        "title": "ResourceListOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "ClusterOps",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "field_selector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Field Selector"
+          },
+          "group": {
+            "default": "",
+            "pattern": "^[A-Za-z0-9.-]*$",
+            "title": "Group",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Kind"
+          },
+          "label_selector": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label Selector"
+          },
+          "max_events": {
+            "anyOf": [
+              {
+                "maximum": 10000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Max Events"
+          },
+          "namespace": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Namespace"
+          },
+          "resource": {
+            "pattern": "^[a-z0-9][a-z0-9.-]*$",
+            "title": "Resource",
+            "type": "string"
+          },
+          "resource_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resource Version"
+          },
+          "timeout_s": {
+            "anyOf": [
+              {
+                "maximum": 60,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Timeout S"
+          },
+          "version": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "resource"
+        ],
+        "title": "WatchResourceArgs",
+        "type": "object"
+      },
+      "name": "watch_resource",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "evaluated",
+            "enum": [
+              "evaluated",
+              "degraded",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "coverage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Coverage Reason"
+          },
+          "events": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "objects": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Objects",
+            "type": "array"
+          },
+          "relisted": {
+            "default": false,
+            "title": "Relisted",
+            "type": "boolean"
+          },
+          "resource_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resource Version"
+          }
+        },
+        "title": "WatchResourceOutput",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [
+    "resource_inventory"
+  ],
+  "scopes": [
+    {
+      "name": "cluster_discovery",
+      "probe": "GET /api and GET /apis",
+      "required_by": [
+        "ClusterOps",
+        "FindingSource",
+        "TelemetrySource"
+      ]
+    },
+    {
+      "name": "server_version",
+      "probe": "GET /version",
+      "required_by": [
+        "ClusterOps"
+      ]
+    }
+  ],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "TelemetrySource",
+      "cursor": "sequence",
+      "mapper_version": 1,
+      "modes": [
+        "event"
+      ],
+      "name": "audit_events",
+      "ocsf_class": 6003,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "gatekeeper_audit_snapshot",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "page_token",
+      "mapper_version": 1,
+      "modes": [
+        "incremental"
+      ],
+      "name": "gatekeeper_constraint_changes",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "page_token",
+      "mapper_version": 1,
+      "modes": [
+        "incremental"
+      ],
+      "name": "policy_report_changes",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "policy_report_snapshot",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "page_token",
+      "mapper_version": 1,
+      "modes": [
+        "incremental"
+      ],
+      "name": "rbac_assessment_changes",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "rbac_assessment_snapshot",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "ClusterOps",
+      "cursor": "page_token",
+      "mapper_version": 1,
+      "modes": [
+        "incremental"
+      ],
+      "name": "resource_inventory_changes",
+      "ocsf_class": null,
+      "record_type": "resource_inventory",
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "ClusterOps",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "resource_inventory_snapshot",
+      "ocsf_class": null,
+      "record_type": "resource_inventory",
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "page_token",
+      "mapper_version": 1,
+      "modes": [
+        "incremental"
+      ],
+      "name": "workload_assessment_changes",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "workload_assessment_snapshot",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": [
+    {
+      "event_types": [
+        "*"
+      ],
+      "header_event": null,
+      "name": "receive_audit"
+    }
+  ]
+}

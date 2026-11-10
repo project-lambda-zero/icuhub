@@ -1,0 +1,136 @@
+{
+  "additionalData": {
+    "totalItems": 3,
+    "next": "example-cursor-page-2",
+    "cursor": "example-cursor-page-2"
+  },
+  "supportToken": "example-support-token",
+  "response": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000401",
+      "name": "CVE-2099-0001 in example-library",
+      "type": "SECURITY_VULNERABILITY",
+      "findingInfo": {
+        "findingStatus": "ACTIVE",
+        "detectedAt": "2026-01-15T10:00:00Z",
+        "modifiedAt": "2026-01-15T10:00:00Z",
+        "comment": ""
+      },
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000101",
+        "name": "example-project-one",
+        "path": "example-group/example-project-one"
+      },
+      "application": {
+        "uuid": "00000000-0000-4000-8000-000000000201",
+        "name": "example-application"
+      },
+      "component": {
+        "uuid": "00000000-0000-4000-8000-000000000301",
+        "name": "example-library-2.4.1",
+        "groupId": "com.example",
+        "artifactId": "example-library",
+        "version": "2.4.1",
+        "path": "com.example:example-library:2.4.1",
+        "rootLibrary": {
+          "uuid": "00000000-0000-4000-8000-000000000300",
+          "name": "example-root-library"
+        },
+        "directDependency": true
+      },
+      "vulnerability": {
+        "name": "CVE-2099-0001",
+        "type": "CVE",
+        "description": "Synthetic vulnerability description.",
+        "severity": "HIGH",
+        "publishDate": "2026-01-10",
+        "modifiedDate": "2026-01-10",
+        "vulnerabilityScoring": [
+          {
+            "source": "EXAMPLE",
+            "url": "https://example.com/advisories/CVE-2099-0001",
+            "converted": false,
+            "score": 8.1,
+            "severity": "HIGH",
+            "type": "CVSS3",
+            "scoreMetadataVector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+          }
+        ],
+        "references": [],
+        "effectiveInfo": {
+          "referenceCount": 0,
+          "shieldValue": 0
+        },
+        "threatAssessment": {
+          "exploitCodeMaturity": "UNPROVEN",
+          "epssPercentage": 0.01
+        }
+      },
+      "topFix": {
+        "id": "00000000-0000-4000-8000-000000000501",
+        "vulnerability": "CVE-2099-0001",
+        "type": "UPGRADE",
+        "origin": "EXAMPLE",
+        "message": "Upgrade to example-library 2.4.2 (synthetic)."
+      }
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000402",
+      "name": "CVE-2099-0001 in example-library",
+      "type": "SECURITY_VULNERABILITY",
+      "findingInfo": {
+        "findingStatus": "IGNORED",
+        "detectedAt": "2026-01-15T10:05:00Z",
+        "modifiedAt": "2026-01-16T09:30:00Z",
+        "comment": "Synthetic suppression comment."
+      },
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000102",
+        "name": "example-project-two",
+        "path": "example-group/example-project-two"
+      },
+      "application": {
+        "uuid": "00000000-0000-4000-8000-000000000202",
+        "name": "example-application-two"
+      },
+      "component": {
+        "uuid": "00000000-0000-4000-8000-000000000301",
+        "name": "example-library-2.4.1",
+        "groupId": "com.example",
+        "artifactId": "example-library",
+        "version": "2.4.1",
+        "path": "com.example:example-library:2.4.1",
+        "rootLibrary": {
+          "uuid": "00000000-0000-4000-8000-000000000300",
+          "name": "example-root-library"
+        },
+        "directDependency": false
+      },
+      "vulnerability": {
+        "name": "CVE-2099-0001",
+        "type": "CVE",
+        "description": "Synthetic vulnerability description.",
+        "severity": "HIGH",
+        "publishDate": "2026-01-10",
+        "modifiedDate": "2026-01-10",
+        "vulnerabilityScoring": [],
+        "references": [],
+        "effectiveInfo": {
+          "referenceCount": 0,
+          "shieldValue": 0
+        },
+        "threatAssessment": {
+          "exploitCodeMaturity": "UNPROVEN",
+          "epssPercentage": 0.01
+        }
+      },
+      "topFix": {
+        "id": "00000000-0000-4000-8000-000000000502",
+        "vulnerability": "CVE-2099-0001",
+        "type": "UPGRADE",
+        "origin": "EXAMPLE",
+        "message": "Upgrade to example-library 2.4.2 (synthetic)."
+      }
+    }
+  ]
+}

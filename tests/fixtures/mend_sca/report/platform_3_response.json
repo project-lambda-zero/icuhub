@@ -1,0 +1,55 @@
+{
+  "response": [
+    {
+      "name": "CVE-2099-0001",
+      "findingInfo": {
+        "uuid": "00000000-0000-4000-8000-000000000401",
+        "findingStatus": "ACTIVE",
+        "detectedAt": "2026-01-15T10:00:00Z",
+        "modifiedAt": "2026-01-15T10:00:00Z",
+        "comment": ""
+      },
+      "component": {
+        "name": "example-library-2.4.1",
+        "groupId": "com.example",
+        "artifactId": "example-library",
+        "version": "2.4.1",
+        "path": "com.example:example-library:2.4.1"
+      },
+      "vulnerability": {
+        "name": "CVE-2099-0001",
+        "description": "Synthetic vulnerability description.",
+        "severity": "HIGH",
+        "publishDate": "2026-01-10",
+        "score": 8.1
+      },
+      "topFix": {
+        "fixResolution": "example-library 2.4.2 (synthetic)"
+      }
+    },
+    {
+      "name": "CVE-2099-0002",
+      "findingInfo": {
+        "uuid": "00000000-0000-4000-8000-000000000403",
+        "findingStatus": "IGNORED",
+        "detectedAt": "2026-01-15T10:10:00Z",
+        "modifiedAt": "2026-01-16T09:30:00Z",
+        "comment": "Synthetic suppression comment."
+      },
+      "component": {
+        "name": "example-helper-1.0.0",
+        "groupId": "com.example",
+        "artifactId": "example-helper",
+        "version": "1.0.0",
+        "path": "com.example:example-helper:1.0.0"
+      },
+      "vulnerability": {
+        "name": "CVE-2099-0002",
+        "description": "Second synthetic vulnerability description.",
+        "severity": "MEDIUM",
+        "publishDate": "2026-01-11",
+        "score": 5.3
+      }
+    }
+  ]
+}

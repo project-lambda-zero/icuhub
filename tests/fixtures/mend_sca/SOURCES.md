@@ -10,8 +10,8 @@ are documentation-style examples.
 - Mend Platform API 3.0 documentation: https://api-docs.mend.io/platform/3.0
   - OpenAPI bundle: https://api-docs.mend.io/_bundle/platform/3.0.yaml
   - Used for: `v3/` login and access-token bodies, security findings pages,
-    libraries pages, legal violations, activity logs, project pages, and the
-    `report/` Platform 3.0 `response` report shape.
+    project pages, and the `report/` Platform 3.0 `response` report shape.
+    No fixtures yet exist for the 3.0 libraries, legal violations, or activity endpoints.
 - Mend SCA API 2.0 documentation: https://api-docs.mend.io/sca/2.0
   - OpenAPI bundle: https://api-docs.mend.io/_bundle/sca/2.0.yaml
   - Used for: `v2/` login session body, security alert pages, legal alert pages,
@@ -26,7 +26,7 @@ examples with all identifying values replaced.
 The Unified Agent `libraries` report, the manual `vulnerabilities` report, and the
 grouped Platform `components` report have no authoritative schema in the bundles
 above. Their fixtures follow the historically documented report layouts and are
-marked `[UNVERIFIED]` in `src/icuhub/connectors/mend_sca/report.py`. They must be
+marked `[UNVERIFIED]` in `src/icuhub/connectors/mend_sca/reports.py`. They must be
 confirmed against real exported reports before the corresponding parser shapes are
 considered verified. See `docs/IMPLEMENTATION_GAPS.md` for the open gap entries.
 

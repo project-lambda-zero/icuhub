@@ -1,0 +1,33 @@
+{
+  "apiVersion": "audit.k8s.io/v1",
+  "kind": "Event",
+  "level": "RequestResponse",
+  "auditID": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  "stage": "ResponseComplete",
+  "requestURI": "/api/v1/namespaces/default/pods/synthetic-app-02",
+  "verb": "patch",
+  "user": {
+    "username": "system:serviceaccount:automation:resource-writer",
+    "uid": "88888888-8888-4888-8888-888888888888",
+    "groups": [
+      "system:serviceaccounts",
+      "system:authenticated"
+    ]
+  },
+  "sourceIPs": [
+    "10.20.0.25"
+  ],
+  "objectRef": {
+    "resource": "pods",
+    "namespace": "default",
+    "name": "synthetic-app-02",
+    "uid": "99999999-9999-4999-8999-999999999999",
+    "apiVersion": "v1"
+  },
+  "responseStatus": {
+    "metadata": {},
+    "code": 200
+  },
+  "requestReceivedTimestamp": "2026-11-04T12:10:00.100000Z",
+  "stageTimestamp": "2026-11-04T12:10:00.200000Z"
+}
