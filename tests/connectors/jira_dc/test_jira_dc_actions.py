@@ -1,9 +1,11 @@
 """Action conformance for the Jira Data Center write paths, run through recorded transports.
 
-Covers ``add_comment``, ``transition_issue``, ``link_issue``, and ``update_issue_fields``:
-plan, apply, no-op replay, the stale-plan precondition, ``outcome_unknown`` after a transport
-timeout on a non-idempotent POST, and reconcile. Requests are answered by ``RouteTransport``.
-Route callables mutate the synthetic issue and comment state so reconcile observes the write.
+Covers ``add_comment``, ``transition_issue``, ``link_issue``, ``update_issue_fields``,
+``add_attachment``, and ``delete_issue``: plan, apply, no-op replay where supported, stale-plan
+preconditions, ``outcome_unknown`` after a transport timeout on a non-idempotent write, and
+reconcile. A read-only transport guard proves the required plans send no writes. Requests are
+answered by ``RouteTransport``. Route callables mutate synthetic issue, comment, and attachment
+state so reconcile observes the write.
 """
 
 from __future__ import annotations

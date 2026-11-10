@@ -103,6 +103,63 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "global_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Global Id",
+            "type": "string"
+          },
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          },
+          "relationship": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Relationship"
+          },
+          "title": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key",
+          "global_id",
+          "url",
+          "title"
+        ],
+        "title": "AddRemoteLinkArgs",
+        "type": "object"
+      },
+      "name": "add_remote_link",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
           "description": {
             "anyOf": [
               {
@@ -171,6 +228,50 @@
         "type": "object"
       },
       "name": "create_issue",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Events",
+            "type": "array"
+          },
+          "jql_filter": {
+            "default": "",
+            "title": "Jql Filter",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url",
+          "events"
+        ],
+        "title": "CreateDcWebhookInput",
+        "type": "object"
+      },
+      "name": "create_webhook",
       "stability": "beta"
     },
     {
@@ -270,6 +371,34 @@
     },
     {
       "capability": "Tracker",
+      "classification": "destructive",
+      "idempotency": "key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_url": {
+            "minLength": 1,
+            "title": "Expected Url",
+            "type": "string"
+          },
+          "webhook_id": {
+            "minLength": 1,
+            "title": "Webhook Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "webhook_id",
+          "expected_url"
+        ],
+        "title": "DeleteWebhookInput",
+        "type": "object"
+      },
+      "name": "delete_webhook",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
       "classification": "write",
       "idempotency": "natural_key",
       "input_schema": {
@@ -354,6 +483,45 @@
     {
       "capability": "Tracker",
       "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "comment_id": {
+            "minLength": 1,
+            "title": "Comment Id",
+            "type": "string"
+          },
+          "expected_updated": {
+            "minLength": 1,
+            "title": "Expected Updated",
+            "type": "string"
+          },
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key",
+          "comment_id",
+          "expected_updated",
+          "body"
+        ],
+        "title": "UpdateCommentArgs",
+        "type": "object"
+      },
+      "name": "update_comment",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
       "idempotency": "none",
       "input_schema": {
         "additionalProperties": false,
@@ -407,6 +575,37 @@
   ],
   "config_schema": {
     "$defs": {
+      "AuditFileSource": {
+        "additionalProperties": false,
+        "description": "One node-local JSONL audit file exposed by the TLS file collector.",
+        "properties": {
+          "node": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Node",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "node",
+          "path",
+          "url"
+        ],
+        "title": "AuditFileSource",
+        "type": "object"
+      },
       "SecretRef": {
         "additionalProperties": false,
         "description": "An opaque credential-broker reference, never secret material.",
@@ -439,6 +638,50 @@
         "minimum": 1,
         "title": "Attachment Max Bytes",
         "type": "integer"
+      },
+      "audit_collector_client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "audit_collector_client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "audit_collector_token": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "audit_files": {
+        "default": [],
+        "items": {
+          "$ref": "#/$defs/AuditFileSource"
+        },
+        "title": "Audit Files",
+        "type": "array"
       },
       "audit_max_bytes": {
         "default": 67108864,
@@ -600,6 +843,186 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "attachment_id": {
+            "minLength": 1,
+            "title": "Attachment Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attachment_id"
+        ],
+        "title": "DownloadAttachmentArgs",
+        "type": "object"
+      },
+      "name": "download_attachment",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment_id": {
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "content_base64": {
+            "title": "Content Base64",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "media_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Type"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "minimum": 0,
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "filename",
+          "media_type",
+          "size",
+          "sha256",
+          "content_base64"
+        ],
+        "title": "DownloadAttachmentOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment_id": {
+            "minLength": 1,
+            "title": "Attachment Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attachment_id"
+        ],
+        "title": "GetAttachmentArgs",
+        "type": "object"
+      },
+      "name": "get_attachment",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment_id": {
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "author": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author"
+          },
+          "content_url": {
+            "title": "Content Url",
+            "type": "string"
+          },
+          "created": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "media_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Type"
+          },
+          "self_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Self Url"
+          },
+          "size": {
+            "minimum": 0,
+            "title": "Size",
+            "type": "integer"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Url"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "filename",
+          "media_type",
+          "size",
+          "created",
+          "author",
+          "self_url",
+          "content_url",
+          "thumbnail_url"
+        ],
+        "title": "GetAttachmentOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
           "issue_type_id": {
             "anyOf": [
               {
@@ -641,6 +1064,42 @@
           "projects"
         ],
         "title": "CreateMetadataOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key"
+        ],
+        "title": "GetEditMetadataArgs",
+        "type": "object"
+      },
+      "name": "get_edit_metadata",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "additionalProperties": true,
+            "title": "Fields",
+            "type": "object"
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "title": "GetEditMetadataOutput",
         "type": "object"
       }
     },
@@ -822,6 +1281,169 @@
             "minLength": 1,
             "title": "Issue Id Or Key",
             "type": "string"
+          },
+          "max_results": {
+            "default": 100,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "start_at": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Start At",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issue_id_or_key"
+        ],
+        "title": "ListCommentsArgs",
+        "type": "object"
+      },
+      "name": "list_comments",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "comments": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Comments",
+            "type": "array"
+          },
+          "next_start_at": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Start At"
+          }
+        },
+        "required": [
+          "comments"
+        ],
+        "title": "ListCommentsOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "ListFieldsArgs",
+        "type": "object"
+      },
+      "name": "list_fields",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fields"
+        ],
+        "title": "ListFieldsOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "ListProjectsArgs",
+        "type": "object"
+      },
+      "name": "list_projects",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "projects": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Projects",
+            "type": "array"
+          }
+        },
+        "required": [
+          "projects"
+        ],
+        "title": "ListProjectsOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key"
+        ],
+        "title": "ListRemoteLinksArgs",
+        "type": "object"
+      },
+      "name": "list_remote_links",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Links",
+            "type": "array"
+          }
+        },
+        "required": [
+          "links"
+        ],
+        "title": "ListRemoteLinksOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
           }
         },
         "required": [
@@ -847,6 +1469,113 @@
           "transitions"
         ],
         "title": "TransitionsOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "No arguments: lists every registration on the installation.",
+        "properties": {},
+        "title": "ListWebhooksArgs",
+        "type": "object"
+      },
+      "name": "list_webhooks",
+      "output_schema": {
+        "$defs": {
+          "DcWebhookRegistration": {
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Enabled"
+              },
+              "events": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Events",
+                "type": "array"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "jql_filter": {
+                "title": "Jql Filter",
+                "type": "string"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "unknown_events": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Unknown Events",
+                "type": "array"
+              },
+              "url": {
+                "title": "Url",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "url",
+              "events",
+              "jql_filter",
+              "enabled",
+              "unknown_events"
+            ],
+            "title": "DcWebhookRegistration",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "family": {
+            "enum": [
+              "pre_10",
+              "jira_10"
+            ],
+            "title": "Family",
+            "type": "string"
+          },
+          "registrations": {
+            "items": {
+              "$ref": "#/$defs/DcWebhookRegistration"
+            },
+            "title": "Registrations",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "healthy",
+              "degraded"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "family",
+          "status",
+          "registrations"
+        ],
+        "title": "DcWebhooksOutput",
         "type": "object"
       }
     },
@@ -1042,6 +1771,33 @@
   "scopes": [],
   "sdk": ">=1,<2",
   "streams": [
+    {
+      "capability": "Tracker",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "attachments",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "cursor": "sequence",
+      "mapper_version": 1,
+      "modes": [
+        "incremental"
+      ],
+      "name": "audit_log_files",
+      "ocsf_class": 6003,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
     {
       "capability": "Tracker",
       "cursor": "time_id",

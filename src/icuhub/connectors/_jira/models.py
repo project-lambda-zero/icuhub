@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import binascii
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -203,6 +204,14 @@ class RefreshWebhookInput(StrictModel):
     webhook_ids: list[str] = Field(min_length=1, max_length=100)
 
 
+class AuditFileSource(StrictModel):
+    """One node-local JSONL audit file exposed by the TLS file collector."""
+
+    node: str = Field(min_length=1, max_length=255)
+    path: str = Field(min_length=1, max_length=1024)
+    url: str = Field(min_length=1, max_length=2048)
+
+
 class JiraConfig(ConnectorConfig):
     """Connection controls shared by Cloud and Data Center."""
 
@@ -246,4 +255,23 @@ class JiraCloudConfig(JiraConfig):
 class JiraDataCenterConfig(JiraConfig):
     personal_access_token: SecretRef
     webhook_registration_family: Literal["auto", "pre_10", "jira_10"] = "auto"
+    audit_files: tuple[AuditFileSource, ...] = ()
+    audit_collector_token: SecretRef | None = None
+    audit_collector_client_cert: SecretRef | None = None
+    audit_collector_client_key: SecretRef | None = None
+
+    @model_validator(mode="after")
+    def _validate_audit_collector(self) -> JiraDataCenterConfig:
+        if (self.audit_collector_client_cert is None) != (self.audit_collector_client_key is None):
+            raise ValueError("audit_collector_client_cert and audit_collector_client_key must be configured together")
+        if not self.audit_files:
+            return self
+        if self.audit_collector_token is None:
+            raise ValueError("audit_files require audit_collector_token; the Jira token is never sent to the collector")
+        parts = [urlsplit(source.url) for source in self.audit_files]
+        if any(part.scheme != "https" or not part.netloc for part in parts):
+            raise ValueError("audit_files URLs must be absolute https URLs served by the TLS file collector")
+        if len({(part.scheme, part.netloc) for part in parts}) != 1:
+            raise ValueError("audit_files must all be served by one collector origin")
+        return self
 

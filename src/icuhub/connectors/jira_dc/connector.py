@@ -44,6 +44,7 @@ from icuhub.connectors._jira.models import (
     DeleteAttachmentInput,
     DeleteCommentInput,
     DeleteIssueInput,
+    DeleteWebhookInput,
     IssueInput,
     JiraDataCenterConfig,
     LinkIssueInput,
@@ -51,6 +52,53 @@ from icuhub.connectors._jira.models import (
     UpdateIssueInput,
 )
 from icuhub.connectors._jira.webhooks import EVENT_TYPES, parse_jira_delivery
+from icuhub.connectors.jira_dc import attachments as attachment_reads
+from icuhub.connectors.jira_dc.audit_collector import MAX_AUDIT_RECORD_BYTES, open_audit_collector
+from icuhub.connectors.jira_dc.audit_files import AuditLogCursor, parse_audit_batch
+from icuhub.connectors.jira_dc.comments_links import (
+    AddRemoteLinkArgs,
+    GetEditMetadataArgs,
+    GetEditMetadataOutput,
+    ListCommentsArgs,
+    ListCommentsOutput,
+    ListFieldsArgs,
+    ListFieldsOutput,
+    ListProjectsArgs,
+    ListProjectsOutput,
+    ListRemoteLinksArgs,
+    ListRemoteLinksOutput,
+    UpdateCommentArgs,
+    comment_body_digest,
+    comment_body_matches,
+    comment_page,
+    comment_update_payload,
+    edit_metadata_fields,
+    field_list,
+    find_remote_link,
+    next_comment_offset,
+    persisted_remote_link_id,
+    project_list,
+    remote_link_list,
+    remote_link_payload,
+)
+from icuhub.connectors.jira_dc.webhook_registration import (
+    REGISTRATION_PATH,
+    CreateDcWebhookInput,
+    DcWebhookRegistration,
+    DcWebhooksOutput,
+    ListWebhooksArgs,
+    RegistrationFamily,
+    create_body,
+    create_statuses,
+    delete_path,
+    find_by_id,
+    find_registration,
+    parse_registrations,
+    registration_health,
+    registration_id,
+    resolve_family,
+    server_version_numbers,
+)
 from icuhub.kit.auth import AuthStrategy, BearerToken
 from icuhub.kit.connector import action, mapper, operation, stream, webhook
 from icuhub.kit.cursors import SnapshotCursor, TimeIdCursor
@@ -271,12 +319,24 @@ class JiraDataCenter(JiraBase):
                     offset_param="startAt",
                     limit_param="maxResults",
                 )
-                async for comment_page, _page_result in pages:
-                    records = [{**comment, "_jira_issue": parent} for comment in comment_page]
+                async for page, _page_result in pages:
+                    records = [{**comment, "_jira_issue": parent} for comment in page]
                     cursor = cursor.advance(records, ts_of=comment_ts, id_of=record_id)
                     yield RawBatch(records=records, checkpoint=cursor, complete=False)
         if mode == "full":
             yield RawBatch(records=[], checkpoint=cursor, complete=True)
+
+    @stream(
+        "attachments",
+        cursor=TimeIdCursor,
+        capability=_CAPABILITY,
+        modes=("incremental", "full"),
+        requires_target=False,
+    )
+    async def attachments(self, target: Target | None, checkpoint: Any, mode: str) -> AsyncIterator[RawBatch]:
+        """Non-finding evidence records carried on each issue's attachment field."""
+        async for batch in attachment_reads.stream_attachments(self, checkpoint, mode):
+            yield batch
 
     @stream(
         "issue_changelogs",
@@ -320,7 +380,45 @@ class JiraDataCenter(JiraBase):
         if mode == "full":
             yield RawBatch(records=[], checkpoint=cursor, complete=True)
 
+    @stream(
+        "audit_log_files",
+        cursor=AuditLogCursor,
+        capability=_CAPABILITY,
+        ocsf_class=6003,
+        modes=("incremental",),
+        requires_target=False,
+    )
+    async def audit_log_files(self, target: Target | None, checkpoint: Any, mode: str) -> AsyncIterator[RawBatch]:
+        # [UNVERIFIED] node-local audit JSONL served by the TLS file collector; each response is the complete file.
+        cfg = self._cfg()
+        cursor = checkpoint if isinstance(checkpoint, AuditLogCursor) else AuditLogCursor()
+        if not cfg.audit_files:
+            yield RawBatch(records=[], checkpoint=cursor, complete=True)
+            return
+        collector = await open_audit_collector(cfg, self.ctx.secrets, self.ctx.clock)
+        try:
+            for source in cfg.audit_files:
+                content = await collector.stream_download("GET", source.url, max_bytes=cfg.audit_max_bytes)
+                batch = parse_audit_batch(
+                    node=source.node,
+                    path=source.path,
+                    content=content,
+                    previous=cursor.position(source.node, source.path),
+                    max_record_bytes=MAX_AUDIT_RECORD_BYTES,
+                )
+                cursor = cursor.advance_file(source.node, source.path, batch.position)
+                yield RawBatch(records=batch.records, checkpoint=cursor, complete=False)
+        finally:
+            await collector.aclose()
+        yield RawBatch(records=[], checkpoint=cursor, complete=True)
+
     # ------------------------------------------------------------ mappers
+
+    @mapper("audit_log_files", version=1)
+    def map_audit_log_file(self, raw: dict[str, Any], ctx: MapContext) -> list[ApiActivity]:
+        # Audit record ids are per-node counters, so the node name scopes the record identity.
+        scoped = {**raw, "id": f"{raw['_jira_node']}/{raw['id']}"}
+        return [jira.map_audit(_with_string_id(scoped), ctx)]
 
     @mapper("issues", version=1)
     def map_issue(self, raw: dict[str, Any], ctx: MapContext) -> list[TicketRecord]:
@@ -333,6 +431,10 @@ class JiraDataCenter(JiraBase):
     @mapper("comments", version=1)
     def map_comment(self, raw: dict[str, Any], ctx: MapContext) -> list[SourceRecord]:
         return [jira.map_comment(raw, ctx)]
+
+    @mapper("attachments", version=1)
+    def map_attachment(self, raw: dict[str, Any], ctx: MapContext) -> list[SourceRecord]:
+        return [attachment_reads.map_attachment(raw, ctx)]
 
     @mapper("issue_changelogs", version=1)
     def map_changelog(self, raw: dict[str, Any], ctx: MapContext) -> list[ApiActivity]:
@@ -388,6 +490,30 @@ class JiraDataCenter(JiraBase):
         return IssueOutput(issue=jira.map_issue(body, self._map_ctx()), raw_status=status_name)
 
     @operation(
+        "get_attachment",
+        input_model=attachment_reads.GetAttachmentArgs,
+        output_model=attachment_reads.GetAttachmentOutput,
+        classification="read",
+        capability=_CAPABILITY,
+    )
+    async def get_attachment(self, args: attachment_reads.GetAttachmentArgs) -> attachment_reads.GetAttachmentOutput:
+        return await attachment_reads.get_attachment(self, args)
+
+    @operation(
+        "download_attachment",
+        input_model=attachment_reads.DownloadAttachmentArgs,
+        output_model=attachment_reads.DownloadAttachmentOutput,
+        classification="read",
+        capability=_CAPABILITY,
+    )
+    async def download_attachment(
+        self,
+        args: attachment_reads.DownloadAttachmentArgs,
+    ) -> attachment_reads.DownloadAttachmentOutput:
+        # [UNVERIFIED] metadata content URL and redirect behavior; confirm on a Data Center instance.
+        return await attachment_reads.download_attachment(self, args)
+
+    @operation(
         "list_transitions",
         input_model=IssueRefArgs,
         output_model=TransitionsOutput,
@@ -412,6 +538,70 @@ class JiraDataCenter(JiraBase):
             params["issuetypeIds"] = args.issue_type_id
         body = await self._get_object("/rest/api/2/issue/createmeta", params)
         return CreateMetadataOutput(projects=list_field(body, "projects"))
+
+    @operation(
+        "list_comments",
+        input_model=ListCommentsArgs,
+        output_model=ListCommentsOutput,
+        classification="read",
+        capability=_CAPABILITY,
+    )
+    async def list_comments(self, args: ListCommentsArgs) -> ListCommentsOutput:
+        body = await self._get_object(
+            f"{self._issue_path(args.issue_id_or_key)}/comment",
+            {"startAt": args.start_at, "maxResults": args.max_results},
+        )
+        comments = comment_page(body)
+        return ListCommentsOutput(
+            comments=comments,
+            next_start_at=next_comment_offset(args.start_at, len(comments), args.max_results),
+        )
+
+    @operation(
+        "list_remote_links",
+        input_model=ListRemoteLinksArgs,
+        output_model=ListRemoteLinksOutput,
+        classification="read",
+        capability=_CAPABILITY,
+    )
+    async def list_remote_links(self, args: ListRemoteLinksArgs) -> ListRemoteLinksOutput:
+        # [UNVERIFIED] DC remote link read path /rest/api/2/issue/{id}/remotelink; confirm on a Data Center instance.
+        body = await self._json("GET", f"{self._issue_path(args.issue_id_or_key)}/remotelink")
+        return ListRemoteLinksOutput(links=remote_link_list(body))
+
+    @operation(
+        "get_edit_metadata",
+        input_model=GetEditMetadataArgs,
+        output_model=GetEditMetadataOutput,
+        classification="read",
+        capability=_CAPABILITY,
+    )
+    async def get_edit_metadata(self, args: GetEditMetadataArgs) -> GetEditMetadataOutput:
+        # [UNVERIFIED] DC editmeta response shape {"fields": {...}}; confirm on a Data Center instance.
+        body = await self._json("GET", f"{self._issue_path(args.issue_id_or_key)}/editmeta")
+        return GetEditMetadataOutput(fields=edit_metadata_fields(body))
+
+    @operation(
+        "list_fields",
+        input_model=ListFieldsArgs,
+        output_model=ListFieldsOutput,
+        classification="read",
+        capability=_CAPABILITY,
+    )
+    async def list_fields(self, args: ListFieldsArgs) -> ListFieldsOutput:
+        # [UNVERIFIED] DC field catalogue /rest/api/2/field returning a bare array; confirm on a Data Center instance.
+        return ListFieldsOutput(fields=field_list(await self._json("GET", self._api_path("/field"))))
+
+    @operation(
+        "list_projects",
+        input_model=ListProjectsArgs,
+        output_model=ListProjectsOutput,
+        classification="read",
+        capability=_CAPABILITY,
+    )
+    async def list_projects(self, args: ListProjectsArgs) -> ListProjectsOutput:
+        # [UNVERIFIED] DC project listing /rest/api/2/project returning a bare array; shared with the projects stream.
+        return ListProjectsOutput(projects=project_list(await self._json("GET", self._api_path("/project"))))
 
     # ------------------------------------------------------------ actions: create_issue
 
@@ -809,6 +999,283 @@ class JiraDataCenter(JiraBase):
             return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="attachment not found after write")
         attachment_id = jira.required_str(found, "id")
         return ActionOutcome(status="succeeded", vendor_ref=f"jira_attachment:{attachment_id}", result={"id": attachment_id})
+
+    # ------------------------------------------------------------ actions: update_comment
+
+    @action("update_comment", classification="write", capability=_CAPABILITY, input_model=UpdateCommentArgs, idempotency="natural_key")
+    async def plan_update_comment(self, args: UpdateCommentArgs) -> ActionPlan:
+        path = f"{self._issue_path(args.issue_id_or_key)}/comment/{seg(args.comment_id)}"
+        comment = await self._get_object(path)
+        require_field(comment, "updated", args.expected_updated, "comment")
+        key = digest("update_comment", args.issue_id_or_key, args.comment_id, comment_body_digest(args.body))
+        target_ref = f"jira_comment:{args.comment_id}"
+        if comment_body_matches(comment, args.body):
+            return ActionPlan(
+                action="update_comment",
+                target_ref=target_ref,
+                diff={},
+                preconditions={"path": path, "expected_updated": args.expected_updated},
+                idempotency_key=key,
+                changed=False,
+                request={"method": "GET", "path": path},
+            )
+        return ActionPlan(
+            action="update_comment",
+            target_ref=target_ref,
+            diff={"body_length": len(args.body)},
+            preconditions={"path": path, "expected_updated": args.expected_updated},
+            idempotency_key=key,
+            changed=True,
+            request={"method": "PUT", "path": path, "json": comment_update_payload(args.body)},
+        )
+
+    @plan_update_comment.apply
+    async def apply_update_comment(self, plan: ActionPlan) -> ActionOutcome:
+        if not plan.changed:
+            return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
+        path = plan.preconditions["path"]
+        require_field(await self._get_object(path), "updated", plan.preconditions["expected_updated"], "comment")
+        try:
+            # [UNVERIFIED] DC comment update PUT /rest/api/2/issue/{id}/comment/{cid} with a plain body; confirm on a Data Center instance.
+            await self._json(
+                "PUT",
+                path,
+                json=plan.request["json"],
+                idempotency="idempotent_write",
+                expected=(200,),
+            )
+        except OutcomeUnknown as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
+        return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+
+    @plan_update_comment.reconcile
+    async def reconcile_update_comment(self, plan: ActionPlan) -> ActionOutcome:
+        comment = await self._get_object(plan.preconditions["path"])
+        if comment_body_matches(comment, plan.request["json"]["body"]):
+            return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+        return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="comment body does not match the plan after write")
+
+    # ------------------------------------------------------------ actions: add_remote_link
+
+    @action("add_remote_link", classification="write", capability=_CAPABILITY, input_model=AddRemoteLinkArgs, idempotency="natural_key")
+    async def plan_add_remote_link(self, args: AddRemoteLinkArgs) -> ActionPlan:
+        issue = await self._get_issue(args.issue_id_or_key, fields="id")
+        issue_id = jira.required_str(issue, "id")
+        # [UNVERIFIED] DC remote link path /rest/api/2/issue/{id}/remotelink; confirm on a Data Center instance.
+        path = f"{self._issue_path(issue_id)}/remotelink"
+        key = digest("add_remote_link", issue_id, args.global_id)
+        existing = find_remote_link(remote_link_list(await self._json("GET", path)), args.global_id)
+        if existing is not None:
+            link_id = persisted_remote_link_id(existing)
+            if link_id is None:
+                raise VendorContractError("Jira remote link carries no usable id")
+            return ActionPlan(
+                action="add_remote_link",
+                target_ref=f"jira_remote_link:{link_id}",
+                diff={},
+                preconditions={"path": path, "global_id": args.global_id},
+                idempotency_key=key,
+                changed=False,
+                request={"method": "GET", "path": path},
+            )
+        return ActionPlan(
+            action="add_remote_link",
+            target_ref=f"jira_issue:{issue_id}",
+            diff={"url": args.url},
+            preconditions={"path": path, "global_id": args.global_id},
+            idempotency_key=key,
+            changed=True,
+            request={"method": "POST", "path": path, "json": remote_link_payload(args)},
+        )
+
+    @plan_add_remote_link.apply
+    async def apply_add_remote_link(self, plan: ActionPlan) -> ActionOutcome:
+        if not plan.changed:
+            return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
+        try:
+            # [UNVERIFIED] DC remote link create returns 200 or 201 with the created link object; confirm on a Data Center instance.
+            body = await self._json(
+                "POST",
+                plan.request["path"],
+                json=plan.request["json"],
+                idempotency="non_idempotent",
+                expected=(200, 201),
+            )
+        except OutcomeUnknown as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
+        if not isinstance(body, dict):
+            raise VendorContractError("Jira remote link response must be an object")
+        link_id = persisted_remote_link_id(body)
+        if link_id is None:
+            raise VendorContractError("Jira remote link response carries no usable id")
+        return ActionOutcome(status="succeeded", vendor_ref=f"jira_remote_link:{link_id}", result={"id": link_id})
+
+    @plan_add_remote_link.reconcile
+    async def reconcile_add_remote_link(self, plan: ActionPlan) -> ActionOutcome:
+        links = remote_link_list(await self._json("GET", plan.preconditions["path"]))
+        found = find_remote_link(links, plan.preconditions["global_id"])
+        if found is None:
+            return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="remote link not found after write")
+        link_id = persisted_remote_link_id(found)
+        if link_id is None:
+            raise VendorContractError("Jira remote link carries no usable id")
+        return ActionOutcome(status="succeeded", vendor_ref=f"jira_remote_link:{link_id}", result={"id": link_id})
+
+    # ------------------------------------------------------------ webhook registration
+
+    async def _registration_family(self) -> RegistrationFamily:
+        # [UNVERIFIED] DC serverInfo at /rest/api/2/serverInfo exposing versionNumbers; confirm on a Data Center instance.
+        body = await self._json("GET", self._api_path("/serverInfo"))
+        return resolve_family(self.config.webhook_registration_family, server_version_numbers(body))
+
+    async def _registrations(self) -> list[DcWebhookRegistration]:
+        # [UNVERIFIED] DC webhook plugin registration list returning a bare array; confirm on a Data Center instance.
+        return parse_registrations(await self._json("GET", REGISTRATION_PATH))
+
+    async def _checked_registration(self, webhook_id: str, expected_url: str) -> DcWebhookRegistration | None:
+        registration = find_by_id(await self._registrations(), webhook_id)
+        if registration is not None and registration.url != expected_url:
+            raise StalePlan("Jira webhook URL changed since the plan was made")
+        return registration
+
+    @operation(
+        "list_webhooks",
+        input_model=ListWebhooksArgs,
+        output_model=DcWebhooksOutput,
+        classification="read",
+        capability=_CAPABILITY,
+    )
+    async def list_webhooks(self, args: ListWebhooksArgs) -> DcWebhooksOutput:
+        registrations = await self._registrations()
+        return DcWebhooksOutput(
+            family=await self._registration_family(),
+            status=registration_health(registrations),
+            registrations=registrations,
+        )
+
+    @action(
+        "create_webhook",
+        classification="write",
+        capability=_CAPABILITY,
+        input_model=CreateDcWebhookInput,
+        idempotency="natural_key",
+    )
+    async def plan_create_webhook(self, args: CreateDcWebhookInput) -> ActionPlan:
+        family = await self._registration_family()
+        key = digest("create_webhook", args.url, ",".join(args.events), args.jql_filter)
+        preconditions = {"url": args.url, "events": ",".join(args.events), "jql_filter": args.jql_filter}
+        existing = find_registration(await self._registrations(), args.url, args.events, args.jql_filter)
+        if existing is not None:
+            return ActionPlan(
+                action="create_webhook",
+                target_ref=f"jira_webhook:{existing.id}",
+                diff={},
+                preconditions=preconditions,
+                idempotency_key=key,
+                changed=False,
+                request={"method": "GET", "path": REGISTRATION_PATH},
+            )
+        return ActionPlan(
+            action="create_webhook",
+            target_ref=f"jira_webhook_route:{key}",
+            diff={"url": args.url, "events": list(args.events), "jql_filter": args.jql_filter},
+            preconditions=preconditions,
+            idempotency_key=key,
+            changed=True,
+            request={"method": "POST", "path": REGISTRATION_PATH, "json": create_body(args), "family": family},
+        )
+
+    @plan_create_webhook.apply
+    async def apply_create_webhook(self, plan: ActionPlan) -> ActionOutcome:
+        if not plan.changed:
+            return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
+        family: RegistrationFamily = plan.request["family"]
+        try:
+            body = await self._json(
+                "POST",
+                plan.request["path"],
+                json=plan.request["json"],
+                idempotency="non_idempotent",
+                expected=create_statuses(family),
+            )
+        except OutcomeUnknown as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
+        webhook_id = registration_id(body) if isinstance(body, dict) else None
+        if webhook_id is None:
+            if family == "jira_10":
+                # [UNVERIFIED] Jira 10 may accept registration asynchronously without an id; reconcile finds it by url, events, and filter.
+                return ActionOutcome(status="accepted_async", vendor_ref=plan.target_ref)
+            raise VendorContractError("Jira DC webhook create response must carry an id")
+        return ActionOutcome(status="succeeded", vendor_ref=f"jira_webhook:{webhook_id}", result={"id": webhook_id})
+
+    @plan_create_webhook.reconcile
+    async def reconcile_create_webhook(self, plan: ActionPlan) -> ActionOutcome:
+        found = find_registration(
+            await self._registrations(),
+            plan.preconditions["url"],
+            plan.preconditions["events"].split(","),
+            plan.preconditions["jql_filter"],
+        )
+        if found is None:
+            return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="webhook not found after write")
+        return ActionOutcome(status="succeeded", vendor_ref=f"jira_webhook:{found.id}", result={"id": found.id})
+
+    @action(
+        "delete_webhook",
+        classification="destructive",
+        capability=_CAPABILITY,
+        input_model=DeleteWebhookInput,
+        idempotency="key",
+    )
+    async def plan_delete_webhook(self, args: DeleteWebhookInput) -> ActionPlan:
+        self.require_destructive("delete_webhook")
+        preconditions = {"webhook_id": args.webhook_id, "url": args.expected_url}
+        key = digest("delete_webhook", args.webhook_id, args.expected_url)
+        target_ref = f"jira_webhook:{args.webhook_id}"
+        if await self._checked_registration(args.webhook_id, args.expected_url) is None:
+            return ActionPlan(
+                action="delete_webhook",
+                target_ref=target_ref,
+                diff={},
+                preconditions=preconditions,
+                idempotency_key=key,
+                changed=False,
+                request={"method": "GET", "path": REGISTRATION_PATH},
+            )
+        return ActionPlan(
+            action="delete_webhook",
+            target_ref=target_ref,
+            diff={"url": args.expected_url},
+            preconditions=preconditions,
+            idempotency_key=key,
+            changed=True,
+            request={"method": "DELETE", "path": delete_path(args.webhook_id)},
+        )
+
+    @plan_delete_webhook.apply
+    async def apply_delete_webhook(self, plan: ActionPlan) -> ActionOutcome:
+        self.require_destructive("delete_webhook")
+        if not plan.changed:
+            return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
+        if await self._checked_registration(plan.preconditions["webhook_id"], plan.preconditions["url"]) is None:
+            return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
+        try:
+            # [UNVERIFIED] DC webhook delete status codes; confirm on a Data Center instance.
+            await self.http.request(
+                "DELETE",
+                plan.request["path"],
+                idempotency="idempotent_write",
+                expected=(200, 202, 204),
+            )
+        except OutcomeUnknown as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
+        return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+
+    @plan_delete_webhook.reconcile
+    async def reconcile_delete_webhook(self, plan: ActionPlan) -> ActionOutcome:
+        if find_by_id(await self._registrations(), plan.preconditions["webhook_id"]) is None:
+            return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+        return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="webhook still registered")
 
     # ------------------------------------------------------------ actions: destructive deletes
 

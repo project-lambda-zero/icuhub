@@ -4,10 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import datetime
 from typing import Any
 
-from icuhub.kit.errors import VendorContractError
+from icuhub.kit.errors import VendorContractError, WebhookRejected
 from icuhub.kit.types import StreamRecord, WebhookDelivery
+from icuhub.kit.webhook import VerifiedDelivery, WebhookVerifier
+
+__all__ = ["EVENT_TYPES", "JiraDeliveryVerifier", "parse_jira_delivery"]
 
 EVENT_TYPES = (
     "jira:issue_created",
@@ -50,7 +54,35 @@ def _property_value(container: dict[str, Any], key: str) -> Any:
     return None
 
 
-def _delivery_key(payload: dict[str, Any], delivery: WebhookDelivery, connection_id: str) -> str:
+class JiraDeliveryVerifier:
+    """Adds the signed body's Jira event and a derived delivery key to an authenticated delivery.
+
+    Jira carries no portable delivery ID, so dedupe uses a key derived from the event, timestamp,
+    entity IDs, and body digest. The wrapped verifier authenticates the raw bytes first; the body
+    is only read after that succeeds.
+    """
+
+    __slots__ = ("_inner",)
+
+    def __init__(self, inner: WebhookVerifier) -> None:
+        self._inner = inner
+
+    def verify(self, delivery: WebhookDelivery, *, now: datetime) -> VerifiedDelivery:
+        verified = self._inner.verify(delivery, now=now)
+        try:
+            payload = _payload(delivery)
+        except VendorContractError as exc:
+            raise WebhookRejected(str(exc)) from exc
+        event = payload.get("webhookEvent")
+        return VerifiedDelivery(
+            delivery_id=_delivery_key(payload, delivery, ""),
+            event_type=event if isinstance(event, str) and event in EVENT_TYPES else None,
+            occurred_at=verified.occurred_at,
+        )
+
+
+def _delivery_key(payload: dict[str, Any], delivery: WebhookDelivery, scope: str) -> str:
+    """Dedupe key for one delivery; ``scope`` is the connection when the caller does not already scope dedupe."""
     supplied = delivery.headers.get("x-atlassian-webhook-identifier")
     if supplied:
         return supplied
@@ -61,7 +93,7 @@ def _delivery_key(payload: dict[str, Any], delivery: WebhookDelivery, connection
     updated = fields.get("updated") if isinstance(fields, dict) else None
     digest = hashlib.sha256(delivery.body).hexdigest()
     parts = (
-        connection_id,
+        scope,
         str(payload.get("webhookEvent") or "unknown"),
         str(payload.get("timestamp") or updated or "unknown"),
         str(issue.get("id") or "unknown"),

@@ -98,6 +98,7 @@ class _Call:
     params: Mapping[str, Any] | None
     json: Any
     content: bytes | None
+    files: Mapping[str, tuple[str, bytes, str]] | None
     headers: Mapping[str, str]
     pool: str
     authenticate: bool = True
@@ -222,6 +223,7 @@ class VendorHttp:
         params: Mapping[str, Any] | None = None,
         json: Any = None,
         content: bytes | None = None,
+        files: Mapping[str, tuple[str, bytes, str]] | None = None,
         headers: Mapping[str, str] | None = None,
         idempotency: IdempotencyMode = "safe_read",
         expected: Collection[int] = (200,),
@@ -230,15 +232,20 @@ class VendorHttp:
     ) -> HttpResult:
         """Send one logical request and return its result when the status is in ``expected``.
 
+        ``files`` maps form field names to ``(filename, bytes, content_type)`` and sends a
+        ``multipart/form-data`` body. It cannot be combined with ``json`` or ``content``.
         ``authenticate=False`` skips the auth strategy and the 401 refresh. Use it only
         for the strategy's own login call (SessionLogin holds its lock while logging in).
         """
+        if files is not None and (json is not None or content is not None):
+            raise ValueError("files cannot be combined with json or content")
         call = _Call(
             method=method,
             url=self._resolve(path_or_url),
             params=params,
             json=json,
             content=content,
+            files=files,
             headers=dict(headers or {}),
             pool=pool,
             authenticate=authenticate,
@@ -266,6 +273,7 @@ class VendorHttp:
             params=None,
             json=None,
             content=None,
+            files=None,
             headers=dict(headers or {}),
             pool="default",
         )
@@ -339,6 +347,7 @@ class VendorHttp:
             params=call.params,
             json=call.json,
             content=call.content,
+            files=call.files,
             headers=request_headers,
         )
         async with gate:

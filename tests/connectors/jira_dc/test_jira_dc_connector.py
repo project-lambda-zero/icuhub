@@ -27,6 +27,7 @@ import httpx2
 import pytest
 
 from icuhub.connectors._jira.models import DeleteIssueInput
+from icuhub.connectors._jira.webhooks import JiraDeliveryVerifier
 from icuhub.connectors.jira_dc import JiraDataCenter
 from icuhub.connectors.jira_dc.connector import SearchIssuesArgs
 from icuhub.kit.errors import ConfigError, VendorContractError, WebhookRejected
@@ -337,12 +338,13 @@ def test_empty_hmac_secret_is_refused() -> None:
 # --- webhooks: shared token -------------------------------------------------
 
 
-def test_shared_token_mode_returns_shared_token_verifier() -> None:
+def test_shared_token_mode_returns_delivery_verifier_wrapping_shared_token() -> None:
     connector = _connector({}, webhook_verifier_mode="shared_token")
 
     verifier = connector.webhook_verifier(b"synthetic-token")
 
-    assert isinstance(verifier, SharedToken)
+    assert isinstance(verifier, JiraDeliveryVerifier)
+    assert isinstance(verifier._inner, SharedToken)
 
 
 def test_shared_token_webhook_accepts_matching_token_and_rejects_mismatch() -> None:

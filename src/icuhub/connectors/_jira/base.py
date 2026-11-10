@@ -17,6 +17,7 @@ from typing import Any, ClassVar, Literal
 
 from icuhub.connectors._jira.helpers import issue_state, list_field, seg, strip_order
 from icuhub.connectors._jira.models import JiraConfig
+from icuhub.connectors._jira.webhooks import JiraDeliveryVerifier
 from icuhub.kit.connector import Connector
 from icuhub.kit.errors import ConfigError, NotFound, StalePlan, VendorContractError
 from icuhub.kit.http import IdempotencyMode
@@ -166,12 +167,14 @@ class JiraBase(Connector):
             raise ConfigError("Jira webhook secret must not be empty")
         cfg = self.config
         if cfg.webhook_verifier_mode == "hmac":
-            return HmacSignature(JIRA_WEBHOOK_SIGNATURE_HEADER, secret)
+            return JiraDeliveryVerifier(HmacSignature(JIRA_WEBHOOK_SIGNATURE_HEADER, secret))
         try:
             token = secret.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise ConfigError("webhook shared token must be UTF-8 text") from exc
-        return SharedToken(cfg.webhook_shared_header, token, id_header=None, event_header=None)
+        return JiraDeliveryVerifier(
+            SharedToken(cfg.webhook_shared_header, token, id_header=None, event_header=None)
+        )
 
     def require_destructive(self, action: str) -> None:
         """Refuse a destructive action unless the connection explicitly enables destructive writes."""
