@@ -6,12 +6,13 @@ import asyncio
 from typing import Any
 
 import pytest
-from conftest import CSPM_CONFIG, CSPM_LOGIN, SECRETS, cspm_connector, load_fixture
 
 from icuhub.connectors.prisma_cloud import PrismaCloud
 from icuhub.connectors.prisma_cloud.models import DismissAlertInput, SnoozeAlertInput
 from icuhub.kit.errors import OutcomeUnknown, StalePlan
 from icuhub.kit.testing import ReadOnlyGuard, RouteTransport, make_connector
+
+from .conftest import CSPM_CONFIG, CSPM_LOGIN, SECRETS, cspm_connector, load_fixture
 
 
 def test_dismiss_plan_is_read_only_and_hashes_current_state() -> None:

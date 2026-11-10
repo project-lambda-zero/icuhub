@@ -7,14 +7,15 @@ import json
 from typing import Any
 
 import pytest
-from conftest import cspm_connector, load_fixture
 from pydantic import ValidationError
 
 from icuhub.connectors.prisma_cloud import PrismaCloud
-from icuhub.connectors.prisma_cloud.models import EmptyInput, RqlInput
+from icuhub.connectors.prisma_cloud.models import AlertListInput, RqlInput
 from icuhub.kit.errors import VendorContractError
 from icuhub.kit.testing import collect_stream, map_all
 from icuhub_schemas.ocsf import ApiActivity, ComplianceFinding
+
+from .conftest import cspm_connector, load_fixture
 
 
 def test_config_requires_cspm_credentials() -> None:
@@ -34,11 +35,11 @@ def test_cspm_session_is_cached_and_refreshed() -> None:
         return {"status": 200, "json": {"items": [], "nextPageToken": None}}
 
     connector = cspm_connector({("POST", "/login"): login, ("POST", "/v2/alert"): alerts})
-    asyncio.run(connector.list_alerts_v2(EmptyInput()))
-    asyncio.run(connector.list_alerts_v2(EmptyInput()))
+    asyncio.run(connector.list_alerts_v2(AlertListInput()))
+    asyncio.run(connector.list_alerts_v2(AlertListInput()))
     assert seen == ["jwt-1", "jwt-1"]
     assert asyncio.run(connector.ctx.http._auth.refresh()) is True
-    asyncio.run(connector.list_alerts_v2(EmptyInput()))
+    asyncio.run(connector.list_alerts_v2(AlertListInput()))
     assert seen == ["jwt-1", "jwt-1", "jwt-2"]
 
 
@@ -108,7 +109,7 @@ def test_detection_mapper_rejects_unclassified_policy_type() -> None:
 
 def test_cloud_account_maps_to_ocsf_shaped_source_record() -> None:
     connector = cspm_connector({})
-    mapped = map_all(connector, "cspm_cloud_accounts", [load_fixture("cspm_account.json")])
+    mapped = map_all(connector, "cspm_accounts_snapshot", [load_fixture("cspm_account.json")])
     assert len(mapped) == 1
     record = mapped[0]
     assert record.record_type == "cloud_account"

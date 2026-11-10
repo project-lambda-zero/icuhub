@@ -5,11 +5,11 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from conftest import COMPUTE_CONFIG, compute_connector, load_fixture
-
 from icuhub.connectors.prisma_cloud import PrismaCloud
 from icuhub.kit.testing import collect_stream, map_all
 from icuhub_schemas.ocsf import ComplianceFinding, DetectionFinding, VulnerabilityFinding
+
+from .conftest import COMPUTE_CONFIG, compute_connector, load_fixture
 
 
 def test_compute_basic_auth_uses_no_login_request() -> None:
@@ -21,9 +21,9 @@ def test_compute_basic_auth_uses_no_login_request() -> None:
         seen.append(request.headers.get("authorization"))
         return {"status": 200, "json": []}
 
-    from conftest import SECRETS  # noqa: PLC0415
-
     from icuhub.kit.testing import RouteTransport, make_connector  # noqa: PLC0415
+
+    from .conftest import SECRETS  # noqa: PLC0415
 
     connector = make_connector(PrismaCloud, config, RouteTransport({("GET", "/api/v1/images"): images}), SECRETS)
     assert collect_stream(connector, "compute_image_vulnerabilities", mode="full")[-1].complete is True

@@ -6,14 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-import pytest
-
-prisma_module = pytest.importorskip(
-    "icuhub.connectors.prisma_cloud", reason="prisma connector implementation is still in progress"
-)
-PrismaCloud = prisma_module.PrismaCloud
-
-from icuhub.kit.testing import RouteTransport, make_connector  # noqa: E402
+from icuhub.connectors.prisma_cloud import PrismaCloud
+from icuhub.kit.testing import RouteTransport, make_connector
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "prisma_cloud"
 CSPM_BASE = "https://api.prismacloud.io"

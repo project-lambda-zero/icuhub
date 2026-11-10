@@ -5,6 +5,7 @@ from icuhub.connectors.fortify_fod import FortifyFod
 from icuhub.connectors.fortify_ssc import FortifySsc
 from icuhub.connectors.google_threat_intelligence import GoogleThreatIntelligence
 from icuhub.connectors.nessus import Nessus
+from icuhub.connectors.prisma_cloud import PrismaCloud
 from icuhub.connectors.smtp import Smtp
 from icuhub.kit.connector import Connector
 
@@ -17,4 +18,5 @@ CONNECTORS: dict[str, type[Connector]] = {
     Nessus.kind: Nessus,
     F5BigIp.kind: F5BigIp,
     GoogleThreatIntelligence.kind: GoogleThreatIntelligence,
+    PrismaCloud.kind: PrismaCloud,
 }
