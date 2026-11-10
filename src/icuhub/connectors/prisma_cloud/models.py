@@ -33,12 +33,15 @@ __all__ = [
     "RemediateAlertInput",
     "ReopenAlertInput",
     "ResourceInput",
+    "ReversalArgs",
     "RqlInput",
     "RqlPageInput",
     "RuntimeTimesliceInput",
     "SnoozeAlertInput",
     "StartRegistryScanInput",
     "StrictModel",
+    "SuppressionArgs",
+    "SuppressionPolicyConfig",
 ]
 
 
@@ -272,10 +275,35 @@ class DeleteCollectionInput(StrictModel):
         return value
 
 
+class SuppressionArgs(StrictModel):
+    """Templated ``snooze_alert`` arguments; ``{key}`` placeholders are rendered per case (FR-GRC-04)."""
+
+    alert_id: str = Field(min_length=1, max_length=512)
+    dismiss_until: str = Field(min_length=1, max_length=256)
+    note: str = Field(min_length=1, max_length=4096)
+
+
+class ReversalArgs(StrictModel):
+    """Templated ``reopen_alert`` arguments used when an approved exception stops suppressing."""
+
+    alert_id: str = Field(min_length=1, max_length=512)
+    note: str | None = Field(default=None, max_length=4096)
+
+
+class SuppressionPolicyConfig(StrictModel):
+    """Vendor action pair F3 submits to suppress and restore one Prisma alert."""
+
+    action: Literal["snooze_alert"]
+    args: SuppressionArgs
+    reversal_action: Literal["reopen_alert"]
+    reversal_args: ReversalArgs
+
+
 class PrismaCloudConfig(ConnectorConfig):
     """Independent CSPM and Compute profiles on one connector kind."""
 
     editions: list[Literal["cspm", "compute"]] = Field(min_length=1, max_length=2)
+    suppression: SuppressionPolicyConfig | None = None
     cspm_base_url: str | None = None
     compute_base_url: str | None = None
     cspm_access_key_id: str | None = None

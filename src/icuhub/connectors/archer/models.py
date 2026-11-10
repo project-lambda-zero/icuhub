@@ -43,6 +43,10 @@ class ArcherRecordTypeMap(BaseModel):
     level_id: int = Field(ge=1)
     field_ids: dict[str, int] = Field(default_factory=dict)
     correlation_field: str | None = None
+    decision_field: str | None = None
+    revision_field: str | None = None
+    expiry_field: str | None = None
+    scope_field: str | None = None
     time_field: str | None = None  # defaults to LastUpdated [UNVERIFIED field name]
 
 

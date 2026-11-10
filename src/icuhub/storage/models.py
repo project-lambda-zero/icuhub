@@ -335,6 +335,8 @@ class CorrelationCase(Base):
     remediation_state: Mapped[str] = mapped_column(String(32), server_default=text("'new'"))
     exception_state: Mapped[str] = mapped_column(String(32), server_default=text("'none'"))
     exception_expires_at: Mapped[datetime | None]
+    exception_revision: Mapped[str | None] = mapped_column(Text)
+    exception_scope_uids: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     merged_into: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("correlation_case.id"))
     created_at: Mapped[datetime] = _created()
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())

@@ -227,6 +227,30 @@
             "default": null,
             "title": "Correlation Field"
           },
+          "decision_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Decision Field"
+          },
+          "expiry_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expiry Field"
+          },
           "field_ids": {
             "additionalProperties": {
               "type": "integer"
@@ -238,6 +262,30 @@
             "minimum": 1,
             "title": "Level Id",
             "type": "integer"
+          },
+          "revision_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Revision Field"
+          },
+          "scope_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scope Field"
           },
           "time_field": {
             "anyOf": [

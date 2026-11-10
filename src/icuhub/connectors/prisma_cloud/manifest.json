@@ -305,6 +305,36 @@
   ],
   "config_schema": {
     "$defs": {
+      "ReversalArgs": {
+        "additionalProperties": false,
+        "description": "Templated ``reopen_alert`` arguments used when an approved exception stops suppressing.",
+        "properties": {
+          "alert_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Alert Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Note"
+          }
+        },
+        "required": [
+          "alert_id"
+        ],
+        "title": "ReversalArgs",
+        "type": "object"
+      },
       "SecretRef": {
         "additionalProperties": false,
         "description": "An opaque credential-broker reference, never secret material.",
@@ -322,6 +352,67 @@
         "title": "SecretRef",
         "type": "object",
         "writeOnly": true
+      },
+      "SuppressionArgs": {
+        "additionalProperties": false,
+        "description": "Templated ``snooze_alert`` arguments; ``{key}`` placeholders are rendered per case (FR-GRC-04).",
+        "properties": {
+          "alert_id": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Alert Id",
+            "type": "string"
+          },
+          "dismiss_until": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Dismiss Until",
+            "type": "string"
+          },
+          "note": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "alert_id",
+          "dismiss_until",
+          "note"
+        ],
+        "title": "SuppressionArgs",
+        "type": "object"
+      },
+      "SuppressionPolicyConfig": {
+        "additionalProperties": false,
+        "description": "Vendor action pair F3 submits to suppress and restore one Prisma alert.",
+        "properties": {
+          "action": {
+            "const": "snooze_alert",
+            "title": "Action",
+            "type": "string"
+          },
+          "args": {
+            "$ref": "#/$defs/SuppressionArgs"
+          },
+          "reversal_action": {
+            "const": "reopen_alert",
+            "title": "Reversal Action",
+            "type": "string"
+          },
+          "reversal_args": {
+            "$ref": "#/$defs/ReversalArgs"
+          }
+        },
+        "required": [
+          "action",
+          "args",
+          "reversal_action",
+          "reversal_args"
+        ],
+        "title": "SuppressionPolicyConfig",
+        "type": "object"
       }
     },
     "additionalProperties": false,
@@ -543,6 +634,17 @@
         ],
         "default": null,
         "title": "Proxy Url"
+      },
+      "suppression": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SuppressionPolicyConfig"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
       },
       "timeout_s": {
         "default": 30,

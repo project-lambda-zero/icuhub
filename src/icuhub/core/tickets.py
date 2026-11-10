@@ -26,9 +26,11 @@ from icuhub_schemas.events import CloudEvent
 
 __all__ = [
     "JOB_HANDLERS",
+    "case_event",
     "evaluate_routes",
     "on_action_terminal",
     "on_ticket_record",
+    "render_arg",
     "render_ticket",
     "route_matches",
 ]
@@ -105,7 +107,7 @@ def render_ticket(route: TicketRoute, case: CorrelationCase, findings: list[Find
     return args
 
 
-async def _case_event(session: AsyncSession, case: CorrelationCase) -> None:
+async def case_event(session: AsyncSession, case: CorrelationCase) -> None:
     await add_event(
         session,
         case.tenant_id,
@@ -184,12 +186,17 @@ async def evaluate_routes(session: AsyncSession, case: CorrelationCase) -> list[
         created.append(link.id)
     if case.remediation_state == "new" and created:
         case.remediation_state = "routed"
-        await _case_event(session, case)
+        await case_event(session, case)
     return created
 
 
 async def on_action_terminal(session: AsyncSession, request: ActionRequest) -> TicketLink | None:
     """Record the created remote object once the create action reached a terminal state."""
+    from icuhub.core.exceptions import CALLER_ID, converge_after_terminal  # noqa: PLC0415
+
+    if request.caller_id == CALLER_ID:
+        await converge_after_terminal(session, request)
+        return None
     link = (
         await session.execute(select(TicketLink).where(TicketLink.action_request_id == request.id))
     ).scalar_one_or_none()
@@ -231,6 +238,7 @@ async def on_ticket_record(session: AsyncSession, connection: Any, record: Ticke
     if revision is not None and revision == link.last_outbound_revision:
         link.last_inbound_revision = revision
         return link
+    previous_category = link.status_category
     link.remote_status = record.status
     link.status_category = record.status_category
     link.remote_url = record.url or link.remote_url
@@ -251,8 +259,71 @@ async def on_ticket_record(session: AsyncSession, connection: Any, record: Ticke
     if new_state != case.remediation_state:
         case.remediation_state = new_state
         case.updated_at = datetime.now(UTC)
-        await _case_event(session, case)
+        await case_event(session, case)
+    if route is not None and previous_category != record.status_category:
+        await _request_source_actions(session, link, case, route, record.status_category)
     return link
+
+
+async def _request_source_actions(
+    session: AsyncSession,
+    link: TicketLink,
+    case: CorrelationCase,
+    route: TicketRoute,
+    status_category: str,
+) -> None:
+    """Turn an authoritative tracker transition into governed source actions (F2).
+
+    Only a category transition into a configured trigger creates a request. Repeated
+    revisions within the same category and echoes never reach this point. The request
+    goes through ``submit_action``, so a separate approval and the source plan's
+    revision check still gate the write. Tracker state never writes ``Finding.status``.
+    """
+    config = (route.status_policy_json or {}).get("source_action")
+    if not config or status_category not in config["status_categories"]:
+        return
+    members = (
+        await session.execute(
+            select(Finding)
+            .join(CaseMember, CaseMember.finding_id == Finding.id)
+            .where(CaseMember.case_id == case.id)
+            .order_by(Finding.id)
+        )
+    ).scalars().all()
+    caller = Caller(id=f"route:{route.name}", tenant_id=case.tenant_id, roles=frozenset({"system"}))
+    for finding in members:
+        revision = _dotted_get(finding.ocsf_json or {}, config["source_revision_path"])
+        if revision is None:
+            continue
+        values = {"source_uid": finding.source_uid or "", "source_revision": str(revision)}
+        args = {key: render_arg(value, values) for key, value in config["args"].items()}
+        await submit_action(
+            session,
+            caller,
+            uuid.UUID(config["connection_id"]),
+            config["action"],
+            args,
+            idempotency_key=f"f2:{link.id}:{finding.id}:{config['mapping_version']}",
+            correlation_id=str(case.id),
+        )
+
+
+def _dotted_get(document: dict[str, Any], path: str) -> Any:
+    node: Any = document
+    for part in path.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
+
+
+def render_arg(value: Any, values: dict[str, str]) -> Any:
+    if isinstance(value, str):
+        rendered = value
+        for key, replacement in values.items():
+            rendered = rendered.replace("{" + key + "}", replacement)
+        return rendered
+    return value
 
 
 async def run_route_case_job(payload: dict[str, Any], lease: Any = None) -> dict[str, Any]:

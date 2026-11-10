@@ -133,6 +133,8 @@ def _case(row: CorrelationCase) -> dict[str, Any]:
         "detection_state": row.detection_state,
         "remediation_state": row.remediation_state,
         "exception_state": row.exception_state,
+        "exception_revision": row.exception_revision,
+        "exception_scope_uids": list(row.exception_scope_uids or []),
         "exception_expires_at": _iso(row.exception_expires_at),
         "merged_into": _uuid(row.merged_into),
         "created_at": _iso(row.created_at),

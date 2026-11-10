@@ -141,3 +141,45 @@ def test_source_record_uids_for_snapshot_streams():
     out = map_all(connector(), "data_feed_runs", [run])
     assert isinstance(out[0], SourceRecord)
     assert out[0].uid == "archer:data_feed_runs:df-1"
+
+
+def test_exception_request_maps_configured_decision_fields():
+    configured = make_archer(
+        RouteTransport({}),
+        config_overrides={
+            "record_types": {
+                "exception_requests": {
+                    "application_id": 301,
+                    "level_id": 401,
+                    "correlation_field": "Hub Case",
+                    "decision_field": "Review Decision",
+                    "revision_field": "Review Revision",
+                    "expiry_field": "Review Expiry",
+                    "scope_field": "Scoped Alerts",
+                }
+            }
+        },
+    )
+    raw = {
+        "content_id": 2001,
+        "level_id": 401,
+        "application_id": 301,
+        "record_type": "exception_requests",
+        "fields": {
+            "Hub Case": "v1|cve|CVE-2026-0001|host:asset-1",
+            "Review Decision": "Approved",
+            "Review Revision": "archer-revision-7",
+            "Review Expiry": "2026-12-01T00:00:00+00:00",
+            "Scoped Alerts": ["alert-1", "alert-2"],
+        },
+    }
+
+    (record,) = map_all(configured, "exception_requests", [raw])
+
+    assert record.data["exception"] == {
+        "status": "approved",
+        "correlation_key": "v1|cve|CVE-2026-0001|host:asset-1",
+        "revision": "archer-revision-7",
+        "expires_at": "2026-12-01T00:00:00+00:00",
+        "scope": {"source_uids": ["alert-1", "alert-2"]},
+    }

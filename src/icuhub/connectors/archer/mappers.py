@@ -175,7 +175,54 @@ def _source_uid(stream_name: str, raw: dict[str, Any]) -> str:
     return f"archer:{stream_name}:{raw.get('content_id')}"
 
 
-def _source_record(stream_name: str, raw: dict[str, Any], ctx: MapContext) -> SourceRecord:
+def _named(fields: dict[str, Any], name: str | None) -> Any:
+    if name is None:
+        return None
+    lowered = {str(key).lower(): value for key, value in fields.items()}
+    return lowered.get(name.lower())
+
+
+def _text(value: Any) -> str | None:
+    if isinstance(value, list):
+        value = value[0] if len(value) == 1 else None
+    if value is None or isinstance(value, (dict, list, bool)):
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _scope_uids(value: Any) -> list[str]:
+    if isinstance(value, str):
+        candidates = value.replace("\r", "\n").replace(",", "\n").split("\n")
+    elif isinstance(value, list):
+        candidates = value
+    else:
+        return []
+    return [text for item in candidates if (text := _text(item)) is not None]
+
+
+def _exception_decision(connector: Any, raw: dict[str, Any]) -> dict[str, Any] | None:
+    mapping = connector.config.record_types.get("exception_requests")
+    if mapping is None:
+        return None
+    fields = raw.get("fields") or {}
+    status = (_text(_named(fields, mapping.decision_field or "Status")) or "").lower()
+    correlation_key = _text(_named(fields, mapping.correlation_field or "Correlation Key"))
+    revision = _text(_named(fields, mapping.revision_field or "Revision"))
+    if status not in {"requested", "approved", "rejected"} or correlation_key is None or revision is None:
+        return None
+    expires_at = _text(_named(fields, mapping.expiry_field or "Exception Expiry"))
+    scope = _scope_uids(_named(fields, mapping.scope_field or "Source Findings"))
+    return {
+        "status": status,
+        "correlation_key": correlation_key,
+        "revision": revision,
+        "expires_at": expires_at,
+        "scope": {"source_uids": scope},
+    }
+
+
+def _source_record(connector: Any, stream_name: str, raw: dict[str, Any], ctx: MapContext) -> SourceRecord:
     return SourceRecord(
         record_type=stream_name,
         uid=_source_uid(stream_name, raw),
@@ -183,6 +230,12 @@ def _source_record(stream_name: str, raw: dict[str, Any], ctx: MapContext) -> So
             "raw": bounded_raw(raw),
             "content_id": raw.get("content_id"),
             "observed_at": ctx.received_at.isoformat(),
+            **(
+                {"exception": decision}
+                if stream_name == "exception_requests"
+                and (decision := _exception_decision(connector, raw)) is not None
+                else {}
+            ),
         },
     )
 
@@ -194,4 +247,4 @@ def map_record(connector, stream_name: str, raw: dict[str, Any], ctx: MapContext
         return [_vulnerability_finding(raw, ctx)]
     if ocsf_class == 2003:
         return [_compliance_finding(raw, ctx)]
-    return [_source_record(stream_name, raw, ctx)]
+    return [_source_record(connector, stream_name, raw, ctx)]

@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any
 
 from icuhub.core.actions import JOB_HANDLERS as ACTION_HANDLERS
+from icuhub.core.exceptions import JOB_HANDLERS as EXCEPTION_HANDLERS
 from icuhub.core.notifier import JOB_HANDLERS as NOTIFY_HANDLERS
 from icuhub.core.sync import JOB_HANDLERS as SYNC_HANDLERS
 from icuhub.core.tickets import JOB_HANDLERS as TICKET_HANDLERS
@@ -18,6 +19,7 @@ Handler = Callable[..., Any]
 HANDLERS: dict[str, Handler] = {
     **SYNC_HANDLERS,
     **ACTION_HANDLERS,
+    **EXCEPTION_HANDLERS,
     **WEBHOOK_HANDLERS,
     **TICKET_HANDLERS,
     **NOTIFY_HANDLERS,

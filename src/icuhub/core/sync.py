@@ -24,6 +24,7 @@ from icuhub.kit.types import MapContext, SourceRecord, TicketRecord
 from icuhub.storage.db import session_scope
 from icuhub.storage.models import (
     Connection,
+    EvidenceItem,
     Finding,
     QuarantineItem,
     RawBatch,
@@ -189,6 +190,7 @@ async def commit_batch(
         ctx = ctx.model_copy(update={"target": Target(id=str(target.id), source_uid=target.source_uid, kind=target.kind, display_name=target.display_name, attributes=target.attributes_json or {})})
     counts = {"findings": 0, "records": 0, "quarantined": 0, "unchanged": 0, "raw_batch_id": str(raw.id)}
     seen_uids: set[str] = set()
+    from icuhub.core.exceptions import on_exception_decision  # noqa: PLC0415
     from icuhub.core.tickets import on_ticket_record  # noqa: PLC0415
 
     for index, record in enumerate(records):
@@ -213,6 +215,19 @@ async def commit_batch(
                 counts["records"] += 1
                 if isinstance(obj, TicketRecord):
                     await on_ticket_record(session, connection, obj)
+                elif obj.record_type == "exception_requests":
+                    case = await on_exception_decision(session, connection, obj)
+                    if case is not None:
+                        session.add(
+                            EvidenceItem(
+                                tenant_id=case.tenant_id,
+                                case_id=case.id,
+                                kind="raw_batch",
+                                digest=raw.digest,
+                                ref_table="raw_batch",
+                                ref_id=raw.id,
+                            )
+                        )
                 continue
             document = obj.model_dump(mode="json")
             source_uid, fingerprint, severity_id, title = _identity(document, connector.kind)

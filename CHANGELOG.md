@@ -19,6 +19,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - GitHub.com and GitHub Enterprise Server editions with 29 streams, 36 reads, SARIF and native security actions, PR governance, App/PAT authentication, hint-only signed webhooks, and edition-specific feature probes.
 - GitLab.com and GitLab Self-Managed editions with GraphQL vulnerability reconciliation, project/group/repository/MR/pipeline/audit streams, bounded file/log/artifact evidence, asynchronous exports, MR governance, and edition-aware Standard Webhook verification.
 - F5 BIG-IP iRule collection and natural-key reads plus bounded, write-gated `create_irule` with exact no-op, conflict rejection, and uncertain-outcome reconciliation.
+- F2 current-revision source directives and F3 durable Archer exception convergence with exact Prisma suppression scope, separate approvals, revision supersession, scheduled expiry, late-outcome reversal, source reconciliation, and signed evidence links.
 - Event and deterministic artifact-replay stream declarations, with hint-only webhooks able to enqueue canonical full or incremental reconciliation.
 - Integration inventory of the existing consumer platforms with an ICUHUB disposition per integration (`docs/INTEGRATION_INVENTORY.md`).
 - Technology options per design concern with licenses, air-gap fit, and sources (`docs/OPTIONS.md`).
