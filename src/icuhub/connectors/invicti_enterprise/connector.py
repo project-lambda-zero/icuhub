@@ -586,10 +586,11 @@ class InvictiEnterprise(Connector):
             )
         except (OutcomeUnknown, TransientVendorError):
             return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref)
-        return await self.reconcile_update_issue(plan)
+        readback = ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref)
+        return await self.reconcile_update_issue(plan, readback)
 
     @plan_update_issue.reconcile
-    async def reconcile_update_issue(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_update_issue(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         issue = parse_issue(await self._raw_issue(plan.request["issue_id"]))
         current = self._current(issue)
         if all(current.get(key) == value for key, value in plan.request["payload"].items()):

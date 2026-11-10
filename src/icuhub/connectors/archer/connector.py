@@ -380,12 +380,12 @@ class Archer(Connector):
         return await actions.plan_create(self, args)
 
     @create_finding_or_exception.apply
-    async def _apply_create(self, plan, args):
-        return await actions.apply_create(self, plan, args)
+    async def _apply_create(self, plan):
+        return await actions.apply_create(self, plan)
 
     @create_finding_or_exception.reconcile
-    async def _reconcile_create(self, plan, outcome, args):
-        return await actions.reconcile_create(self, plan, outcome, args)
+    async def _reconcile_create(self, plan, outcome):
+        return await actions.reconcile_create(self, plan, outcome)
 
     @action("update_finding_or_exception", classification="write", capability="RiskRegister",
             input_model=UpdateFindingOrExceptionInput, idempotency="natural_key")
@@ -393,12 +393,12 @@ class Archer(Connector):
         return await actions.plan_update(self, args)
 
     @update_finding_or_exception.apply
-    async def _apply_update(self, plan, args):
-        return await actions.apply_update(self, plan, args)
+    async def _apply_update(self, plan):
+        return await actions.apply_update(self, plan)
 
     @update_finding_or_exception.reconcile
-    async def _reconcile_update(self, plan, outcome, args):
-        return await actions.reconcile_update(self, plan, outcome, args)
+    async def _reconcile_update(self, plan, outcome):
+        return await actions.reconcile_update(self, plan, outcome)
 
     @action("upload_attachment", classification="write", capability="RiskRegister",
             input_model=UploadAttachmentInput, idempotency="natural_key")
@@ -406,12 +406,12 @@ class Archer(Connector):
         return await actions.plan_upload_attachment(self, args)
 
     @upload_attachment.apply
-    async def _apply_upload_attachment(self, plan, args):
-        return await actions.apply_upload_attachment(self, plan, args)
+    async def _apply_upload_attachment(self, plan):
+        return await actions.apply_upload_attachment(self, plan)
 
     @upload_attachment.reconcile
-    async def _reconcile_upload_attachment(self, plan, outcome, args):
-        return await actions.reconcile_upload_attachment(self, plan, outcome, args)
+    async def _reconcile_upload_attachment(self, plan, outcome):
+        return await actions.reconcile_upload_attachment(self, plan, outcome)
 
     @action("execute_data_feed", classification="write", capability="RiskRegister",
             input_model=ExecuteDataFeedInput, idempotency="natural_key")
@@ -419,12 +419,12 @@ class Archer(Connector):
         return await actions.plan_execute_data_feed(self, args)
 
     @execute_data_feed.apply
-    async def _apply_execute_data_feed(self, plan, args):
-        return await actions.apply_execute_data_feed(self, plan, args)
+    async def _apply_execute_data_feed(self, plan):
+        return await actions.apply_execute_data_feed(self, plan)
 
     @execute_data_feed.reconcile
-    async def _reconcile_execute_data_feed(self, plan, outcome, args):
-        return await actions.reconcile_execute_data_feed(self, plan, outcome, args)
+    async def _reconcile_execute_data_feed(self, plan, outcome):
+        return await actions.reconcile_execute_data_feed(self, plan, outcome)
 
     @action("delete_content", classification="destructive", capability="RiskRegister",
             input_model=DeleteContentInput, idempotency="none")
@@ -432,9 +432,9 @@ class Archer(Connector):
         return await actions.plan_delete(self, args)
 
     @delete_content.apply
-    async def _apply_delete(self, plan, args):
-        return await actions.apply_delete(self, plan, args)
+    async def _apply_delete(self, plan):
+        return await actions.apply_delete(self, plan)
 
     @delete_content.reconcile
-    async def _reconcile_delete(self, plan, outcome, args):
-        return await actions.reconcile_delete(self, plan, outcome, args)
+    async def _reconcile_delete(self, plan, outcome):
+        return await actions.reconcile_delete(self, plan, outcome)

@@ -171,6 +171,8 @@ def _case_event(case: CorrelationCase, event_type: str) -> Any:
             "severity_id": case.severity_id,
             "detection_state": case.detection_state,
             "remediation_state": case.remediation_state,
+            # Outbox identity hashes ``data``; a per-revision timestamp keeps a reopen distinct from the original open event.
+            "updated_at": case.updated_at.isoformat(),
         },
     )
 
@@ -226,15 +228,19 @@ async def link_finding(session: AsyncSession, finding: Finding) -> CorrelationCa
         if others is None:
             case.detection_state = "resolved_by_source"
             changed = True
-    session.add(
-        CaseMember(
-            finding_id=finding.id,
-            tenant_id=finding.tenant_id,
-            case_id=case.id,
-            reason="key_match" if not key_text.startswith("v1|own|") else "own_case",
-            linked_by="correlation",
-        )
-    )
+    elif finding.status != "resolved_by_source" and case.detection_state != "open":
+        # One open member keeps the case open; reappearing evidence reopens the aggregate.
+        case.detection_state = "open"
+        changed = True
+    reason = "key_match" if not key_text.startswith("v1|own|") else "own_case"
+    member = (await session.execute(select(CaseMember).where(CaseMember.finding_id == finding.id))).scalar_one_or_none()
+    if member is None:
+        session.add(CaseMember(finding_id=finding.id, tenant_id=finding.tenant_id, case_id=case.id, reason=reason, linked_by="correlation"))
+    elif member.case_id != case.id:
+        # A changed document can move its correlation key; re-linking must move the existing membership.
+        member.case_id = case.id
+        member.reason = reason
+        member.linked_by = "correlation"
     if changed:
         case.updated_at = now
         await add_event(session, finding.tenant_id, _case_event(case, "icuhub.case.updated"))

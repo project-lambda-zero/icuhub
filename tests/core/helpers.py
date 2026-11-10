@@ -97,12 +97,21 @@ def vendor_transport(state: dict[str, Any]) -> RouteTransport:
         state["issues"].append(issue)
         return {"status": 200, "json": issue}
 
+    def poll_ticket(request: Any) -> dict[str, Any]:
+        # The ticket completes on its third poll; every poll is recorded so tests can assert no re-apply occurred.
+        ticket = state.setdefault("ticket", {"polls": 0, "key": "ISSUE-7"})
+        ticket["polls"] += 1
+        done = ticket["polls"] >= 3
+        if done:
+            state["issues"].append({"key": ticket["key"], "route_key": "rk-async", "summary": "async"})
+        return {"status": 200, "json": {"done": done, "key": ticket["key"]}}
+
     routes: dict[tuple[str, str], Any] = {
         ("GET", "/api/ping"): {"status": 200, "json": {"ok": True}},
         ("GET", "/api/findings"): findings,
         ("GET", "/api/issues"): list_issues,
         ("POST", "/api/issues"): create_issue,
-        ("GET", "/api/tickets"): lambda request: {"status": 200, "json": {"items": state.get("tickets", [])}},
+        ("GET", "/api/tickets/TICKET-1"): poll_ticket,
         ("DELETE", "/api/issues/ISSUE-1"): {"status": 200, "json": {"deleted": True}},
     }
     return RouteTransport(routes)

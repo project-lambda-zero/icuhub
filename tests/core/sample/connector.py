@@ -235,12 +235,20 @@ class _SampleBase(Connector):
             return ActionOutcome(status="failed", error="vendor rejected")
         if plan.request.get("summary") == "unknown":
             return ActionOutcome(status="outcome_unknown")
+        if plan.request.get("summary") == "async":
+            return ActionOutcome(status="accepted_async", vendor_ref="TICKET-1")
         result = await self.http.request("POST", "/api/issues", json=plan.request)
         body = result.json()
         return ActionOutcome(status="succeeded", vendor_ref=body["key"], result=body)
 
     @plan_create.reconcile
-    async def reconcile_create(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_create(self, plan: ActionPlan, prior: ActionOutcome) -> ActionOutcome:
+        if prior.status == "accepted_async":
+            ticket = await self.http.request("GET", f"/api/tickets/{prior.vendor_ref}")
+            body = ticket.json()
+            if body.get("done"):
+                return ActionOutcome(status="succeeded", vendor_ref=body["key"], result=body)
+            return ActionOutcome(status="accepted_async", vendor_ref=prior.vendor_ref)
         result = await self.http.request("GET", "/api/issues", params={"route_key": plan.idempotency_key})
         items = result.json().get("items", [])
         if items:

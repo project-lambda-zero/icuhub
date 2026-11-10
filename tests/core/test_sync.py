@@ -12,6 +12,8 @@ from sqlalchemy import select
 from icuhub.core.sync import run_import_job, run_sync_job, submit_import
 from icuhub.storage.db import session_scope
 from icuhub.storage.models import (
+    CaseMember,
+    CorrelationCase,
     FileImport,
     Finding,
     OutboxEvent,
@@ -104,6 +106,31 @@ def test_quarantine_and_full_snapshot_rules(tmp_path: Any, clean_database: None)
     asyncio.run(scenario())
 
 
+def test_ocsf_status_id_maps_in_progress_open_and_resolved_closed(tmp_path: Any, clean_database: None) -> None:
+    async def scenario() -> None:
+        state: dict[str, Any] = {"issues": [], "findings": [finding("f-s", status_id=2)]}
+        services, tenant_id, connection = await _setup(tmp_path, state)
+        async with session_scope(tenant_id) as session:
+            await run_sync_job(_payload(tenant_id, connection))
+            row = (await session.execute(select(Finding).where(Finding.source_uid == "f-s"))).scalar_one()
+            assert row.status == "open", "OCSF 2 (In Progress) must remain open"
+            assert row.resolved_at is None
+        state["findings"] = [finding("f-s", status_id=4)]
+        async with session_scope(tenant_id) as session:
+            await run_sync_job(_payload(tenant_id, connection))
+            row = (await session.execute(select(Finding).where(Finding.source_uid == "f-s"))).scalar_one()
+            assert row.status == "resolved_by_source", "OCSF 4 (Resolved) must close the finding"
+            assert row.resolved_at is not None
+        state["findings"] = [finding("f-s", status_id=2)]
+        async with session_scope(tenant_id) as session:
+            await run_sync_job(_payload(tenant_id, connection))
+            row = (await session.execute(select(Finding).where(Finding.source_uid == "f-s"))).scalar_one()
+            assert row.status == "open", "a finding that reappears in progress must reopen"
+            assert row.resolved_at is None
+
+    asyncio.run(scenario())
+
+
 def test_full_run_resolves_absent_only_when_complete(tmp_path: Any, clean_database: None) -> None:
     async def scenario() -> None:
         state: dict[str, Any] = {"issues": [], "findings": [finding("f-1"), finding("f-2", cve="CVE-2026-0002")]}
@@ -117,6 +144,72 @@ def test_full_run_resolves_absent_only_when_complete(tmp_path: Any, clean_databa
             rows = {f.source_uid: f for f in (await session.execute(select(Finding))).scalars().all()}
             assert rows["f-2"].status == "resolved_by_source"
             assert rows["f-1"].status != "resolved_by_source"
+
+    asyncio.run(scenario())
+
+
+def test_absent_finding_that_reappears_unchanged_reopens(tmp_path: Any, clean_database: None) -> None:
+    async def scenario() -> None:
+        state: dict[str, Any] = {"issues": [], "findings": [finding("f-1"), finding("f-2", cve="CVE-2026-0002")]}
+        services, tenant_id, connection = await _setup(tmp_path, state)
+        async with session_scope(tenant_id) as session:
+            await run_sync_job(_payload(tenant_id, connection, mode="full"))
+        state["findings"] = [finding("f-1")]
+        async with session_scope(tenant_id) as session:
+            await run_sync_job(_payload(tenant_id, connection, mode="full"))
+            row = (await session.execute(select(Finding).where(Finding.source_uid == "f-2"))).scalar_one()
+            assert row.status == "resolved_by_source"
+        state["findings"] = [finding("f-1"), finding("f-2", cve="CVE-2026-0002")]
+        async with session_scope(tenant_id) as session:
+            result = await run_sync_job(_payload(tenant_id, connection, mode="full"))
+            assert result["outcome"] == "succeeded"
+            row = (await session.execute(select(Finding).where(Finding.source_uid == "f-2"))).scalar_one()
+            assert row.status == "open", "a reappearing finding with an unchanged document must reopen"
+            assert row.resolved_at is None
+
+    asyncio.run(scenario())
+
+
+def test_absence_resolves_case_only_when_last_member_leaves(tmp_path: Any, clean_database: None) -> None:
+    async def case_state(session: Any, uid: str) -> tuple[uuid.UUID, str]:
+        finding_row = (await session.execute(select(Finding).where(Finding.source_uid == uid))).scalar_one()
+        member = (await session.execute(select(CaseMember).where(CaseMember.finding_id == finding_row.id))).scalar_one()
+        case = (await session.execute(select(CorrelationCase).where(CorrelationCase.id == member.case_id))).scalar_one()
+        return case.id, case.detection_state
+
+    async def scenario() -> None:
+        # f-1 and f-2 share a CVE and purl, so they share one case; f-3 keeps the snapshot non-empty.
+        state: dict[str, Any] = {
+            "issues": [],
+            "findings": [finding("f-1"), finding("f-2"), finding("f-3", cve="CVE-2026-0003")],
+        }
+        services, tenant_id, connection = await _setup(tmp_path, state)
+        async with session_scope(tenant_id) as session:
+            await run_sync_job(_payload(tenant_id, connection, mode="full"))
+            shared_case, initial_state = await case_state(session, "f-1")
+            assert initial_state == "open"
+            assert await case_state(session, "f-2") == (shared_case, "open")
+
+        state["findings"] = [finding("f-2"), finding("f-3", cve="CVE-2026-0003")]
+        async with session_scope(tenant_id) as session:
+            await run_sync_job(_payload(tenant_id, connection, mode="full"))
+            assert await case_state(session, "f-2") == (shared_case, "open")
+
+        state["findings"] = [finding("f-3", cve="CVE-2026-0003")]
+        async with session_scope(tenant_id) as session:
+            result = await run_sync_job(_payload(tenant_id, connection, mode="full"))
+            assert result["outcome"] == "succeeded"
+            assert await case_state(session, "f-2") == (shared_case, "resolved_by_source")
+            members = (await session.execute(select(CaseMember).where(CaseMember.case_id == shared_case))).scalars().all()
+            assert len(members) == 2
+
+        async with session_scope(tenant_id) as session:
+            events_before = len((await session.execute(select(OutboxEvent).where(OutboxEvent.tenant_id == tenant_id))).scalars().all())
+        async with session_scope(tenant_id) as session:
+            await run_sync_job(_payload(tenant_id, connection, mode="full"))
+            assert await case_state(session, "f-2") == (shared_case, "resolved_by_source")
+            events_after = len((await session.execute(select(OutboxEvent).where(OutboxEvent.tenant_id == tenant_id))).scalars().all())
+        assert events_after == events_before, "replaying the same complete snapshot must emit nothing"
 
     asyncio.run(scenario())
 

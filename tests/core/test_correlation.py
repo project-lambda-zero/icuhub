@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from datetime import UTC, datetime
 from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from icuhub.core.correlation import correlation_key, link_finding, merge_cases, split_finding
 from icuhub.kit.testing import RouteTransport
 from icuhub.storage.db import session_scope
-from icuhub.storage.models import CaseMember, CorrelationCase, Finding, Tenant
+from icuhub.storage.models import CaseMember, CorrelationCase, Finding, OutboxEvent, Tenant
 from tests.core.helpers import caller_for, make_services, new_connection
 
 CVE_DOC: dict[str, Any] = {
@@ -89,6 +93,50 @@ def _finding(tenant_id: uuid.UUID, connection_id: uuid.UUID, uid: str, severity:
         revision_digest=f"sha256:{'0' * 64}",
         mapper_version=1,
     )
+
+
+def test_reappearing_finding_reopens_resolved_case_with_one_membership(tmp_path: object, clean_database: None) -> None:
+    async def scenario() -> None:
+        tenant_id = uuid.uuid4()
+        async with session_scope(tenant_id) as session:
+            session.add(Tenant(id=tenant_id, slug=f"t-{tenant_id.hex[:8]}", display_name="T"))
+            await session.flush()
+            services = make_services(RouteTransport({}), tmp_path / "kek")
+            connection = await new_connection(session, services, tenant_id)
+            row = _finding(tenant_id, connection.id, "obs-reopen")
+            session.add(row)
+            await session.flush()
+
+            case = await link_finding(session, row)
+            assert case.detection_state == "open"
+
+            row.status = "resolved_by_source"
+            row.resolved_at = datetime.now(UTC)
+            case = await link_finding(session, row)
+            assert case.detection_state == "resolved_by_source"
+            resolved_events = await _case_update_count(session, tenant_id)
+
+            # Re-linking an unchanged resolved finding must not reopen or re-announce the case.
+            case = await link_finding(session, row)
+            assert case.detection_state == "resolved_by_source"
+            assert await _case_update_count(session, tenant_id) == resolved_events
+
+            row.status = "open"
+            row.resolved_at = None
+            case = await link_finding(session, row)
+            assert case.detection_state == "open"
+            assert await _case_update_count(session, tenant_id) > resolved_events
+
+            members = (await session.execute(select(CaseMember).where(CaseMember.finding_id == row.id))).scalars().all()
+            assert len(members) == 1
+            assert members[0].case_id == case.id
+
+    asyncio.run(scenario())
+
+
+async def _case_update_count(session: AsyncSession, tenant_id: uuid.UUID) -> int:
+    rows = (await session.execute(select(OutboxEvent).where(OutboxEvent.tenant_id == tenant_id))).scalars().all()
+    return sum(1 for row in rows if row.event_json.get("type") == "icuhub.case.updated")
 
 
 def test_link_merge_split(tmp_path: object, clean_database: None) -> None:

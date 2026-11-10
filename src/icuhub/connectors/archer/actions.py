@@ -212,9 +212,7 @@ async def plan_create(connector: Any, args: CreateFindingOrExceptionInput) -> Ac
     )
 
 
-async def apply_create(
-    connector: Any, plan: ActionPlan, args: CreateFindingOrExceptionInput
-) -> ActionOutcome:
+async def apply_create(connector: Any, plan: ActionPlan) -> ActionOutcome:
     if not plan.changed:
         return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
     _require_write(connector)
@@ -233,12 +231,7 @@ async def apply_create(
     )
 
 
-async def reconcile_create(
-    connector: Any,
-    plan: ActionPlan,
-    outcome: ActionOutcome,
-    args: CreateFindingOrExceptionInput,
-) -> ActionOutcome:
+async def reconcile_create(connector: Any, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
     field_name = plan.preconditions.get("correlation_field")
     field_id = plan.preconditions.get("correlation_field_id")
     if not field_name or field_id is None:
@@ -284,9 +277,7 @@ async def plan_update(connector: Any, args: UpdateFindingOrExceptionInput) -> Ac
     )
 
 
-async def apply_update(
-    connector: Any, plan: ActionPlan, args: UpdateFindingOrExceptionInput
-) -> ActionOutcome:
+async def apply_update(connector: Any, plan: ActionPlan) -> ActionOutcome:
     if not plan.changed:
         return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
     _require_write(connector)
@@ -313,12 +304,7 @@ async def apply_update(
     )
 
 
-async def reconcile_update(
-    connector: Any,
-    plan: ActionPlan,
-    outcome: ActionOutcome,
-    args: UpdateFindingOrExceptionInput,
-) -> ActionOutcome:
+async def reconcile_update(connector: Any, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
     current = await connector.api.content(int(plan.request["content_id"]))
     encoded = await connector.api.encode_fields(
         int(plan.request["level_id"]), plan.request["field_values"]
@@ -489,9 +475,7 @@ async def plan_upload_attachment(connector: Any, args: UploadAttachmentInput) ->
     )
 
 
-async def apply_upload_attachment(
-    connector: Any, plan: ActionPlan, args: UploadAttachmentInput
-) -> ActionOutcome:
+async def apply_upload_attachment(connector: Any, plan: ActionPlan) -> ActionOutcome:
     if not plan.changed:
         return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
     _require_write(connector)
@@ -518,12 +502,7 @@ async def apply_upload_attachment(
     return await _associate_and_verify(connector, plan, field_id, int(uploaded["Id"]))
 
 
-async def reconcile_upload_attachment(
-    connector: Any,
-    plan: ActionPlan,
-    outcome: ActionOutcome,
-    args: UploadAttachmentInput,
-) -> ActionOutcome:
+async def reconcile_upload_attachment(connector: Any, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
     # Never re-uploads: an uncertain upload is resolved by associating a known orphan, or by
     # finding a field attachment with the same filename and SHA-256.
     content_id = int(plan.request["content_id"])
@@ -570,12 +549,8 @@ async def plan_execute_data_feed(connector: Any, args: ExecuteDataFeedInput) -> 
     )
 
 
-async def apply_execute_data_feed(
-    connector: Any, plan: ActionPlan, args: ExecuteDataFeedInput
-) -> ActionOutcome:
+async def apply_execute_data_feed(connector: Any, plan: ActionPlan) -> ActionOutcome:
     _require_write(connector)
-    if args.approved_plan_hash != plan.plan_hash:
-        raise StalePlan("Archer data-feed approved_plan_hash does not match plan_hash")
     try:
         response = await connector.api.execute_data_feed(
             str(plan.request["data_feed_guid"]),
@@ -588,12 +563,7 @@ async def apply_execute_data_feed(
     )
 
 
-async def reconcile_execute_data_feed(
-    connector: Any,
-    plan: ActionPlan,
-    outcome: ActionOutcome,
-    args: ExecuteDataFeedInput,
-) -> ActionOutcome:
+async def reconcile_execute_data_feed(connector: Any, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
     runs = await connector.api.data_feed_history()
     guid = str(plan.request["data_feed_guid"])
     for run in runs:
@@ -629,11 +599,9 @@ async def plan_delete(connector: Any, args: DeleteContentInput) -> ActionPlan:
     )
 
 
-async def apply_delete(connector: Any, plan: ActionPlan, args: DeleteContentInput) -> ActionOutcome:
+async def apply_delete(connector: Any, plan: ActionPlan) -> ActionOutcome:
     _require_write(connector)
     _require_destructive(connector)
-    if args.approved_plan_hash != plan.plan_hash:
-        raise StalePlan("Archer delete approved_plan_hash does not match plan_hash")
     try:
         await connector.api.delete_content(int(plan.request["content_id"]))
     except OutcomeUnknown as exc:
@@ -642,16 +610,10 @@ async def apply_delete(connector: Any, plan: ActionPlan, args: DeleteContentInpu
         connector,
         plan,
         ActionOutcome(status="succeeded", vendor_ref=plan.target_ref),
-        args,
     )
 
 
-async def reconcile_delete(
-    connector: Any,
-    plan: ActionPlan,
-    outcome: ActionOutcome,
-    args: DeleteContentInput,
-) -> ActionOutcome:
+async def reconcile_delete(connector: Any, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
     """Succeed only when the content is proven absent (a NotFound read after the delete)."""
     try:
         await connector.api.content(int(plan.request["content_id"]))

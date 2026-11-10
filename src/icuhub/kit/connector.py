@@ -326,14 +326,25 @@ class ActionDef:
         self.reconcile_fn: Callable[..., Any] | None = None
 
     def apply(self, fn: Callable[..., Any]) -> Callable[..., Any]:
-        """Register the apply function. Returns it unchanged so it stays a plain method."""
+        """Register the apply function, signature ``(plan) -> ActionOutcome``.
+
+        Apply runs once per approved request. Returning ``accepted_async`` means the vendor
+        accepted the write and reconcile must poll it; apply is never re-run for that request.
+        Returns the function unchanged so it stays a plain method.
+        """
         if self.apply_fn is not None:
             raise TypeError(f"action {self.name!r} already has an apply function")
         self.apply_fn = fn
         return fn
 
     def reconcile(self, fn: Callable[..., Any]) -> Callable[..., Any]:
-        """Register the reconcile function used after ``outcome_unknown``. Returns it unchanged."""
+        """Register the reconcile function, signature ``(plan, outcome) -> ActionOutcome``.
+
+        Core calls it for requests persisted as ``accepted_async`` (poll the vendor using
+        ``outcome.vendor_ref``) or ``outcome_unknown`` (look up whether the write landed). The
+        ``outcome`` argument is the persisted prior outcome. Reconcile MUST NOT re-plan, re-apply,
+        or resend the write. Returns the function unchanged.
+        """
         if self.reconcile_fn is not None:
             raise TypeError(f"action {self.name!r} already has a reconcile function")
         self.reconcile_fn = fn

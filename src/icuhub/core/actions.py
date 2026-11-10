@@ -1,8 +1,9 @@
 """Action requests: policy, plan, durable approval, apply, and reconciliation (ADR-0014).
 
 Every transition appends an audit record and an outbox event. Approval binds to the
-plan hash; apply re-plans and refuses a stale plan. ``outcome_unknown`` is resolved by
-the connector's reconcile hook, never by a blind retry (FR-POL-09, PA-26..28).
+plan hash; the initial apply re-plans and refuses a stale plan. ``accepted_async``
+and ``outcome_unknown`` are resolved by the connector's reconcile hook against the
+stored approved plan and persisted outcome, never by a blind retry (FR-POL-09, PA-26..28).
 """
 
 from __future__ import annotations
@@ -45,7 +46,6 @@ __all__ = [
     "submit_action",
 ]
 
-_TERMINAL = {"succeeded", "failed", "denied", "previewed", "rejected", "expired", "no_op", "stale_plan"}
 _MAX_ASYNC_POLLS = 60
 _MAX_RECONCILE_ATTEMPTS = 12
 
@@ -357,15 +357,56 @@ async def run_expire_job(payload: dict[str, Any], lease: Any = None) -> dict[str
     return {"expired": count}
 
 
+def _reconcile_counters(request: ActionRequest) -> tuple[int, int]:
+    """Return ``(polls, reconcile_attempts)`` persisted beside the outcome in ``result_json``."""
+    stored = request.result_json or {}
+    return int(stored.get("polls", 0)), int(stored.get("reconcile_attempts", 0))
+
+
+def _prior_outcome(request: ActionRequest) -> ActionOutcome:
+    """Rebuild the outcome persisted by the last transition; reconcile receives this, never a re-derivation."""
+    stored = request.result_json or {}
+    status = "accepted_async" if request.state == "accepted_async" else "outcome_unknown"
+    return ActionOutcome(
+        status=status,
+        vendor_ref=stored.get("vendor_ref"),
+        result=stored.get("result") or {},
+        error=stored.get("error"),
+    )
+
+
+def _persisted(outcome: ActionOutcome, *, polls: int, attempts: int) -> dict[str, Any]:
+    """Outcome plus job counters; ``_transition`` overwrites ``result_json`` wholesale, so counters travel with it."""
+    return {**outcome.model_dump(mode="json"), "polls": polls, "reconcile_attempts": attempts}
+
+
+async def _enqueue_reconcile(
+    session: AsyncSession,
+    request: ActionRequest,
+    *,
+    run_at: datetime | None = None,
+    dedupe_key: str | None = None,
+) -> None:
+    await enqueue(
+        session,
+        "actions",
+        "reconcile",
+        {"action_request_id": str(request.id), "tenant_id": str(request.tenant_id)},
+        tenant_id=request.tenant_id,
+        run_at=run_at,
+        dedupe_key=dedupe_key,
+    )
+
+
 async def run_apply_job(payload: dict[str, Any], lease: Any = None) -> dict[str, Any]:
-    """Worker handler for the ``apply`` job kind."""
+    """Worker handler for the ``apply`` job kind: runs once, from ``approved`` only."""
     services = get_services()
     request_id = uuid.UUID(payload["action_request_id"])
     async with session_scope(uuid.UUID(payload["tenant_id"])) as session:
         request = await session.get(ActionRequest, request_id)
-        if request is None or request.state in _TERMINAL:
+        if request is None:
             return {"skipped": True}
-        if request.state not in ("approved", "accepted_async"):
+        if request.state != "approved":
             return {"skipped": True, "state": request.state}
         await _transition(session, request, "executing", caller_id="worker")
         connection = await session.get(Connection, request.connection_id)
@@ -387,43 +428,40 @@ async def run_apply_job(payload: dict[str, Any], lease: Any = None) -> dict[str,
             return {"state": "failed", "error": type(exc).__name__}
         result = outcome.model_dump(mode="json")
         if outcome.status == "accepted_async":
-            polls = int((request.result_json or {}).get("polls", 0)) + 1
-            if polls > _MAX_ASYNC_POLLS:
-                await _transition(session, request, "failed", caller_id="worker", error_class="AsyncTimeout")
-                return {"state": "failed"}
-            result["polls"] = polls
-            await _transition(session, request, "accepted_async", caller_id="worker", result=result)
-            await enqueue(
+            # The apply is never repeated: reconcile polls the vendor using the persisted vendor_ref.
+            await _transition(
                 session,
-                "actions",
-                "apply",
-                {"action_request_id": str(request.id), "tenant_id": str(request.tenant_id)},
-                tenant_id=request.tenant_id,
-                run_at=datetime.now(UTC) + timedelta(seconds=30),
+                request,
+                "accepted_async",
+                caller_id="worker",
+                result=_persisted(outcome, polls=1, attempts=0),
             )
-            return {"state": "accepted_async", "polls": polls}
-        if outcome.status == "outcome_unknown":
-            await _transition(session, request, "outcome_unknown", caller_id="worker", result=result)
-            await enqueue(
+            await _enqueue_reconcile(
                 session,
-                "actions",
-                "reconcile",
-                {"action_request_id": str(request.id), "tenant_id": str(request.tenant_id)},
-                tenant_id=request.tenant_id,
+                request,
+                run_at=datetime.now(UTC) + timedelta(seconds=30),
                 dedupe_key=f"{request.tenant_id}:reconcile:{request.id}",
             )
+            return {"state": "accepted_async"}
+        if outcome.status == "outcome_unknown":
+            await _transition(session, request, "outcome_unknown", caller_id="worker", result=result)
+            await _enqueue_reconcile(session, request, dedupe_key=f"{request.tenant_id}:reconcile:{request.id}")
             return {"state": "outcome_unknown"}
         await _transition(session, request, outcome.status, caller_id="worker", result=result)
         return {"state": outcome.status}
 
 
 async def run_reconcile_job(payload: dict[str, Any], lease: Any = None) -> dict[str, Any]:
-    """Worker handler resolving ``outcome_unknown`` through the connector reconcile hook."""
+    """Worker handler resolving ``accepted_async`` and ``outcome_unknown`` through the reconcile hook.
+
+    Reconcile receives the stored approved plan and the persisted prior outcome. It never
+    re-plans, never re-applies, and never mutates the stored plan or its hash.
+    """
     services = get_services()
     request_id = uuid.UUID(payload["action_request_id"])
     async with session_scope(uuid.UUID(payload["tenant_id"])) as session:
         request = await session.get(ActionRequest, request_id)
-        if request is None or request.state != "outcome_unknown":
+        if request is None or request.state not in ("accepted_async", "outcome_unknown"):
             return {"skipped": True}
         connection = await session.get(Connection, request.connection_id)
         cls = services.runtime._class(connection)
@@ -442,41 +480,43 @@ async def run_reconcile_job(payload: dict[str, Any], lease: Any = None) -> dict[
             changed=stored.changed,
             request=stored.request_json,
         )
+        polls, attempts = _reconcile_counters(request)
+        # Re-enqueues below carry no dedupe key: this job is itself the active holder of the reconcile key.
         try:
-            outcome: ActionOutcome = await getattr(connector, spec.reconcile.__name__)(plan)
+            outcome: ActionOutcome = await getattr(connector, spec.reconcile.__name__)(plan, _prior_outcome(request))
         except Exception as exc:  # noqa: BLE001 - failure class is recorded at this boundary
-            attempts = int((request.result_json or {}).get("reconcile_attempts", 0)) + 1
+            attempts += 1
             if attempts >= _MAX_RECONCILE_ATTEMPTS:
                 await _transition(session, request, "failed", caller_id="worker", error_class=type(exc).__name__)
                 return {"state": "failed"}
-            result = dict(request.result_json or {})
-            result["reconcile_attempts"] = attempts
-            request.result_json = result
-            await enqueue(
+            request.result_json = {**(request.result_json or {}), "reconcile_attempts": attempts}
+            await _enqueue_reconcile(session, request, run_at=datetime.now(UTC) + timedelta(seconds=min(300, 15 * attempts)))
+            return {"state": request.state, "attempts": attempts}
+        if outcome.status == "accepted_async":
+            polls += 1
+            if polls > _MAX_ASYNC_POLLS:
+                await _transition(session, request, "failed", caller_id="worker", error_class="AsyncTimeout")
+                return {"state": "failed"}
+            await _transition(
                 session,
-                "actions",
-                "reconcile",
-                {"action_request_id": str(request.id), "tenant_id": str(request.tenant_id)},
-                tenant_id=request.tenant_id,
-                run_at=datetime.now(UTC) + timedelta(seconds=min(300, 15 * attempts)),
+                request,
+                "accepted_async",
+                caller_id="worker",
+                result=_persisted(outcome, polls=polls, attempts=attempts),
             )
-            return {"state": "outcome_unknown", "attempts": attempts}
+            await _enqueue_reconcile(session, request, run_at=datetime.now(UTC) + timedelta(seconds=30))
+            return {"state": "accepted_async", "polls": polls}
         if outcome.status == "outcome_unknown":
-            result = dict(request.result_json or {})
-            attempts = int(result.get("reconcile_attempts", 0)) + 1
+            attempts += 1
             if attempts >= _MAX_RECONCILE_ATTEMPTS:
                 await _transition(session, request, "failed", caller_id="worker", error_class="ReconcileExhausted")
                 return {"state": "failed"}
-            result["reconcile_attempts"] = attempts
-            request.result_json = result
-            await enqueue(
-                session,
-                "actions",
-                "reconcile",
-                {"action_request_id": str(request.id), "tenant_id": str(request.tenant_id)},
-                tenant_id=request.tenant_id,
-                run_at=datetime.now(UTC) + timedelta(seconds=min(300, 15 * attempts)),
-            )
+            persisted = _persisted(outcome, polls=polls, attempts=attempts)
+            if request.state == "outcome_unknown":
+                request.result_json = persisted
+            else:
+                await _transition(session, request, "outcome_unknown", caller_id="worker", result=persisted)
+            await _enqueue_reconcile(session, request, run_at=datetime.now(UTC) + timedelta(seconds=min(300, 15 * attempts)))
             return {"state": "outcome_unknown", "attempts": attempts}
         await _transition(session, request, outcome.status, caller_id="worker", result=outcome.model_dump(mode="json"))
         return {"state": outcome.status}

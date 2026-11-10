@@ -667,7 +667,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=f"jira_issue:{key}", result={"key": key})
 
     @plan_create_issue.reconcile
-    async def reconcile_create_issue(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_create_issue(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         matches = await self._search_one(f'labels = "{plan.preconditions["route_label"]}"')
         if not matches:
             return ActionOutcome(
@@ -720,7 +720,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
 
     @plan_update_issue_fields.reconcile
-    async def reconcile_update_issue_fields(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_update_issue_fields(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         issue = await self._get_issue(plan.preconditions["id"], fields=",".join(plan.diff["fields"]))
         fields = issue.get("fields")
         if not isinstance(fields, dict):
@@ -782,7 +782,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=f"jira_comment:{comment_id}", result={"id": comment_id})
 
     @plan_add_comment.reconcile
-    async def reconcile_add_comment(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_add_comment(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         found = await self._find_comment(plan.preconditions["issue_id"], plan.preconditions["marker"])
         if found is None:
             return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="comment marker not found after write")
@@ -850,7 +850,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
 
     @plan_transition_issue.reconcile
-    async def reconcile_transition_issue(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_transition_issue(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         target = plan.diff["to_status"]
         issue = await self._get_issue(plan.preconditions["id"], fields="status", expand="changelog")
         if issue_state(issue)["status"] != target:
@@ -913,7 +913,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
 
     @plan_link_issue.reconcile
-    async def reconcile_link_issue(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_link_issue(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         inward = await self._get_issue(plan.preconditions["inward"], fields="issuelinks")
         if link_exists(inward, plan.preconditions["link_type"], plan.preconditions["outward"]):
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
@@ -991,7 +991,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=f"jira_attachment:{attachment_id}", result={"id": attachment_id})
 
     @plan_add_attachment.reconcile
-    async def reconcile_add_attachment(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_add_attachment(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         found = await self._find_attachment(
             plan.preconditions["issue_id"], plan.preconditions["filename"], int(plan.preconditions["size"])
         )
@@ -1049,7 +1049,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
 
     @plan_update_comment.reconcile
-    async def reconcile_update_comment(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_update_comment(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         comment = await self._get_object(plan.preconditions["path"])
         if comment_body_matches(comment, plan.request["json"]["body"]):
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
@@ -1111,7 +1111,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=f"jira_remote_link:{link_id}", result={"id": link_id})
 
     @plan_add_remote_link.reconcile
-    async def reconcile_add_remote_link(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_add_remote_link(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         links = remote_link_list(await self._json("GET", plan.preconditions["path"]))
         found = find_remote_link(links, plan.preconditions["global_id"])
         if found is None:
@@ -1209,7 +1209,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=f"jira_webhook:{webhook_id}", result={"id": webhook_id})
 
     @plan_create_webhook.reconcile
-    async def reconcile_create_webhook(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_create_webhook(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         found = find_registration(
             await self._registrations(),
             plan.preconditions["url"],
@@ -1272,7 +1272,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
 
     @plan_delete_webhook.reconcile
-    async def reconcile_delete_webhook(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_delete_webhook(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         if find_by_id(await self._registrations(), plan.preconditions["webhook_id"]) is None:
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
         return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="webhook still registered")
@@ -1317,7 +1317,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
 
     @plan_delete_issue.reconcile
-    async def reconcile_delete_issue(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_delete_issue(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         if await self._is_absent(plan.request["path"]):
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
         return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="issue still exists after delete")
@@ -1348,7 +1348,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
 
     @plan_delete_comment.reconcile
-    async def reconcile_delete_comment(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_delete_comment(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         if await self._is_absent(plan.request["path"]):
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
         return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="comment still exists after delete")
@@ -1387,7 +1387,7 @@ class JiraDataCenter(JiraBase):
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
 
     @plan_delete_attachment.reconcile
-    async def reconcile_delete_attachment(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_delete_attachment(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         if await self._is_absent(plan.request["path"]):
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
         return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="attachment still exists after delete")

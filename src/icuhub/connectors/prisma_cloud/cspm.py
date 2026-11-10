@@ -558,7 +558,7 @@ class PrismaCspm(PrismaBase):
             return ActionOutcome(status="failed", vendor_ref=alert_id, error=f"alert read-back is {actual!r}, expected {desired!r}", result={"alert": read_back})
         return ActionOutcome(status="succeeded", vendor_ref=alert_id, result={"alert": read_back})
 
-    async def _reconcile_alert_plan(self, plan: ActionPlan) -> ActionOutcome:
+    async def _reconcile_alert_plan(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         alert = await self._alert_state(str(plan.request["alert_id"]))
         actual = str(alert.get("status") or "").lower()
         if actual == plan.request["desired_status"]:
@@ -578,8 +578,8 @@ class PrismaCspm(PrismaBase):
         return await self._apply_alert_plan(plan)
 
     @plan_dismiss_alert.reconcile
-    async def reconcile_dismiss_alert(self, plan: ActionPlan) -> ActionOutcome:
-        return await self._reconcile_alert_plan(plan)
+    async def reconcile_dismiss_alert(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
+        return await self._reconcile_alert_plan(plan, outcome)
 
     @action("snooze_alert", classification="write", capability="Enforcer", input_model=SnoozeAlertInput, idempotency="natural_key")
     async def plan_snooze_alert(self, args: SnoozeAlertInput) -> ActionPlan:
@@ -595,8 +595,8 @@ class PrismaCspm(PrismaBase):
         return await self._apply_alert_plan(plan)
 
     @plan_snooze_alert.reconcile
-    async def reconcile_snooze_alert(self, plan: ActionPlan) -> ActionOutcome:
-        return await self._reconcile_alert_plan(plan)
+    async def reconcile_snooze_alert(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
+        return await self._reconcile_alert_plan(plan, outcome)
 
     @action("reopen_alert", classification="write", capability="Enforcer", input_model=ReopenAlertInput, idempotency="natural_key")
     async def plan_reopen_alert(self, args: ReopenAlertInput) -> ActionPlan:
@@ -613,8 +613,8 @@ class PrismaCspm(PrismaBase):
         return await self._apply_alert_plan(plan)
 
     @plan_reopen_alert.reconcile
-    async def reconcile_reopen_alert(self, plan: ActionPlan) -> ActionOutcome:
-        return await self._reconcile_alert_plan(plan)
+    async def reconcile_reopen_alert(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
+        return await self._reconcile_alert_plan(plan, outcome)
 
     @action("remediate_alert", classification="destructive", capability="Enforcer", input_model=RemediateAlertInput, idempotency="natural_key")
     async def plan_remediate_alert(self, args: RemediateAlertInput) -> ActionPlan:
@@ -632,5 +632,5 @@ class PrismaCspm(PrismaBase):
         return await self._apply_alert_plan(plan)
 
     @plan_remediate_alert.reconcile
-    async def reconcile_remediate_alert(self, plan: ActionPlan) -> ActionOutcome:
-        return await self._reconcile_alert_plan(plan)
+    async def reconcile_remediate_alert(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
+        return await self._reconcile_alert_plan(plan, outcome)

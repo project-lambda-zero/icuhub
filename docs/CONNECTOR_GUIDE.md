@@ -43,7 +43,7 @@ Egress class guide:
 ## 3. Implementation checklist
 
 - [ ] Connector class with `kind`, `version`, `sdk`, `owner`, `support`, `config` (secrets typed `SecretRef`), and auth strategies.
-- [ ] Reads as `@operation`, ingestion as `@stream` plus `@mapper`, writes and destructive changes as `@action` with `plan` and `apply`, pushes as `@webhook` sharing the stream mapper.
+- [ ] Reads as `@operation`, ingestion as `@stream` plus `@mapper`, writes and destructive changes as `@action` with `plan`, `apply(plan)`, and `reconcile(plan, outcome)`, pushes as `@webhook` sharing the stream mapper.
 - [ ] Every member declares `stability`; scopes declared with probes.
 - [ ] `check` returns per-capability health and `not_evaluated` for missing scopes; `discover` yields targets with stable source IDs.
 - [ ] Errors raised from the typed taxonomy (`CONNECTOR_FRAMEWORK.md` section 3.4), never generic exceptions for vendor states.
@@ -79,6 +79,7 @@ For each mapping:
 - **Target objects**: streams receive a kit `Target` (`source_uid`, `kind`, `display_name`, `attributes`), never the ORM row. `TargetRecord.attributes` is persisted as `target.attributes_json`.
 - **OCSF classes without shared models**: `icuhub_schemas` types only part of OCSF 1.9.0 (see GAP-SCHEMA-001). For every other class emit kit `SourceRecord` whose `data` is the full OCSF-shaped JSON including `class_uid`; never create connector-local OCSF model classes, because core treats non-`SourceRecord` mapper output as findings.
 - **Non-HTTP connectors**: set `uses_http = False` (for example SMTP). The runtime and `kit.testing.make_connector` then skip HTTP client creation; `self.http` raises if touched.
+- **Action async contract**: `apply(plan)` runs once per approved request and never again. It returns `accepted_async` (with `vendor_ref`) when the vendor accepted the write but has not finished, or `outcome_unknown` when the write may have landed. Core then persists that outcome and calls `reconcile(plan, outcome)`, where `outcome` is the persisted prior outcome. Reconcile polls the vendor using `outcome.vendor_ref` (or looks the write up for `outcome_unknown`) and returns a terminal outcome or `accepted_async` again. Reconcile MUST NOT re-plan, re-apply, or resend the write, and it MUST return an `ActionOutcome` on every path.
 - **Login calls inside an auth strategy**: use `VendorHttp.request(..., authenticate=False)`. This skips `_auth.apply` and the 401 refresh, so `SessionLogin` cannot deadlock on its own lock. It is only for the strategy's login request.
 - **Sync and replay modes**: scheduler jobs use `incremental` and `full`. Core raw-batch replay remains separate from scheduler execution. A deterministic file-backed stream MAY also declare `replay` when its DoD requires replaying the original artifact through the same parser and snapshot identity. Receiver-only streams declare `event`; their stream function rejects direct pulls because verified webhook deliveries drive them.
 - **Authoritative webhook reconciliation**: a parser can emit `StreamRecord(..., reconcile="incremental"|"full")` for a hint-only delivery. The webhook worker enqueues that canonical stream instead of mapping the hint. Use this for configurable payloads that must not replace authoritative REST reads; persist any required receipt metadata through a separate event stream.

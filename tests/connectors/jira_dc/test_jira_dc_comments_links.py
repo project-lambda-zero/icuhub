@@ -29,6 +29,7 @@ from icuhub.connectors.jira_dc.comments_links import (
 )
 from icuhub.kit.errors import StalePlan
 from icuhub.kit.testing import RouteTransport, make_connector
+from icuhub.kit.types import ActionOutcome
 
 BASE = "https://jira.example.test"
 PAT_REF = "jira-pat"
@@ -164,7 +165,7 @@ def test_update_comment_apply_puts_plain_body_exactly() -> None:
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "jira_comment:555"
     assert [_body(request) for request in puts] == [{"body": "Revised"}]
-    assert asyncio.run(spec.reconcile(connector, plan)).status == "succeeded"
+    assert asyncio.run(spec.reconcile(connector, plan, outcome)).status == "succeeded"
 
 
 def test_update_comment_apply_refuses_when_comment_moved_after_plan() -> None:
@@ -186,7 +187,8 @@ def test_update_comment_reconcile_fails_when_body_not_applied() -> None:
     spec = _spec("update_comment")
     plan = asyncio.run(spec.plan(connector, _update_args()))
 
-    reconciled = asyncio.run(spec.reconcile(connector, plan))
+    prior = ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref)
+    reconciled = asyncio.run(spec.reconcile(connector, plan, prior))
 
     assert reconciled.status == "failed"
     assert reconciled.error == "comment body does not match the plan after write"
@@ -234,7 +236,7 @@ def test_add_remote_link_apply_posts_exact_payload_and_reconciles() -> None:
     assert [_body(request) for request in posts] == [
         {"globalId": GLOBAL_ID, "object": {"url": URL, "title": "Item 42"}}
     ]
-    reconciled = asyncio.run(spec.reconcile(connector, plan))
+    reconciled = asyncio.run(spec.reconcile(connector, plan, outcome))
     assert reconciled.status == "succeeded"
     assert reconciled.vendor_ref == "jira_remote_link:9001"
 
@@ -249,7 +251,8 @@ def test_add_remote_link_reconcile_fails_when_link_absent() -> None:
     spec = _spec("add_remote_link")
     plan = asyncio.run(spec.plan(connector, _link_args()))
 
-    reconciled = asyncio.run(spec.reconcile(connector, plan))
+    prior = ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref)
+    reconciled = asyncio.run(spec.reconcile(connector, plan, prior))
 
     assert reconciled.status == "failed"
     assert reconciled.error == "remote link not found after write"

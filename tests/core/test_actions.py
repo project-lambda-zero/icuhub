@@ -167,6 +167,87 @@ def test_no_op_stale_plan_and_unknown_reconcile(tmp_path: Any, clean_database: N
     asyncio.run(scenario())
 
 
+def test_accepted_async_reconciles_without_reapply(tmp_path: Any, clean_database: None) -> None:
+    async def scenario() -> None:
+        state: dict[str, Any] = {"issues": []}
+        services = _setup(tmp_path, state)
+        tenant_id = uuid.uuid4()
+        connection = await _new_tracker(services, tenant_id)
+        async with session_scope(tenant_id) as session:
+            request = await submit_action(
+                session,
+                caller_for(tenant_id, "requester"),
+                connection.id,
+                "create_issue",
+                {"summary": "async", "icuhub_route_key": "rk-async"},
+                idempotency_key="key-async",
+            )
+            approval = (
+                await session.execute(
+                    __import__("sqlalchemy").select(Approval).where(Approval.action_request_id == request.id)
+                )
+            ).scalar_one_or_none()
+            if approval is not None:
+                await decide(session, caller_for(tenant_id, "approver", roles={"approver"}), approval.id, "approved")
+        payload = {"action_request_id": str(request.id), "tenant_id": str(tenant_id)}
+        async with session_scope(tenant_id) as session:
+            applied = await run_apply_job(payload)
+            assert applied["state"] == "accepted_async"
+        async with session_scope(tenant_id) as session:
+            # Apply on an accepted_async request must be a no-op, never a second vendor write.
+            again = await run_apply_job(payload)
+            assert again["skipped"] is True
+        assert state.get("ticket", {}).get("polls", 0) == 0
+        for _ in range(3):
+            async with session_scope(tenant_id) as session:
+                step = await run_reconcile_job(payload)
+        assert step["state"] == "succeeded"
+        assert len(state["issues"]) == 1
+        assert state["ticket"]["polls"] == 3
+        async with session_scope(tenant_id) as session:
+            from icuhub.storage.models import ActionRequest  # noqa: PLC0415
+
+            fresh = await session.get(ActionRequest, request.id)
+            assert fresh.state == "succeeded"
+            assert fresh.result_json["vendor_ref"] == "ISSUE-7"
+
+    asyncio.run(scenario())
+
+
+def test_apply_failure_is_terminal_and_never_retried(tmp_path: Any, clean_database: None) -> None:
+    async def scenario() -> None:
+        state: dict[str, Any] = {"issues": [], "create_fails": True}
+        services = _setup(tmp_path, state)
+        tenant_id = uuid.uuid4()
+        connection = await _new_tracker(services, tenant_id)
+        async with session_scope(tenant_id) as session:
+            request = await submit_action(
+                session,
+                caller_for(tenant_id, "requester"),
+                connection.id,
+                "create_issue",
+                {"summary": "boom", "icuhub_route_key": "rk-fail"},
+                idempotency_key="key-fail",
+            )
+            approval = (
+                await session.execute(
+                    __import__("sqlalchemy").select(Approval).where(Approval.action_request_id == request.id)
+                )
+            ).scalar_one_or_none()
+            if approval is not None:
+                await decide(session, caller_for(tenant_id, "approver", roles={"approver"}), approval.id, "approved")
+        payload = {"action_request_id": str(request.id), "tenant_id": str(tenant_id)}
+        async with session_scope(tenant_id) as session:
+            failed = await run_apply_job(payload)
+            assert failed["state"] == "failed"
+        async with session_scope(tenant_id) as session:
+            again = await run_apply_job(payload)
+            assert again["skipped"] is True
+        assert state["issues"] == []
+
+    asyncio.run(scenario())
+
+
 def test_destructive_requires_approval_even_with_switches(tmp_path: Any, clean_database: None) -> None:
     async def scenario() -> None:
         state: dict[str, Any] = {"issues": []}

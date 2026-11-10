@@ -76,7 +76,7 @@ def test_block_apply_and_duplicate_plan() -> None:
     assert duplicate.changed is False
     read = asyncio.run(connector.get_block(UnblockArgs(block_id="192.0.2.99")))
     assert read.present is True
-    reconciled = asyncio.run(connector.reconcile_block(plan))
+    reconciled = asyncio.run(connector.reconcile_block(plan, outcome))
     assert reconciled.status == "succeeded"
 
 
@@ -91,7 +91,7 @@ def test_unblock_lifecycle() -> None:
     assert state["group"]["records"] == []
     missing = asyncio.run(connector.plan_unblock(UnblockArgs(block_id="192.0.2.99")))
     assert missing.changed is False
-    reconciled = asyncio.run(connector.reconcile_unblock(unblock))
+    reconciled = asyncio.run(connector.reconcile_unblock(unblock, outcome))
     assert reconciled.status == "succeeded"
 
 

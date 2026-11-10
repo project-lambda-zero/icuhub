@@ -318,7 +318,7 @@ class PrismaCloud(PrismaCspm):
         return ActionOutcome(status="accepted_async", vendor_ref=plan.target_ref, result={"http_status": result.status})
 
     @plan_start_registry_scan.reconcile
-    async def reconcile_start_registry_scan(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_start_registry_scan(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         payload = plan.request["payload"]
         query = ComputeQueryInput(repository=payload.get("repository"), digest=payload.get("digest"), limit=50)
         items, _pages = await self._compute_all("/registry", query)
@@ -365,7 +365,7 @@ class PrismaCloud(PrismaCspm):
             return ActionOutcome(status="failed", vendor_ref=incident_id, error="incident acknowledgment read-back mismatch", result={"incident": read_back})
         return ActionOutcome(status="succeeded", vendor_ref=incident_id, result={"incident": read_back})
 
-    async def _reconcile_incident(self, plan: ActionPlan) -> ActionOutcome:
+    async def _reconcile_incident(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         incident = await self._incident(str(plan.request["incident_id"]))
         if bool(incident.get("acknowledged", False)) == bool(plan.request["acknowledged"]):
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"incident": incident})
@@ -381,8 +381,8 @@ class PrismaCloud(PrismaCspm):
         return await self._apply_incident(plan)
 
     @plan_acknowledge_incident.reconcile
-    async def reconcile_acknowledge_incident(self, plan: ActionPlan) -> ActionOutcome:
-        return await self._reconcile_incident(plan)
+    async def reconcile_acknowledge_incident(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
+        return await self._reconcile_incident(plan, outcome)
 
     @action("unacknowledge_incident", classification="write", capability="Enforcer", input_model=IncidentInput, idempotency="natural_key")
     async def plan_unacknowledge_incident(self, args: IncidentInput) -> ActionPlan:
@@ -394,8 +394,8 @@ class PrismaCloud(PrismaCspm):
         return await self._apply_incident(plan)
 
     @plan_unacknowledge_incident.reconcile
-    async def reconcile_unacknowledge_incident(self, plan: ActionPlan) -> ActionOutcome:
-        return await self._reconcile_incident(plan)
+    async def reconcile_unacknowledge_incident(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
+        return await self._reconcile_incident(plan, outcome)
 
     async def _collection(self, name: str) -> tuple[dict[str, Any] | None, int]:
         result = await self._request("compute", "GET", self._compute_path(f"/collections/{name}"), expected=(200, 404))
@@ -444,7 +444,7 @@ class PrismaCloud(PrismaCspm):
         return ActionOutcome(status="succeeded", vendor_ref=name, result={"collection": read_back})
 
     @plan_create_or_update_collection.reconcile
-    async def reconcile_create_or_update_collection(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_create_or_update_collection(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         collection, status = await self._collection(str(plan.request["name"]))
         if status == 200 and collection is not None and self._collection_fields(collection) == self._collection_fields(plan.request["payload"]):
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"collection": collection})
@@ -484,7 +484,7 @@ class PrismaCloud(PrismaCspm):
         return ActionOutcome(status="succeeded", vendor_ref=name)
 
     @plan_delete_collection.reconcile
-    async def reconcile_delete_collection(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_delete_collection(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         _collection, status = await self._collection(str(plan.request["name"]))
         if status == 404:
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)

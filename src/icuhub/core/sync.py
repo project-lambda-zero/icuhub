@@ -64,6 +64,20 @@ def _digest_text(text: str) -> str:
     return "sha256:" + hashlib.sha256(text.encode()).hexdigest()
 
 
+def _finding_status(document: dict[str, Any]) -> str:
+    """Map OCSF 1.9 ``status_id``: 4 (Resolved) closes the finding; 2 (In Progress) and all others stay open."""
+    return "resolved_by_source" if document.get("status_id") == 4 else "open"
+
+
+def _apply_status(finding: Finding, status: str) -> bool:
+    """Set status; ``resolved_at`` changes only on a real transition, and reopening clears it. Returns True on transition."""
+    if finding.status == status:
+        return False
+    finding.status = status
+    finding.resolved_at = datetime.now(UTC) if status == "resolved_by_source" else None
+    return True
+
+
 def _identity(document: dict[str, Any], kind: str) -> tuple[str, str, int, str | None]:
     info = document.get("finding_info") or {}
     source_uid = str(info.get("uid") or "")
@@ -204,6 +218,7 @@ async def commit_batch(
             source_uid, fingerprint, severity_id, title = _identity(document, connector.kind)
             seen_uids.add(source_uid)
             revision = _digest_text(_canonical(document))
+            status = _finding_status(document)
             existing = (
                 await session.execute(
                     select(Finding).where(
@@ -228,7 +243,7 @@ async def commit_batch(
                     revision_digest=revision,
                     raw_batch_id=raw.id,
                     mapper_version=mapper.version,
-                    status="resolved_by_source" if document.get("status_id") == 2 else "open",
+                    status=status,
                 )
                 session.add(existing)
                 await session.flush()
@@ -243,13 +258,19 @@ async def commit_batch(
                 existing.mapper_version = mapper.version
                 existing.severity_id = severity_id
                 existing.title = title
+                _apply_status(existing, status)
                 existing.last_seen = datetime.now(UTC)
                 case = await link_finding(session, existing)
                 await _finding_event(session, existing, "icuhub.finding.upserted")
                 await _enqueue_route(session, case.id, connection.tenant_id)
                 counts["findings"] += 1
             else:
+                # A reappearing finding must reopen even when its document is unchanged.
+                transitioned = _apply_status(existing, status)
                 existing.last_seen = datetime.now(UTC)
+                if transitioned:
+                    case = await link_finding(session, existing)
+                    await _enqueue_route(session, case.id, connection.tenant_id)
                 counts["unchanged"] += 1
     if state is not None and checkpoint is not None:
         if expected_version is not None and state.version != expected_version:
@@ -404,7 +425,11 @@ async def _resolve_absent(
     for finding in absent:
         finding.status = "resolved_by_source"
         finding.resolved_at = datetime.now(UTC)
+        # Flush so link_finding's all-members-resolved check sees the new status.
+        await session.flush()
+        case = await link_finding(session, finding)
         await _finding_event(session, finding, "icuhub.finding.resolved")
+        await _enqueue_route(session, case.id, connection.tenant_id)
     return "complete"
 
 

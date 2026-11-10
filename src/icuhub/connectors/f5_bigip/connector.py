@@ -179,7 +179,7 @@ class F5BigIp(Connector):
         )
 
     @plan_block.reconcile
-    async def reconcile_block(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_block(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         group = await self._data_group()
         indicator = plan.target_ref.rsplit(":", 1)[-1]
         record = next((r for r in group.get("records", []) if r.get("name") == indicator), None)
@@ -231,7 +231,7 @@ class F5BigIp(Connector):
         return ActionOutcome(status="succeeded", vendor_ref=block_id, result={"generation": body.get("generation")})
 
     @plan_unblock.reconcile
-    async def reconcile_unblock(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_unblock(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         group = await self._data_group()
         block_id = plan.target_ref.rsplit(":", 1)[-1]
         if not any(r.get("name") == block_id for r in group.get("records", [])):

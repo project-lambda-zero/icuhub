@@ -163,7 +163,7 @@ def test_create_is_no_op_when_correlation_exists() -> None:
     assert first.target_ref == "42"
     assert first.diff == {}
     assert first.plan_hash == second.plan_hash
-    outcome = asyncio.run(apply_create(connector, first, args))
+    outcome = asyncio.run(apply_create(connector, first))
     assert outcome.status == "no_op"
     assert outcome.vendor_ref == "42"
 
@@ -194,7 +194,7 @@ def test_create_apply_sends_level_and_encoded_field_contents() -> None:
         "ExternalCorrelationId": "case-1",
     }
     assert first.plan_hash == second.plan_hash
-    outcome = asyncio.run(apply_create(connector, first, args))
+    outcome = asyncio.run(apply_create(connector, first))
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "42"
     assert outcome.result == {"content_id": 42}
@@ -214,7 +214,7 @@ def test_create_reconcile_finds_natural_key() -> None:
     })
     args = create_args()
     plan = asyncio.run(plan_create(connector, args))
-    outcome = asyncio.run(reconcile_create(connector, plan, ActionOutcome(status="outcome_unknown"), args))
+    outcome = asyncio.run(reconcile_create(connector, plan, ActionOutcome(status="outcome_unknown")))
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "42"
     assert outcome.result == {"content_id": 42}
@@ -226,7 +226,7 @@ def test_create_reconcile_without_match_is_outcome_unknown() -> None:
     })
     args = create_args()
     plan = asyncio.run(plan_create(connector, args))
-    outcome = asyncio.run(reconcile_create(connector, plan, ActionOutcome(status="succeeded"), args))
+    outcome = asyncio.run(reconcile_create(connector, plan, ActionOutcome(status="succeeded")))
     assert outcome.status == "outcome_unknown"
 
 
@@ -250,7 +250,7 @@ def test_update_no_change_is_no_op() -> None:
     plan = asyncio.run(plan_update(connector, args))
     assert plan.changed is False
     assert plan.diff == {}
-    outcome = asyncio.run(apply_update(connector, plan, args))
+    outcome = asyncio.run(apply_update(connector, plan))
     assert outcome.status == "no_op"
 
 
@@ -278,7 +278,7 @@ def test_update_apply_sends_expected_version_and_only_changed_fields() -> None:
     assert first.diff == {"Title": {"from": "Before", "to": "After"}}
     assert first.preconditions == {"version": 3}
     assert first.plan_hash == second.plan_hash
-    outcome = asyncio.run(apply_update(connector, first, args))
+    outcome = asyncio.run(apply_update(connector, first))
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "42"
     assert seen["Id"] == 42
@@ -299,7 +299,7 @@ def test_update_reconcile_succeeds_when_requested_values_are_present() -> None:
     })
     args = update_args()
     plan = asyncio.run(plan_update(connector, args))
-    outcome = asyncio.run(reconcile_update(connector, plan, ActionOutcome(status="outcome_unknown"), args))
+    outcome = asyncio.run(reconcile_update(connector, plan, ActionOutcome(status="outcome_unknown")))
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "42"
 
@@ -311,7 +311,7 @@ def test_update_reconcile_without_requested_values_is_outcome_unknown() -> None:
     })
     args = update_args()
     plan = asyncio.run(plan_update(connector, args))
-    outcome = asyncio.run(reconcile_update(connector, plan, ActionOutcome(status="outcome_unknown"), args))
+    outcome = asyncio.run(reconcile_update(connector, plan, ActionOutcome(status="outcome_unknown")))
     assert outcome.status == "outcome_unknown"
 
 
@@ -380,7 +380,7 @@ def test_upload_attachment_plan_and_apply_use_decoded_digest_and_field_id() -> N
     assert first.changed is True
     assert first.diff == {"attachment": {"filename": "evidence.txt", "sha256": digest}}
     assert first.plan_hash == second.plan_hash
-    outcome = asyncio.run(apply_upload_attachment(connector, first, args))
+    outcome = asyncio.run(apply_upload_attachment(connector, first))
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "901"
     assert outcome.result == {"attachment_id": 901, "content_id": 42}
@@ -406,7 +406,7 @@ def test_upload_attachment_duplicate_evidence_is_no_op_without_upload() -> None:
     plan = asyncio.run(plan_upload_attachment(connector, args))
     assert plan.changed is False
     assert plan.diff == {}
-    outcome = asyncio.run(apply_upload_attachment(connector, plan, args))
+    outcome = asyncio.run(apply_upload_attachment(connector, plan))
     assert outcome.status == "no_op"
     assert uploads == []
     assert puts == []
@@ -424,7 +424,7 @@ def test_upload_attachment_preserves_existing_attachment_ids() -> None:
     args = attachment_args()
     plan = asyncio.run(plan_upload_attachment(connector, args))
     assert plan.changed is True
-    outcome = asyncio.run(apply_upload_attachment(connector, plan, args))
+    outcome = asyncio.run(apply_upload_attachment(connector, plan))
     assert outcome.status == "succeeded"
     assert puts[0]["FieldContents"]["103"]["Value"] == [
         {"Id": 900, "Name": "old.txt"},
@@ -442,7 +442,7 @@ def test_upload_attachment_association_uses_version_current_after_upload() -> No
     args = attachment_args()
     plan = asyncio.run(plan_upload_attachment(connector, args))
     assert plan.preconditions == {"version": 3}
-    outcome = asyncio.run(apply_upload_attachment(connector, plan, args))
+    outcome = asyncio.run(apply_upload_attachment(connector, plan))
     assert outcome.status == "succeeded"
     # The upload advanced Version to 4 in this fixture, so the association must use 4.
     assert puts[0]["Version"] == 4
@@ -457,7 +457,7 @@ def test_upload_attachment_hash_mismatch_after_write_is_failed() -> None:
     )
     args = attachment_args()
     plan = asyncio.run(plan_upload_attachment(connector, args))
-    outcome = asyncio.run(apply_upload_attachment(connector, plan, args))
+    outcome = asyncio.run(apply_upload_attachment(connector, plan))
     assert outcome.status == "failed"
     assert outcome.vendor_ref == "901"
     assert outcome.result == {"attachment_id": 901}
@@ -479,7 +479,7 @@ def test_upload_attachment_orphan_is_associated_and_not_reuploaded() -> None:
         error="timeout",
         result={"attachment_id": 901},
     )
-    outcome = asyncio.run(reconcile_upload_attachment(connector, plan, orphaned, args))
+    outcome = asyncio.run(reconcile_upload_attachment(connector, plan, orphaned))
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "901"
     assert uploads == []
@@ -497,7 +497,7 @@ def test_upload_attachment_reconcile_with_mismatched_bytes_is_outcome_unknown() 
     args = attachment_args()
     plan = asyncio.run(plan_upload_attachment(connector, args))
     outcome = asyncio.run(
-        reconcile_upload_attachment(connector, plan, ActionOutcome(status="outcome_unknown"), args)
+        reconcile_upload_attachment(connector, plan, ActionOutcome(status="outcome_unknown"))
     )
     assert outcome.status == "outcome_unknown"
     assert uploads == []
@@ -512,7 +512,7 @@ def test_update_read_back_mismatch_is_outcome_unknown() -> None:
     })
     args = update_args()
     plan = asyncio.run(plan_update(connector, args))
-    outcome = asyncio.run(apply_update(connector, plan, args))
+    outcome = asyncio.run(apply_update(connector, plan))
     assert outcome.status == "outcome_unknown"
 
 
@@ -523,8 +523,7 @@ def test_delete_without_absence_proof_is_outcome_unknown() -> None:
     })
     args = delete_args()
     plan = asyncio.run(plan_delete(connector, args))
-    approved = delete_args(approved_plan_hash=plan.plan_hash)
-    outcome = asyncio.run(apply_delete(connector, plan, approved))
+    outcome = asyncio.run(apply_delete(connector, plan))
     assert outcome.status == "outcome_unknown"
     assert outcome.vendor_ref == "42"
 
@@ -540,7 +539,7 @@ def test_upload_attachment_reconcile_finds_filename_with_matching_digest() -> No
     plan = asyncio.run(plan_upload_attachment(connector, args))
     assert plan.changed is False
     outcome = asyncio.run(
-        reconcile_upload_attachment(connector, plan, ActionOutcome(status="outcome_unknown"), args)
+        reconcile_upload_attachment(connector, plan, ActionOutcome(status="outcome_unknown"))
     )
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "901"
@@ -555,7 +554,7 @@ def test_upload_attachment_reconcile_without_filename_is_outcome_unknown() -> No
     args = attachment_args()
     plan = asyncio.run(plan_upload_attachment(connector, args))
     outcome = asyncio.run(
-        reconcile_upload_attachment(connector, plan, ActionOutcome(status="outcome_unknown"), args)
+        reconcile_upload_attachment(connector, plan, ActionOutcome(status="outcome_unknown"))
     )
     assert outcome.status == "outcome_unknown"
 
@@ -581,7 +580,7 @@ def test_upload_attachment_rejects_invalid_or_oversize_base64(payload: str, max_
         asyncio.run(plan_upload_attachment(connector, attachment_args(content_base64=payload)))
 
 
-def test_data_feed_requires_approved_hash_and_returns_accepted_async() -> None:
+def test_data_feed_apply_returns_accepted_async() -> None:
     seen: dict[str, Any] = {}
 
     def execute(request: Any) -> dict[str, Any]:
@@ -600,10 +599,7 @@ def test_data_feed_requires_approved_hash_and_returns_accepted_async() -> None:
     assert "approved_plan_hash" not in first.diff
     assert "approved_plan_hash" not in first.preconditions
     assert "approved_plan_hash" not in first.request
-    with pytest.raises(StalePlan):
-        asyncio.run(apply_execute_data_feed(connector, first, args))
-    approved = feed_args(approved_plan_hash=first.plan_hash)
-    outcome = asyncio.run(apply_execute_data_feed(connector, first, approved))
+    outcome = asyncio.run(apply_execute_data_feed(connector, first))
     assert outcome.status == "accepted_async"
     assert outcome.vendor_ref == "feed-guid-1"
     assert seen == {"DataFeedGuid": "feed-guid-1", "IsReferenceFeedsIncluded": True}
@@ -624,13 +620,13 @@ def test_data_feed_reconciles_run_history(fixture: str, status: str) -> None:
     args = feed_args()
     plan = asyncio.run(plan_execute_data_feed(connector, args))
     outcome = asyncio.run(
-        reconcile_execute_data_feed(connector, plan, ActionOutcome(status="accepted_async"), args)
+        reconcile_execute_data_feed(connector, plan, ActionOutcome(status="accepted_async"))
     )
     assert outcome.status == status
     assert outcome.vendor_ref == "feed-guid-1"
 
 
-def test_delete_requires_approved_hash_and_reconciles_not_found() -> None:
+def test_delete_apply_reconciles_not_found() -> None:
     reads = 0
 
     def content(_request: Any) -> dict[str, Any]:
@@ -660,14 +656,11 @@ def test_delete_requires_approved_hash_and_reconciles_not_found() -> None:
     assert "approved_plan_hash" not in first.diff
     assert "approved_plan_hash" not in first.preconditions
     assert "approved_plan_hash" not in first.request
-    with pytest.raises(StalePlan):
-        asyncio.run(apply_delete(connector, first, args))
-    approved = delete_args(approved_plan_hash=first.plan_hash)
-    outcome = asyncio.run(apply_delete(connector, first, approved))
+    outcome = asyncio.run(apply_delete(connector, first))
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "42"
     assert deleted == ["/platformapi/core/content/42"]
-    reconciled = asyncio.run(reconcile_delete(connector, first, outcome, approved))
+    reconciled = asyncio.run(reconcile_delete(connector, first, outcome))
     assert reconciled.status == "succeeded"
     assert reconciled.vendor_ref == "42"
 
@@ -678,7 +671,7 @@ def test_delete_reconcile_with_content_present_is_outcome_unknown() -> None:
     })
     args = delete_args()
     plan = asyncio.run(plan_delete(connector, args))
-    outcome = asyncio.run(reconcile_delete(connector, plan, ActionOutcome(status="outcome_unknown"), args))
+    outcome = asyncio.run(reconcile_delete(connector, plan, ActionOutcome(status="outcome_unknown")))
     assert outcome.status == "outcome_unknown"
 
 
@@ -690,7 +683,7 @@ def test_write_gate_blocks_create_apply() -> None:
     args = create_args()
     plan = asyncio.run(plan_create(connector, args))
     with pytest.raises(ConfigError):
-        asyncio.run(apply_create(connector, plan, args))
+        asyncio.run(apply_create(connector, plan))
 
 
 def test_destructive_gate_blocks_delete_apply() -> None:
@@ -700,6 +693,5 @@ def test_destructive_gate_blocks_delete_apply() -> None:
     )
     args = delete_args()
     plan = asyncio.run(plan_delete(connector, args))
-    approved = delete_args(approved_plan_hash=plan.plan_hash)
     with pytest.raises(ConfigError):
-        asyncio.run(apply_delete(connector, plan, approved))
+        asyncio.run(apply_delete(connector, plan))

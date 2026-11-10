@@ -22,6 +22,7 @@ from icuhub.connectors._jira.models import AddCommentInput, LinkIssueInput, Tran
 from icuhub.connectors.jira_dc import JiraDataCenter
 from icuhub.kit.errors import ConfigError, StalePlan
 from icuhub.kit.testing import RouteTransport, make_connector
+from icuhub.kit.types import ActionOutcome
 
 BASE = "https://jira.example.test"
 PAT_REF = "jira-pat"
@@ -203,7 +204,7 @@ def test_add_comment_timeout_after_post_reconciles_to_succeeded() -> None:
     assert outcome.status == "outcome_unknown"
     assert len(posts) == 1
 
-    reconciled = asyncio.run(spec.reconcile(connector, plan))
+    reconciled = asyncio.run(spec.reconcile(connector, plan, outcome))
     assert reconciled.status == "succeeded"
     assert reconciled.vendor_ref == "jira_comment:777"
 
@@ -225,7 +226,7 @@ def test_add_comment_timeout_without_written_comment_reconciles_to_failed() -> N
     outcome = asyncio.run(spec.apply(connector, plan))
     assert outcome.status == "outcome_unknown"
 
-    reconciled = asyncio.run(spec.reconcile(connector, plan))
+    reconciled = asyncio.run(spec.reconcile(connector, plan, outcome))
     assert reconciled.status == "failed"
     assert reconciled.error == "comment marker not found after write"
 
@@ -336,7 +337,7 @@ def test_transition_timeout_reconciles_through_changelog() -> None:
     outcome = asyncio.run(spec.apply(connector, plan))
     assert outcome.status == "outcome_unknown"
 
-    reconciled = asyncio.run(spec.reconcile(connector, plan))
+    reconciled = asyncio.run(spec.reconcile(connector, plan, outcome))
     assert reconciled.status == "succeeded"
 
 
@@ -353,9 +354,10 @@ def test_transition_reconcile_fails_when_write_never_applied() -> None:
     )
     spec = _spec("transition_issue")
     plan = asyncio.run(spec.plan(connector, TransitionIssueInput(issue_id_or_key="PROJ-1", to_status="Done")))
-    assert asyncio.run(spec.apply(connector, plan)).status == "outcome_unknown"
+    outcome = asyncio.run(spec.apply(connector, plan))
+    assert outcome.status == "outcome_unknown"
 
-    reconciled = asyncio.run(spec.reconcile(connector, plan))
+    reconciled = asyncio.run(spec.reconcile(connector, plan, outcome))
 
     assert reconciled.status == "failed"
     assert reconciled.error == "issue is not in the target status"
@@ -374,7 +376,8 @@ def test_transition_reconcile_fails_when_status_matches_without_changelog() -> N
     plan = asyncio.run(spec.plan(connector, TransitionIssueInput(issue_id_or_key="PROJ-1", to_status="Done")))
     state["status"] = "Done"
 
-    reconciled = asyncio.run(spec.reconcile(connector, plan))
+    prior = ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref)
+    reconciled = asyncio.run(spec.reconcile(connector, plan, prior))
 
     assert reconciled.status == "failed"
     assert reconciled.error == "status matches but the changelog records no transition to it"
@@ -448,8 +451,9 @@ def test_link_timeout_reconciles_by_rereading_inward_links() -> None:
     spec = _spec("link_issue")
     plan = asyncio.run(spec.plan(connector, _link_args()))
 
-    assert asyncio.run(spec.apply(connector, plan)).status == "outcome_unknown"
-    reconciled = asyncio.run(spec.reconcile(connector, plan))
+    outcome = asyncio.run(spec.apply(connector, plan))
+    assert outcome.status == "outcome_unknown"
+    reconciled = asyncio.run(spec.reconcile(connector, plan, outcome))
 
     assert reconciled.status == "succeeded"
     assert reconciled.vendor_ref == plan.target_ref
@@ -466,9 +470,10 @@ def test_link_reconcile_fails_when_link_never_written() -> None:
     )
     spec = _spec("link_issue")
     plan = asyncio.run(spec.plan(connector, _link_args()))
-    assert asyncio.run(spec.apply(connector, plan)).status == "outcome_unknown"
+    outcome = asyncio.run(spec.apply(connector, plan))
+    assert outcome.status == "outcome_unknown"
 
-    reconciled = asyncio.run(spec.reconcile(connector, plan))
+    reconciled = asyncio.run(spec.reconcile(connector, plan, outcome))
 
     assert reconciled.status == "failed"
     assert reconciled.error == "link not present after write"
@@ -511,7 +516,7 @@ def test_update_issue_fields_puts_fields_and_reconciles() -> None:
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "jira_issue:10001"
     assert [_body(request) for request in puts] == [{"fields": {"summary": "Renamed"}}]
-    assert asyncio.run(spec.reconcile(connector, plan)).status == "succeeded"
+    assert asyncio.run(spec.reconcile(connector, plan, outcome)).status == "succeeded"
 
 
 def test_update_issue_fields_reconcile_fails_when_field_not_applied() -> None:
@@ -525,7 +530,8 @@ def test_update_issue_fields_reconcile_fails_when_field_not_applied() -> None:
     spec = _spec("update_issue_fields")
     plan = asyncio.run(spec.plan(connector, _update_args()))
 
-    reconciled = asyncio.run(spec.reconcile(connector, plan))
+    prior = ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref)
+    reconciled = asyncio.run(spec.reconcile(connector, plan, prior))
 
     assert reconciled.status == "failed"
     assert reconciled.error == "requested fields are not present"
