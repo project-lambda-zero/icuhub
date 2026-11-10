@@ -32,6 +32,7 @@ __all__ = [
     "GitHubAppAuth",
     "HeaderToken",
     "OAuth2ClientCredentials",
+    "OAuth2RefreshToken",
     "SessionLogin",
     "TokenHttp",
     "bind_token_transport",
@@ -229,6 +230,78 @@ class OAuth2ClientCredentials:
 
 
 @dataclass
+class OAuth2RefreshToken:
+    """OAuth 2.0 refresh-token grant with rotating refresh tokens.
+
+    The access token is cached until 60 seconds before expiry. Concurrent callers
+    share one token fetch. A rotated refresh token returned by the token endpoint
+    replaces the held one in memory; kit secrets are read-only, so rotation is not
+    persisted across process restarts.
+    """
+
+    token_url: str
+    client_id: str = field(repr=False)
+    client_secret: str = field(repr=False)
+    refresh_token: str = field(repr=False)
+    _: KW_ONLY
+    transport: httpx2.AsyncBaseTransport | None = field(default=None, repr=False)
+    clock: Clock = field(default=utc_now, repr=False)
+    _bound: TokenHttp | None = field(default=None, init=False, repr=False, compare=False)
+    _token: str | None = field(default=None, init=False, repr=False, compare=False)
+    _expires_at: datetime | None = field(default=None, init=False, repr=False, compare=False)
+    _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False, repr=False, compare=False)
+
+    def __post_init__(self) -> None:
+        require_https(self.token_url)
+        if not self.client_id or not self.client_secret or not self.refresh_token:
+            raise ConfigError("OAuth refresh-token grant requires client_id, client_secret, and refresh_token")
+
+    async def apply(self, request_headers: dict[str, str], method: str, url: str) -> None:
+        async with self._lock:
+            token = await self._current_token_locked()
+        request_headers["Authorization"] = f"Bearer {token}"
+
+    async def refresh(self) -> bool:
+        async with self._lock:
+            await self._fetch_locked()
+        return True
+
+    async def _current_token_locked(self) -> str:
+        if self._token is not None and self._expires_at is not None:
+            if self.clock() < self._expires_at - _OAUTH_EXPIRY_SKEW:
+                return self._token
+        return await self._fetch_locked()
+
+    async def _fetch_locked(self) -> str:
+        payload = {
+            "grant_type": "refresh_token",
+            "client_id": self.client_id,
+            "client_secret": self.client_secret,
+            "refresh_token": self.refresh_token,
+        }
+        body = await _token_request(
+            self._bound,
+            self.transport,
+            "POST",
+            self.token_url,
+            expected=(200,),
+            json=payload,
+        )
+        token = body.get("access_token")
+        expires_in = body.get("expires_in")
+        if not isinstance(token, str) or not token:
+            raise VendorContractError("token response has no access_token")
+        if isinstance(expires_in, bool) or not isinstance(expires_in, int | float) or expires_in <= 0:
+            raise VendorContractError("token response has no positive expires_in")
+        rotated = body.get("refresh_token")
+        if isinstance(rotated, str) and rotated:
+            self.refresh_token = rotated
+        self._token = token
+        self._expires_at = self.clock() + timedelta(seconds=float(expires_in))
+        return token
+
+
+@dataclass
 class SessionLogin:
     """Session header obtained from a caller-supplied login callable.
 
@@ -375,7 +448,7 @@ def bind_token_transport(auth: AuthStrategy, settings: TokenHttp) -> None:
     once: rebinding raises ``ConfigError`` so one instance cannot silently serve
     two connectors with different trust settings.
     """
-    if not isinstance(auth, OAuth2ClientCredentials | GitHubAppAuth):
+    if not isinstance(auth, OAuth2ClientCredentials | OAuth2RefreshToken | GitHubAppAuth):
         return
     if auth._bound is not None:
         raise ConfigError("auth strategy is already bound to a connector; create one strategy per connector")
@@ -387,6 +460,7 @@ AUTH_STRATEGIES: dict[str, type] = {
     "BasicAuth": BasicAuth,
     "HeaderToken": HeaderToken,
     "OAuth2ClientCredentials": OAuth2ClientCredentials,
+    "OAuth2RefreshToken": OAuth2RefreshToken,
     "SessionLogin": SessionLogin,
     "GitHubAppAuth": GitHubAppAuth,
 }

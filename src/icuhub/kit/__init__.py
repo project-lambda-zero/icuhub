@@ -14,6 +14,7 @@ from icuhub.kit.auth import (
     GitHubAppAuth,
     HeaderToken,
     OAuth2ClientCredentials,
+    OAuth2RefreshToken,
     SessionLogin,
 )
 from icuhub.kit.connector import (
@@ -193,6 +194,7 @@ __all__ = [
     "GitHubAppAuth",
     "HeaderToken",
     "OAuth2ClientCredentials",
+    "OAuth2RefreshToken",
     "SessionLogin",
     # paginate
     "body_token_pages",

@@ -7,6 +7,7 @@ from icuhub.connectors.fortify_ssc import FortifySsc
 from icuhub.connectors.google_threat_intelligence import GoogleThreatIntelligence
 from icuhub.connectors.invicti_enterprise import InvictiEnterprise
 from icuhub.connectors.invicti_standard import InvictiStandard
+from icuhub.connectors.jira_cloud import JiraCloud
 from icuhub.connectors.jira_dc import JiraDataCenter
 from icuhub.connectors.nessus import Nessus
 from icuhub.connectors.prisma_cloud import PrismaCloud
@@ -23,6 +24,7 @@ CONNECTORS: dict[str, type[Connector]] = {
     Nessus.kind: Nessus,
     InvictiEnterprise.kind: InvictiEnterprise,
     InvictiStandard.kind: InvictiStandard,
+    JiraCloud.kind: JiraCloud,
     JiraDataCenter.kind: JiraDataCenter,
     F5BigIp.kind: F5BigIp,
     GoogleThreatIntelligence.kind: GoogleThreatIntelligence,

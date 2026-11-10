@@ -1,0 +1,1972 @@
+{
+  "actions": [
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "action_key": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Action Key",
+            "type": "string"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "title": "Body"
+          },
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Visibility"
+          }
+        },
+        "required": [
+          "issue_id_or_key",
+          "action_key",
+          "body"
+        ],
+        "title": "AddCommentInput",
+        "type": "object"
+      },
+      "name": "add_comment",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "global_id": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Global Id",
+            "type": "string"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Icon"
+          },
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key",
+          "global_id",
+          "url",
+          "title"
+        ],
+        "title": "RemoteLinkInput",
+        "type": "object"
+      },
+      "name": "add_remote_link",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "fields": {
+            "additionalProperties": true,
+            "title": "Fields",
+            "type": "object"
+          },
+          "fingerprint_links": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fingerprint Links",
+            "type": "array"
+          },
+          "issue_type": {
+            "minLength": 1,
+            "title": "Issue Type",
+            "type": "string"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "project_key": {
+            "minLength": 1,
+            "title": "Project Key",
+            "type": "string"
+          },
+          "route_key": {
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Route Key",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "route_key",
+          "project_key",
+          "issue_type",
+          "summary"
+        ],
+        "title": "CreateIssueInput",
+        "type": "object"
+      },
+      "name": "create_issue",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Events",
+            "type": "array"
+          },
+          "jql_filter": {
+            "default": "",
+            "title": "Jql Filter",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "url": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "url",
+          "events"
+        ],
+        "title": "CreateWebhookInput",
+        "type": "object"
+      },
+      "name": "create_webhook",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "destructive",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment_id": {
+            "minLength": 1,
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "expected_created": {
+            "minLength": 1,
+            "title": "Expected Created",
+            "type": "string"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "expected_created"
+        ],
+        "title": "DeleteAttachmentInput",
+        "type": "object"
+      },
+      "name": "delete_attachment",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "destructive",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "comment_id": {
+            "minLength": 1,
+            "title": "Comment Id",
+            "type": "string"
+          },
+          "expected_updated": {
+            "minLength": 1,
+            "title": "Expected Updated",
+            "type": "string"
+          },
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key",
+          "comment_id",
+          "expected_updated"
+        ],
+        "title": "DeleteCommentInput",
+        "type": "object"
+      },
+      "name": "delete_comment",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "destructive",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "delete_subtasks": {
+            "default": false,
+            "title": "Delete Subtasks",
+            "type": "boolean"
+          },
+          "expected_id": {
+            "minLength": 1,
+            "title": "Expected Id",
+            "type": "string"
+          },
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key",
+          "expected_id"
+        ],
+        "title": "DeleteIssueInput",
+        "type": "object"
+      },
+      "name": "delete_issue",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "destructive",
+      "idempotency": "key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_url": {
+            "minLength": 1,
+            "title": "Expected Url",
+            "type": "string"
+          },
+          "webhook_id": {
+            "minLength": 1,
+            "title": "Webhook Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "webhook_id",
+          "expected_url"
+        ],
+        "title": "DeleteWebhookInput",
+        "type": "object"
+      },
+      "name": "delete_webhook",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "inward_issue": {
+            "minLength": 1,
+            "title": "Inward Issue",
+            "type": "string"
+          },
+          "link_type": {
+            "minLength": 1,
+            "title": "Link Type",
+            "type": "string"
+          },
+          "outward_issue": {
+            "minLength": 1,
+            "title": "Outward Issue",
+            "type": "string"
+          }
+        },
+        "required": [
+          "inward_issue",
+          "outward_issue",
+          "link_type"
+        ],
+        "title": "LinkIssueInput",
+        "type": "object"
+      },
+      "name": "link_issue",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "webhook_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Webhook Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "webhook_ids"
+        ],
+        "title": "RefreshWebhookInput",
+        "type": "object"
+      },
+      "name": "refresh_webhook",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "additionalProperties": true,
+            "title": "Fields",
+            "type": "object"
+          },
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          },
+          "to_status": {
+            "minLength": 1,
+            "title": "To Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key",
+          "to_status"
+        ],
+        "title": "TransitionIssueInput",
+        "type": "object"
+      },
+      "name": "transition_issue",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            ],
+            "title": "Body"
+          },
+          "comment_id": {
+            "minLength": 1,
+            "title": "Comment Id",
+            "type": "string"
+          },
+          "expected_updated": {
+            "minLength": 1,
+            "title": "Expected Updated",
+            "type": "string"
+          },
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key",
+          "comment_id",
+          "expected_updated",
+          "body"
+        ],
+        "title": "UpdateCommentInput",
+        "type": "object"
+      },
+      "name": "update_comment",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_id": {
+            "minLength": 1,
+            "title": "Expected Id",
+            "type": "string"
+          },
+          "expected_status": {
+            "minLength": 1,
+            "title": "Expected Status",
+            "type": "string"
+          },
+          "expected_updated": {
+            "minLength": 1,
+            "title": "Expected Updated",
+            "type": "string"
+          },
+          "fields": {
+            "additionalProperties": true,
+            "minProperties": 1,
+            "title": "Fields",
+            "type": "object"
+          },
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key",
+          "expected_id",
+          "expected_updated",
+          "expected_status",
+          "fields"
+        ],
+        "title": "UpdateIssueInput",
+        "type": "object"
+      },
+      "name": "update_issue_fields",
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "classification": "write",
+      "idempotency": "key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "content_base64": {
+            "minLength": 1,
+            "title": "Content Base64",
+            "type": "string"
+          },
+          "filename": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          },
+          "media_type": {
+            "default": "application/octet-stream",
+            "minLength": 1,
+            "title": "Media Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key",
+          "filename",
+          "content_base64"
+        ],
+        "title": "AttachmentInput",
+        "type": "object"
+      },
+      "name": "upload_attachment",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "BasicAuth",
+    "OAuth2RefreshToken",
+    "BearerToken"
+  ],
+  "capabilities": [
+    "Tracker"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "access_token": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "account_email": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Account Email"
+      },
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "api_token": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "attachment_max_bytes": {
+        "default": 16777216,
+        "maximum": 67108864,
+        "minimum": 1,
+        "title": "Attachment Max Bytes",
+        "type": "integer"
+      },
+      "audit_max_bytes": {
+        "default": 67108864,
+        "maximum": 268435456,
+        "minimum": 1,
+        "title": "Audit Max Bytes",
+        "type": "integer"
+      },
+      "auth_method": {
+        "default": "basic",
+        "enum": [
+          "basic",
+          "oauth2_3lo",
+          "bearer"
+        ],
+        "title": "Auth Method",
+        "type": "string"
+      },
+      "base_url": {
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Client Id"
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_secret": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "cloud_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Cloud Id"
+      },
+      "destructive_enabled": {
+        "default": false,
+        "title": "Destructive Enabled",
+        "type": "boolean"
+      },
+      "jql": {
+        "default": "ORDER BY updated ASC, id ASC",
+        "title": "Jql",
+        "type": "string"
+      },
+      "max_pages": {
+        "default": 10000,
+        "maximum": 100000,
+        "minimum": 1,
+        "title": "Max Pages",
+        "type": "integer"
+      },
+      "max_tie_ids": {
+        "default": 10000,
+        "maximum": 1000000,
+        "minimum": 100,
+        "title": "Max Tie Ids",
+        "type": "integer"
+      },
+      "page_size": {
+        "default": 100,
+        "maximum": 1000,
+        "minimum": 1,
+        "title": "Page Size",
+        "type": "integer"
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "refresh_token": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "webhook_secret": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "webhook_shared_header": {
+        "default": "x-icuhub-token",
+        "title": "Webhook Shared Header",
+        "type": "string"
+      },
+      "webhook_verifier_mode": {
+        "default": "hmac",
+        "enum": [
+          "hmac",
+          "shared_token"
+        ],
+        "title": "Webhook Verifier Mode",
+        "type": "string"
+      }
+    },
+    "required": [
+      "base_url"
+    ],
+    "title": "JiraCloudConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-029",
+    "F-107"
+  ],
+  "format_version": 1,
+  "importers": [],
+  "kind": "jira_cloud",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment_id": {
+            "minLength": 1,
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "max_bytes": {
+            "default": 16777216,
+            "maximum": 67108864,
+            "minimum": 1,
+            "title": "Max Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "attachment_id"
+        ],
+        "title": "DownloadAttachmentInput",
+        "type": "object"
+      },
+      "name": "download_attachment",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "attachment_id": {
+            "title": "Attachment Id",
+            "type": "string"
+          },
+          "content_base64": {
+            "title": "Content Base64",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "media_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Media Type"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "filename",
+          "media_type",
+          "size",
+          "sha256",
+          "content_base64"
+        ],
+        "title": "AttachmentContent",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_type_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Issue Type Id"
+          },
+          "max_results": {
+            "default": 100,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "project_id_or_key": {
+            "minLength": 1,
+            "title": "Project Id Or Key",
+            "type": "string"
+          },
+          "start_at": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Start At",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id_or_key"
+        ],
+        "title": "CreateMetadataInput",
+        "type": "object"
+      },
+      "name": "get_create_metadata",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "values": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "values"
+        ],
+        "title": "CreateMetadataOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "include_changelog": {
+            "default": true,
+            "title": "Include Changelog",
+            "type": "boolean"
+          },
+          "include_rendered_fields": {
+            "default": true,
+            "title": "Include Rendered Fields",
+            "type": "boolean"
+          },
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key"
+        ],
+        "title": "IssueInput",
+        "type": "object"
+      },
+      "name": "get_issue",
+      "output_schema": {
+        "$defs": {
+          "TicketRecord": {
+            "description": "Normalized tracker issue used for outbound ticket synchronization.",
+            "properties": {
+              "data": {
+                "additionalProperties": true,
+                "title": "Data",
+                "type": "object"
+              },
+              "fingerprint_links": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Fingerprint Links",
+                "type": "array"
+              },
+              "key": {
+                "title": "Key",
+                "type": "string"
+              },
+              "labels": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Labels",
+                "type": "array"
+              },
+              "links": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "title": "Links",
+                "type": "object"
+              },
+              "record_type": {
+                "default": "ticket",
+                "title": "Record Type",
+                "type": "string"
+              },
+              "resolution": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Resolution"
+              },
+              "revision": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Revision"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "status_category": {
+                "enum": [
+                  "open",
+                  "in_progress",
+                  "done",
+                  "unknown"
+                ],
+                "title": "Status Category",
+                "type": "string"
+              },
+              "uid": {
+                "title": "Uid",
+                "type": "string"
+              },
+              "updated_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Updated At"
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Url"
+              }
+            },
+            "required": [
+              "uid",
+              "data",
+              "key",
+              "status",
+              "status_category"
+            ],
+            "title": "TicketRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "issue": {
+            "$ref": "#/$defs/TicketRecord"
+          },
+          "raw_status": {
+            "title": "Raw Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue",
+          "raw_status"
+        ],
+        "title": "IssueOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          },
+          "property_key": {
+            "default": "icuhub.action_key",
+            "minLength": 1,
+            "title": "Property Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key"
+        ],
+        "title": "PropertyInput",
+        "type": "object"
+      },
+      "name": "get_issue_property",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "key",
+          "value"
+        ],
+        "title": "IssuePropertyOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 100,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "start_at": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Start At",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "issue_id_or_key"
+        ],
+        "title": "IssueCommentsInput",
+        "type": "object"
+      },
+      "name": "list_issue_comments",
+      "output_schema": {
+        "$defs": {
+          "SourceRecord": {
+            "description": "A normalized non-OCSF source object.",
+            "properties": {
+              "data": {
+                "additionalProperties": true,
+                "title": "Data",
+                "type": "object"
+              },
+              "links": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "title": "Links",
+                "type": "object"
+              },
+              "record_type": {
+                "title": "Record Type",
+                "type": "string"
+              },
+              "revision": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Revision"
+              },
+              "uid": {
+                "title": "Uid",
+                "type": "string"
+              }
+            },
+            "required": [
+              "record_type",
+              "uid",
+              "data"
+            ],
+            "title": "SourceRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "comments": {
+            "items": {
+              "$ref": "#/$defs/SourceRecord"
+            },
+            "title": "Comments",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "comments",
+          "total"
+        ],
+        "title": "IssueCommentsOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key"
+        ],
+        "title": "IssueRefArgs",
+        "type": "object"
+      },
+      "name": "list_remote_links",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "links": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Links",
+            "type": "array"
+          }
+        },
+        "required": [
+          "links"
+        ],
+        "title": "RemoteLinksOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id_or_key": {
+            "minLength": 1,
+            "title": "Issue Id Or Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "issue_id_or_key"
+        ],
+        "title": "IssueRefArgs",
+        "type": "object"
+      },
+      "name": "list_transitions",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "transitions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Transitions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "transitions"
+        ],
+        "title": "TransitionsOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "EmptyInput",
+        "type": "object"
+      },
+      "name": "list_webhooks",
+      "output_schema": {
+        "$defs": {
+          "WebhookRegistration": {
+            "additionalProperties": false,
+            "properties": {
+              "events": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Events",
+                "type": "array"
+              },
+              "expiration_date": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Expiration Date"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "needs_refresh": {
+                "title": "Needs Refresh",
+                "type": "boolean"
+              },
+              "url": {
+                "title": "Url",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "url",
+              "events",
+              "expiration_date",
+              "needs_refresh"
+            ],
+            "title": "WebhookRegistration",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "registrations": {
+            "items": {
+              "$ref": "#/$defs/WebhookRegistration"
+            },
+            "title": "Registrations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "registrations"
+        ],
+        "title": "WebhooksOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "issue_ids_or_keys": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Issue Ids Or Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "issue_ids_or_keys"
+        ],
+        "title": "ReconcileIssuesInput",
+        "type": "object"
+      },
+      "name": "reconcile_issues",
+      "output_schema": {
+        "$defs": {
+          "TicketRecord": {
+            "description": "Normalized tracker issue used for outbound ticket synchronization.",
+            "properties": {
+              "data": {
+                "additionalProperties": true,
+                "title": "Data",
+                "type": "object"
+              },
+              "fingerprint_links": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Fingerprint Links",
+                "type": "array"
+              },
+              "key": {
+                "title": "Key",
+                "type": "string"
+              },
+              "labels": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Labels",
+                "type": "array"
+              },
+              "links": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "title": "Links",
+                "type": "object"
+              },
+              "record_type": {
+                "default": "ticket",
+                "title": "Record Type",
+                "type": "string"
+              },
+              "resolution": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Resolution"
+              },
+              "revision": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Revision"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "status_category": {
+                "enum": [
+                  "open",
+                  "in_progress",
+                  "done",
+                  "unknown"
+                ],
+                "title": "Status Category",
+                "type": "string"
+              },
+              "uid": {
+                "title": "Uid",
+                "type": "string"
+              },
+              "updated_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Updated At"
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Url"
+              }
+            },
+            "required": [
+              "uid",
+              "data",
+              "key",
+              "status",
+              "status_category"
+            ],
+            "title": "TicketRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "issues": {
+            "items": {
+              "$ref": "#/$defs/TicketRecord"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          }
+        },
+        "required": [
+          "issues",
+          "missing"
+        ],
+        "title": "ReconcileIssuesOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Tracker",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "jql": {
+            "minLength": 1,
+            "title": "Jql",
+            "type": "string"
+          },
+          "max_results": {
+            "default": 100,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Max Results",
+            "type": "integer"
+          },
+          "next_page_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Page Token"
+          },
+          "reconcile_issue_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 100,
+            "title": "Reconcile Issue Ids",
+            "type": "array"
+          },
+          "start_at": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Start At",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "jql"
+        ],
+        "title": "SearchInput",
+        "type": "object"
+      },
+      "name": "search_issues",
+      "output_schema": {
+        "$defs": {
+          "TicketRecord": {
+            "description": "Normalized tracker issue used for outbound ticket synchronization.",
+            "properties": {
+              "data": {
+                "additionalProperties": true,
+                "title": "Data",
+                "type": "object"
+              },
+              "fingerprint_links": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Fingerprint Links",
+                "type": "array"
+              },
+              "key": {
+                "title": "Key",
+                "type": "string"
+              },
+              "labels": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Labels",
+                "type": "array"
+              },
+              "links": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "title": "Links",
+                "type": "object"
+              },
+              "record_type": {
+                "default": "ticket",
+                "title": "Record Type",
+                "type": "string"
+              },
+              "resolution": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Resolution"
+              },
+              "revision": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Revision"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "status_category": {
+                "enum": [
+                  "open",
+                  "in_progress",
+                  "done",
+                  "unknown"
+                ],
+                "title": "Status Category",
+                "type": "string"
+              },
+              "uid": {
+                "title": "Uid",
+                "type": "string"
+              },
+              "updated_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Updated At"
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Url"
+              }
+            },
+            "required": [
+              "uid",
+              "data",
+              "key",
+              "status",
+              "status_category"
+            ],
+            "title": "TicketRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "issues": {
+            "items": {
+              "$ref": "#/$defs/TicketRecord"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "next_page_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Page Token"
+          }
+        },
+        "required": [
+          "issues",
+          "next_page_token"
+        ],
+        "title": "SearchIssuesOutput",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [],
+  "scopes": [],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "Tracker",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "attachments",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "audit_records",
+      "ocsf_class": 6003,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "comments",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "issue_changelogs",
+      "ocsf_class": 6003,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "issues",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "Tracker",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "projects",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": [
+    {
+      "event_types": [
+        "jira:issue_created",
+        "jira:issue_updated",
+        "jira:issue_deleted",
+        "comment_created",
+        "comment_updated",
+        "comment_deleted"
+      ],
+      "header_event": null,
+      "name": "receive_event"
+    }
+  ]
+}

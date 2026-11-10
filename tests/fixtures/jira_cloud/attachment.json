@@ -1,0 +1,10 @@
+{
+  "id": "50001",
+  "self": "https://jira.example.test/rest/api/3/attachment/50001",
+  "filename": "evidence.txt",
+  "mimeType": "text/plain",
+  "size": 18,
+  "created": "2026-11-01T10:01:00.000+0000",
+  "author": {"accountId": "reporter-1", "displayName": "Synthetic reporter"},
+  "content": "https://jira.example.test/rest/api/3/attachment/content/50001"
+}

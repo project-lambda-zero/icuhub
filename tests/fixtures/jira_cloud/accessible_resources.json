@@ -1,0 +1,15 @@
+[
+  {
+    "id": "cloud-1",
+    "url": "https://jira.example.test",
+    "name": "Synthetic Jira Cloud tenant",
+    "scopes": ["read:jira-work", "write:jira-work", "manage:jira-webhook"],
+    "avatarUrl": "https://jira.example.test/avatar.png"
+  },
+  {
+    "id": "cloud-2",
+    "url": "https://other.example.test",
+    "name": "Other synthetic tenant",
+    "scopes": ["read:jira-work"]
+  }
+]

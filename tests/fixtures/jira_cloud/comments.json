@@ -1,0 +1,16 @@
+{
+  "startAt": 0,
+  "maxResults": 50,
+  "total": 1,
+  "comments": [
+    {
+      "id": "40001",
+      "self": "https://jira.example.test/rest/api/3/issue/10001/comment/40001",
+      "author": {"accountId": "commenter-1", "displayName": "Synthetic commenter"},
+      "body": {"type": "doc", "version": 1, "content": [{"type": "paragraph", "content": [{"type": "text", "text": "Synthetic ADF comment"}]}]},
+      "created": "2026-11-01T10:02:00.000+0000",
+      "updated": "2026-11-01T10:03:00.000+0000",
+      "properties": {"icuhub.external": {"key": "icuhub.external", "value": "preserved"}}
+    }
+  ]
+}

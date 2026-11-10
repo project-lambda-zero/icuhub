@@ -1,0 +1,17 @@
+{
+  "startAt": 0,
+  "maxResults": 50,
+  "total": 1,
+  "isLast": true,
+  "values": [
+    {
+      "id": "20001",
+      "key": "PROJ",
+      "name": "Synthetic project",
+      "projectTypeKey": "software",
+      "self": "https://jira.example.test/rest/api/3/project/20001",
+      "lead": {"accountId": "lead-1", "displayName": "Synthetic lead"},
+      "version": 7
+    }
+  ]
+}
