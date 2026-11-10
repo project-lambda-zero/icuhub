@@ -1,6 +1,7 @@
 """VendorHttp: status mapping, bounded retries, non-idempotent safety, auth refresh, URL and TLS checks."""
 
 import asyncio
+import json
 from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
@@ -431,6 +432,31 @@ def test_stream_download_sends_caller_headers_on_the_wire() -> None:
     assert asyncio.run(go()) == b"abc"
     assert seen[0].method == "POST"
     assert seen[0].headers["X-Http-Method-Override"] == "GET"
+
+
+def test_stream_download_result_sends_json_body() -> None:
+    seen: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        seen.append(request)
+        return httpx2.Response(200, content=b"abc")
+
+    http = _http(handler)
+
+    async def go() -> bytes:
+        try:
+            result = await http.stream_download_result(
+                "POST",
+                "/file",
+                json={"downloadRequests": [{"cveId": "CVE-2026-0001"}]},
+                max_bytes=3,
+            )
+            return result.content
+        finally:
+            await http.aclose()
+
+    assert asyncio.run(go()) == b"abc"
+    assert json.loads(seen[0].content) == {"downloadRequests": [{"cveId": "CVE-2026-0001"}]}
 
 
 def test_stream_download_without_headers_sends_no_override() -> None:

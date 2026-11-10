@@ -17,6 +17,7 @@ __all__ = [
     "map_alert",
     "map_asset_finding",
     "map_cspm_audit",
+    "map_cspm_vulnerability_export",
     "map_nonfinding",
     "map_runtime_detection",
     "parse_ms",
@@ -246,6 +247,25 @@ def map_asset_finding(raw: dict[str, Any], ctx: MapContext, finding_kind: str) -
             remediation=ocsf.Remediation(desc=str(finding["remediation"])) if finding.get("remediation") else None,
         )
     ]
+
+
+def map_cspm_vulnerability_export(raw: dict[str, Any], ctx: MapContext) -> list[Any]:
+    """Map one impacted-asset CSV row without collapsing package, version, or path variants."""
+    identity = raw.get("_identity")
+    export = raw.get("_export")
+    if not isinstance(identity, dict) or not isinstance(export, dict):
+        raise VendorContractError("Prisma UVE row is missing identity or export evidence")
+    findings = map_asset_finding(raw, ctx, "vulnerability")
+    fingerprint = "fp_" + hashlib.sha256(
+        json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    mapped: list[Any] = []
+    for finding in findings:
+        unmapped = dict(finding.unmapped or {})
+        unmapped["icuhub"] = {"fingerprint": fingerprint, "identity_version": "prisma-uve-v1"}
+        unmapped["prisma_cloud_uve"] = _unmapped(export)
+        mapped.append(finding.model_copy(update={"unmapped": unmapped}))
+    return mapped
 
 
 def map_runtime_detection(raw: dict[str, Any], ctx: MapContext) -> list[Any]:

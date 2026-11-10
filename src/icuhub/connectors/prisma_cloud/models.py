@@ -42,6 +42,7 @@ __all__ = [
     "StrictModel",
     "SuppressionArgs",
     "SuppressionPolicyConfig",
+    "VulnerabilityExportInput",
     "VulnerabilitySearchInput",
 ]
 
@@ -124,6 +125,10 @@ class RqlPageInput(StrictModel):
 class VulnerabilitySearchInput(StrictModel):
     query: str = Field(min_length=1, max_length=32768)
     page_token: str | None = Field(default=None, min_length=1, max_length=8192)
+
+
+class VulnerabilityExportInput(StrictModel):
+    query: str = Field(min_length=1, max_length=32768)
 
 
 class InventoryInput(StrictModel):
@@ -323,6 +328,7 @@ class PrismaCloudConfig(ConnectorConfig):
     alert_overlap_s: int = Field(default=300, ge=0, le=86400)
     snooze_max_days: int = Field(default=30, ge=1, le=366)
     export_max_bytes: int = Field(default=64 * 1024 * 1024, ge=1, le=1024 * 1024 * 1024)
+    export_max_records: int = Field(default=1_000_000, ge=1, le=10_000_000)
     destructive_enabled: bool = False
 
     @model_validator(mode="after")

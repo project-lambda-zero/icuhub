@@ -24,7 +24,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Kubernetes and OpenShift editions with inventory, policy and posture assessments, LIST/WATCH checkpoints, snapshot reconciliation, managed audit ingress, and separately gated workload, RBAC, Route, SCC, and BuildConfig actions.
 - F1 real-scanner routing, F4 GitHub native publication, F5 GitLab native ingestion and feedback, and F6 OpenShift posture-to-approved-remediation flows with offline signed evidence and cross-tenant denial.
 - OpenShift runtime profile with restricted workloads, migration and RBAC separation, TLS Route, default-deny NetworkPolicies, secure worker relay, and optional narrow vendor and OIDC egress policies.
-- Prisma Cloud UVE `search_vulnerabilities` operation through `POST /uve/api/v1/vulnerabilities/search`, with query-token and response-completeness validation. This is CVE aggregate search, not the still-open complete per-asset export required by `GAP-PCSPM-03`.
+- Prisma Cloud complete per-asset UVE export through paginated `POST /uve/api/v1/vulnerabilities/search` CVE enumeration and per-CVE `POST /uve/api/v3/vulnerabilities/download` gzip CSV downloads. `cspm_vulnerability_export` validates query/page stability, unique impacted-asset counts, duplicate and package/location-sensitive row identity, bounded decompression and record counts, and query-plus-download snapshot digests. The 10,000-row all-query CSV is not used; live acceptance remains opt-in.
 - Deduplicated action-plan, approval, and terminal-outcome evidence items whose digests verify offline in F7 bundles.
 - Event and deterministic artifact-replay stream declarations, with hint-only webhooks able to enqueue canonical full or incremental reconciliation.
 - Integration inventory of the existing consumer platforms with an ICUHUB disposition per integration (`docs/INTEGRATION_INVENTORY.md`).
@@ -48,6 +48,8 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Coverage matrices now reflect generated manifests and current offline tests for GitHub, GitLab, Jira, OpenShift, Prisma Cloud, Fortify, Invicti, Mend, and Nessus. Original source-linked gap contracts remain unchanged, and partial or missing capabilities stay explicit.
+- Invicti Standard research now cites current official documentation for both XML vulnerability-list profiles. Native XML remains disabled because no genuine current export or element schema is available for golden parser validation.
 - Decisions table in BRD section 18 records outcomes and ADR links; BR-15, FR-RX-01..10, NFR-17, and R10 are withdrawn (ADR-0011) with their IDs reserved.
 - COMMATRIX event and secret flows describe Kafka and OpenBao Transit (ADR-0005, ADR-0006).
 - CI installs `icuhub-schemas`, compiles `src`, `packages`, and `tools`, and runs the license check.

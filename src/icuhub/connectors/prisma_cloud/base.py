@@ -38,7 +38,7 @@ class PrismaBase(Connector):
         Scope(name="cspm_policy_rql", probe="POST /v2/config", required_by=("FindingSource",)),
         Scope(name="cspm_inventory", probe="POST /v3/inventory", required_by=("FindingSource",)),
         Scope(name="cspm_accounts", probe="GET /cloud", required_by=("FindingSource",)),
-        Scope(name="cspm_export", probe="POST /alert/export", required_by=("FindingSource",)),
+        Scope(name="cspm_export", probe="POST /uve/api/v1/vulnerabilities/search", required_by=("FindingSource",)),
         Scope(name="compute_version", probe="GET /api/v1/version", required_by=("FindingSource",)),
         Scope(name="compute_images", probe="GET /api/v1/images", required_by=("FindingSource",)),
         Scope(name="compute_runtime", probe="GET /api/v1/audits/runtime/container", required_by=("TelemetrySource",)),

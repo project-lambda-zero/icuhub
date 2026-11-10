@@ -33,8 +33,10 @@ from icuhub.connectors.prisma_cloud.models import (
     RqlInput,
     RqlPageInput,
     SnoozeAlertInput,
+    VulnerabilityExportInput,
     VulnerabilitySearchInput,
 )
+from icuhub.connectors.prisma_cloud.uve import parse_impacted_assets
 from icuhub.kit.connector import action, mapper, operation, stream
 from icuhub.kit.cursors import SnapshotCursor, TimeIdCursor, TimeIdSnapshotCursor
 from icuhub.kit.errors import ConfigError, OutcomeUnknown, StalePlan, TransientVendorError, VendorContractError
@@ -43,6 +45,8 @@ from icuhub.kit.types import ActionOutcome, ActionPlan, MapContext, RawBatch
 __all__ = ["PrismaCspm"]
 
 _ALERT_STATUSES = ["open", "resolved", "dismissed", "snoozed"]
+_UVE_ALL_QUERY = "vulnerability where asset.type = 'all'"
+_MAX_UVE_DECOMPRESSED_BYTES = 256 * 1024 * 1024
 
 
 def _audit_params(args: AuditListInput, offset: int) -> dict[str, Any]:
@@ -577,8 +581,9 @@ class PrismaCspm(PrismaBase):
         result = await self._request("cspm", "GET", "/audit/redlock", params=_audit_params(args, args.offset))
         return ReadResult(items=self._array(result.json(), "audit events"), pages=1)
 
-    @operation("search_vulnerabilities", classification="read", capability="FindingSource", input_model=VulnerabilitySearchInput, output_model=ReadResult)
-    async def search_vulnerabilities(self, args: VulnerabilitySearchInput) -> ReadResult:
+    async def _vulnerability_search_page(
+        self, args: VulnerabilitySearchInput
+    ) -> tuple[dict[str, Any], str | None, int]:
         result = await self._request(
             "cspm",
             "POST",
@@ -587,6 +592,9 @@ class PrismaCspm(PrismaBase):
             json={"query": args.query},
         )
         body = self._object(result, "vulnerability search")
+        returned_query = body.get("query")
+        if returned_query is not None and returned_query != args.query:
+            raise VendorContractError("vulnerability search changed the requested RQL query")
         data = body.get("data")
         if not isinstance(data, dict):
             raise VendorContractError("vulnerability search response data must be an object")
@@ -599,7 +607,14 @@ class PrismaCspm(PrismaBase):
         token = data.get("nextPageToken")
         if token is not None and (not isinstance(token, str) or not token):
             raise VendorContractError("vulnerability search nextPageToken must be a nonempty string")
-        if token is None and len(items) < total:
+        return body, token, total
+
+    @operation("search_vulnerabilities", classification="read", capability="FindingSource", input_model=VulnerabilitySearchInput, output_model=ReadResult)
+    async def search_vulnerabilities(self, args: VulnerabilitySearchInput) -> ReadResult:
+        body, token, total = await self._vulnerability_search_page(args)
+        data = body["data"]
+        items = data.get("items", [])
+        if token is None and args.page_token is None and len(items) < total:
             raise VendorContractError("vulnerability search is truncated without nextPageToken")
         return ReadResult(
             data=body,
@@ -609,6 +624,120 @@ class PrismaCspm(PrismaBase):
             pages=1,
             complete=token is None,
         )
+
+    async def _uve_cves(self, query: str) -> tuple[list[dict[str, Any]], int]:
+        token: str | None = None
+        seen_tokens: set[str] = set()
+        items_by_cve: dict[str, dict[str, Any]] = {}
+        expected_total: int | None = None
+        expected_time_range: Any = None
+        pages = 0
+        for _ in range(self._cfg().max_pages):
+            body, next_token, total = await self._vulnerability_search_page(
+                VulnerabilitySearchInput(query=query, page_token=token)
+            )
+            pages += 1
+            if expected_total is None:
+                expected_total = total
+                expected_time_range = body.get("timeRange")
+            elif total != expected_total or body.get("timeRange") != expected_time_range:
+                raise VendorContractError("vulnerability search changed count or time range during export")
+            for item in body["data"].get("items", []):
+                cve_id = item.get("cveId")
+                if not isinstance(cve_id, str) or not cve_id.strip():
+                    raise VendorContractError("vulnerability search item has no cveId")
+                impacted = item.get("totalImpactedAssets")
+                if isinstance(impacted, bool) or not isinstance(impacted, int) or impacted < 0:
+                    raise VendorContractError(
+                        f"Prisma UVE {cve_id} totalImpactedAssets must be a non-negative integer"
+                    )
+                cve_id = cve_id.strip()
+                previous = items_by_cve.get(cve_id)
+                if previous is not None:
+                    if self._digest(previous) != self._digest(item):
+                        raise VendorContractError(f"Prisma UVE {cve_id} changed across search pages")
+                    continue
+                items_by_cve[cve_id] = item
+            if next_token is None:
+                break
+            if next_token == token or next_token in seen_tokens:
+                raise VendorContractError("vulnerability search page token made no forward progress")
+            seen_tokens.add(next_token)
+            token = next_token
+        else:
+            raise VendorContractError("vulnerability search pagination budget exhausted")
+        if expected_total is None or len(items_by_cve) != expected_total:
+            raise VendorContractError(
+                f"vulnerability search count mismatch: expected {expected_total}, got {len(items_by_cve)}"
+            )
+        return [items_by_cve[cve_id] for cve_id in sorted(items_by_cve)], pages
+
+    async def _uve_export(self, query: str) -> tuple[list[dict[str, Any]], int, list[dict[str, Any]]]:
+        cves, pages = await self._uve_cves(query)
+        records: list[dict[str, Any]] = []
+        downloads: list[dict[str, Any]] = []
+        max_decompressed = min(self._cfg().export_max_bytes * 16, _MAX_UVE_DECOMPRESSED_BYTES)
+        for cve in cves:
+            cve_id = str(cve["cveId"]).strip()
+            expected_assets = cve["totalImpactedAssets"]
+            if expected_assets == 0:
+                downloads.append(
+                    {"cveId": cve_id, "rows": 0, "sha256": None, "size_bytes": 0}
+                )
+                continue
+            result = await self.http.stream_download_result(
+                "POST",
+                self._url("cspm", "/uve/api/v3/vulnerabilities/download"),
+                json={"downloadRequests": [{"cveId": cve_id}]},
+                max_bytes=self._cfg().export_max_bytes,
+                expected=(200,),
+            )
+            batch = parse_impacted_assets(
+                result.content,
+                cve_id=cve_id,
+                expected_assets=expected_assets,
+                max_decompressed_bytes=max_decompressed,
+            )
+            if len(records) + len(batch) > self._cfg().export_max_records:
+                raise VendorContractError("Prisma UVE export exceeds the configured record budget")
+            digest = hashlib.sha256(result.content).hexdigest()
+            for record in batch:
+                record["_export"]["query"] = query
+            records.extend(batch)
+            downloads.append(
+                {
+                    "cveId": cve_id,
+                    "rows": len(batch),
+                    "sha256": digest,
+                    "size_bytes": len(result.content),
+                }
+            )
+        return records, pages, downloads
+
+    @operation("download_vulnerability_export", classification="read", capability="FindingSource", input_model=VulnerabilityExportInput, output_model=ReadResult)
+    async def download_vulnerability_export(self, args: VulnerabilityExportInput) -> ReadResult:
+        records, pages, downloads = await self._uve_export(args.query)
+        return ReadResult(
+            data={"downloads": downloads, "query": args.query},
+            items=records,
+            total=len(records),
+            pages=pages,
+            complete=True,
+        )
+
+    @stream("cspm_vulnerability_export", ocsf_class=2002, cursor=SnapshotCursor, modes=("full",), capability="FindingSource", requires_target=False)
+    async def cspm_vulnerability_export(self, target: Any, checkpoint: Any, mode: str) -> AsyncIterator[RawBatch]:
+        records, _pages, downloads = await self._uve_export(_UVE_ALL_QUERY)
+        cursor = SnapshotCursor(
+            snapshot_id=self._digest({"downloads": downloads, "query": _UVE_ALL_QUERY})[:32],
+            started_at=self.ctx.clock(),
+        )
+        yield RawBatch(records=records, checkpoint=cursor, complete=False)
+        yield RawBatch(records=[], checkpoint=cursor, complete=True)
+
+    @mapper("cspm_vulnerability_export", version=1)
+    def map_cspm_vulnerability_export(self, raw: dict[str, Any], ctx: MapContext) -> list[Any]:
+        return mapping.map_cspm_vulnerability_export(raw, ctx)
 
     # --------------------------------------------------------------- alert actions
 

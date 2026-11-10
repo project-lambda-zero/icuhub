@@ -17,8 +17,9 @@ from icuhub.connectors.prisma_cloud.models import (
     IncidentInput,
     ReopenAlertInput,
     SnoozeAlertInput,
+    VulnerabilityExportInput,
 )
-from icuhub.kit.testing import make_connector
+from icuhub.kit.testing import make_connector, map_all
 
 ACCEPTANCE_KIND = "prisma_cloud"
 
@@ -54,6 +55,30 @@ def test_cspm_reads(acceptance) -> None:
     if alert_id:
         detail = asyncio.run(connector.get_alert(AlertIdInput(alert_id=str(alert_id))))
         acceptance.record("get_alert", isinstance(detail.data, dict), str(alert_id))
+
+
+def test_cspm_vulnerability_export(acceptance) -> None:
+    if "cspm" not in acceptance.config.get("editions", []):
+        acceptance.record("cspm_vulnerability_export", True, "not_evaluated: CSPM edition disabled")
+        return
+    query = acceptance.params.get("vulnerability_query")
+    if not query:
+        acceptance.record(
+            "cspm_vulnerability_export",
+            True,
+            "not_evaluated: set vulnerability_query to an authorized full-export RQL query",
+        )
+        return
+    connector = _connector(acceptance)
+    exported = asyncio.run(connector.download_vulnerability_export(VulnerabilityExportInput(query=query)))
+    mapped = map_all(connector, "cspm_vulnerability_export", exported.items)
+    passed = exported.complete and len(mapped) == len(exported.items)
+    acceptance.record(
+        "cspm_vulnerability_export",
+        passed,
+        f"{len(exported.items)} impacted-asset rows across {len(exported.data['downloads'])} CVE downloads",
+    )
+    assert passed
 
 
 def test_compute_reads(acceptance) -> None:

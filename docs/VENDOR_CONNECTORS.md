@@ -778,6 +778,8 @@ Prisma Cloud covers Cloud Security/CSPM posture and Runtime Security/Compute/CWP
 | Comparable open-source integrations | [DefectDojo Twistlock parser](https://github.com/DefectDojo/django-DefectDojo/blob/master/dojo/tools/twistlock/parser.py) imports JSON and CSV vulnerabilities and compliance issues but is not live sync. [XSOAR PrismaCloudV2](https://github.com/demisto/content/blob/master/Packs/PrismaCloud/Integrations/PrismaCloudV2/README.md) demonstrates lookback polling and status mirroring, with duplicate-incident and reopen caveats. [XSOAR Prisma Cloud Compute](https://github.com/demisto/content/tree/master/Packs/PrismaCloudCompute) demonstrates provider push, custom CA, and `aggregatedAlerts` expansion. |
 | Gotchas | V2 `fields` is compact and omits alert rules; use `detailed=true` or alert detail for full mapping. Compliance posture is aggregate metrics, not resource-level 2003 findings. Async alert jobs ignore `sortBy`, `limit`, and `pageToken`. Do not use `compact=true` where detailed Compute CVE or compliance mapping is required. Regular registry scans serialize; on-demand scans run in parallel and cannot be stopped. Default Compute incident reads return only unacknowledged records. Precise behavior of every IdP configuration is [UNVERIFIED]. |
 
+UVE contract sources: [current OpenAPI schema](https://github.com/PaloAltoNetworks/pan.dev/blob/99309c7201326d247517c7432e4c53cc9be0f304/openapi-specs/cspm/UVESearchMicroService.json), [V3 per-CVE impacted-asset download](https://pan.dev/prisma-cloud/api/cspm/download-vulnerability-file-v-3), and [Elastic vulnerability CSV fixture](https://github.com/elastic/integrations/blob/9ae756f00f82786ac3496ce99c2dd288c5a5c031/packages/prisma_cloud/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log). The V1 all-query CSV `/uve/api/v1/vulnerabilities/search/download` is capped at 10,000 rows and is not a completeness mechanism. CVE aggregates alone are not per-asset findings; ICUHUB requires every V3 download and reconciles distinct assets while preserving multiple package/location rows per asset.
+
 Regional CSPM console-to-API host mapping, reproduced from the pack (source: https://pan.dev/prisma-cloud/api/cspm/api-urls/):
 
 | Console | API |
@@ -820,7 +822,9 @@ The kit supplies `time_id` and `snapshot` cursors, complete-snapshot absence clo
 | Operation | Endpoint | Notes |
 |---|---|---|
 | `get_alert` (cspm) | `GET /alert/:id` | Detail and status reconciliation; 5/second, burst 10/second |
-| `search_vulnerabilities` (cspm) | `POST /uve/api/v1/vulnerabilities/search` | Bounded UVE CVE aggregate search with query-token and completeness validation. It is not a complete per-asset vulnerability export and does not close `GAP-PCSPM-03` |
+| `search_vulnerabilities` (cspm) | `POST /uve/api/v1/vulnerabilities/search` | Bounded page-level UVE CVE aggregate search with exact query and token validation; use `page_token` for continuations |
+| `download_vulnerability_export` (cspm) | UVE search plus `POST /uve/api/v3/vulnerabilities/download` | Complete per-CVE impacted-asset export for an explicit RQL query; stable page totals/time range and unique asset counts are mandatory |
+| `cspm_vulnerability_export` (cspm stream) | Fixed `vulnerability where asset.type = 'all'` UVE search plus per-CVE V3 downloads | OCSF 2002 full snapshot; query plus every compressed-download digest forms snapshot identity. The V1 all-query CSV capped at 10,000 rows is not used |
 | `list_alert_filters` (cspm) | not sourced | Alert filter read capability probe |
 | `list_alerts_v2` (cspm) | `POST /v2/alert` | Time windows in Unix milliseconds, filters, sorting, `limit`, `offset`, `pageToken`; 2/second sustained, burst 10/second; use `detailed=true` or `get_alert` for full mapping |
 | `submit_alert_export` (cspm) | `POST /alert/jobs` | Async JSON or CSV export for backfill and status reconciliation; 2/second sustained, burst 10/second |
@@ -1106,6 +1110,8 @@ Invicti Standard is the desktop edition with JSON report ingestion and outbound 
 | MCP server and SDKs | No vendor-official public MCP server identified [UNVERIFIED]; Standard SDK not sourced. |
 | Comparable open-source integrations | DefectDojo maps Invicti JSON through the Netsparker parser: https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/master/dojo/tools/invicti/parser.py and https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/master/dojo/tools/netsparker/parser.py. |
 | Gotchas | Manual and Auto Send To Actions produce configurable, non-versioned payloads. Reports may lack website UUIDs; retain report ID and use configured website mapping or canonical URL. Do not point the Enterprise client at Standard. |
+
+Current [Invicti list documentation](https://docs.invicti.com/ie-is/lists-invicti) confirms `Vulnerabilities List (XML)` and Standard-only detailed XML exports. The native XML profiles remain disabled until genuine current exports establish their element schemas and independent golden tests prove bounded parsing and snapshot identity. Current DefectDojo Invicti and Netsparker integrations document JSON imports and do not supply that XML evidence.
 
 #### Connector spec
 

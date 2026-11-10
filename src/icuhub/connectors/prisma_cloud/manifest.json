@@ -603,6 +603,13 @@
         "title": "Export Max Bytes",
         "type": "integer"
       },
+      "export_max_records": {
+        "default": 1000000,
+        "maximum": 10000000,
+        "minimum": 1,
+        "title": "Export Max Records",
+        "type": "integer"
+      },
       "extra_hosts": {
         "default": [],
         "items": {
@@ -760,6 +767,81 @@
           "content_base64"
         ],
         "title": "ExportDownloadResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "query": {
+            "maxLength": 32768,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "VulnerabilityExportInput",
+        "type": "object"
+      },
+      "name": "download_vulnerability_export",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "data": {
+            "default": null,
+            "title": "Data"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_page_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Page Token"
+          },
+          "pages": {
+            "default": 0,
+            "title": "Pages",
+            "type": "integer"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Total"
+          }
+        },
+        "title": "ReadResult",
         "type": "object"
       }
     },
@@ -4639,7 +4721,7 @@
     },
     {
       "name": "cspm_export",
-      "probe": "POST /alert/export",
+      "probe": "POST /uve/api/v1/vulnerabilities/search",
       "required_by": [
         "FindingSource"
       ]
@@ -5000,6 +5082,19 @@
         "full"
       ],
       "name": "cspm_vulnerability_alerts",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "cspm_vulnerability_export",
       "ocsf_class": 2002,
       "record_type": null,
       "requires_target": false,

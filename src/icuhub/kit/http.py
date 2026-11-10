@@ -278,19 +278,20 @@ class VendorHttp:
         max_bytes: int,
         params: Mapping[str, Any] | None = None,
         headers: Mapping[str, str] | None = None,
+        json: Any = None,
         expected: Collection[int] | None = (200,),
     ) -> HttpResult:
         """Stream a bounded download while preserving its status for asynchronous vendor contracts.
 
         ``expected=None`` retains the legacy behavior of accepting every 2xx response. Otherwise
         only the listed statuses are accepted; a 202 can therefore be handled without mistaking its
-        JSON status body for a completed artifact.
+        JSON status body for a completed artifact. ``json`` supplies an optional POST request body.
         """
         call = _Call(
             method=method,
             url=self._resolve(url),
             params=params,
-            json=None,
+            json=json,
             content=None,
             files=None,
             headers=dict(headers or {}),

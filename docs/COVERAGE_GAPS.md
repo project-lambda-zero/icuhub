@@ -7,8 +7,9 @@
 | Date | 2026-11-07 |
 | Inputs | `VENDOR_CONNECTORS.md`; `CONNECTOR_FRAMEWORK.md`; SCM, Atlassian, container-platform, AppSec, and vulnerability-management artifact comparisons researched 2026-11-07 |
 | Feeds | `VENDOR_CONNECTORS.md`; ROADMAP P5, P8, P10 |
+| Implementation reconciliation | 2026-11-10: ICUHUB matrix cells checked against generated manifests and offline tests; external-artifact cells retain their inspected research state |
 
-This document compares connector specifications with inspected open-source and source-available integration artifacts. It identifies specification coverage and records the proposed absorption contract; it is not the runtime completion register. Offline implementation status and remaining prerequisites are tracked in `IMPLEMENTATION_GAPS.md`, while binding MVP scope remains in `MVP.md`. `Y` means covered by the inspected artifact or ICUHUB specification, `P` means partial or adjacent coverage, and `N` means absent from that artifact or specification. `N` is not a claim that the vendor API or an entire platform lacks the capability.
+This document compares connector specifications with inspected open-source and source-available integration artifacts. It identifies specification coverage and records the proposed absorption contract; it is not the runtime completion register. Offline implementation status and remaining prerequisites are tracked in `IMPLEMENTATION_GAPS.md`, while binding MVP scope remains in `MVP.md`. `Y` means covered by the inspected artifact or ICUHUB specification, `P` means partial or adjacent coverage, and `N` means absent from that artifact or specification. `N` is not a claim that the vendor API or an entire platform lacks the capability. Gap rows retain their original source-linked findings and proposed contract wording; after the 2026-11-10 matrix reconciliation, wording such as `Add` is not an assertion that the current implementation still lacks the capability.
 
 Waves are the connector delivery waves in `VENDOR_CONNECTORS.md`. Wave 4 and Later items are recorded but are outside the current three-wave roadmap. In gap tables, read operations have classification `read` and idempotency `none`; write and destructive actions use plan/apply, with idempotency shown as `key` or `natural_key`. Existing connector auth applies unless another auth mode is stated. Shared GitHub and GitLab family gaps are defined once, counted for both edition kinds in section 2, and must be specialized by edition fixtures rather than copied blindly.
 
@@ -81,13 +82,13 @@ Applies to `github` and `github_enterprise_server`. The GHES kind must apply eve
 
 | Object or operation | Airbyte | Steampipe | Port | n8n / StackStorm | ICUHUB |
 |---|---:|---:|---:|---:|---:|
-| Repository, organization, team, user inventory | Y | Y | Y | P | N |
-| Branches, tags, commits, files | P | Y | P | P | N |
+| Repository, organization, team, user inventory | Y | Y | Y | P | Y |
+| Branches, tags, commits, files | P | Y | P | P | Y |
 | PRs, reviews, comments | P | Y | P | Y | Y |
-| Actions workflows, runs, jobs, artifacts, runners | P | Y | P | P | N |
+| Actions workflows, runs, jobs, artifacts, runners | P | Y | P | P | Y |
 | Deployments, environments, releases, packages | Y | Y | Y | P | N |
 | Security alerts, branch protection, enterprise audit | N | P | Y | N | Y |
-| Commit status and check-run writes | N | N | P | Y | N |
+| Commit status and check-run writes | N | N | P | Y | Y |
 | Repository file and release writes | N | N | N | Y | N |
 | Webhook registration and broad event catalog | N | N | Y | Y | P |
 | App, PAT, OAuth user token | P | Y | Y | Y | P: no OAuth user token |
@@ -116,14 +117,14 @@ Applies to `gitlab` and `gitlab_self_managed`. Self-managed and Dedicated additi
 
 | Object or operation | Airbyte | Activepieces | Port | n8n | ICUHUB |
 |---|---:|---:|---:|---:|---:|
-| Projects, groups, members, labels, milestones | Y | Y | Y | P | P |
-| Branches, tags, commits, repository files | P | Y | P | P | N |
-| Pipelines, jobs, bridges, artifacts | P | Y | P | N | N |
-| MR diffs, discussions, approvals | P | Y | P | N | P |
+| Projects, groups, members, labels, milestones | Y | Y | Y | P | Y |
+| Branches, tags, commits, repository files | P | Y | P | P | Y |
+| Pipelines, jobs, bridges, artifacts | P | Y | P | N | Y |
+| MR diffs, discussions, approvals | P | Y | P | N | Y |
 | Issues, epics, boards | Y | Y | P | P | N |
 | Releases and deployments | Y | P | N | P | N |
 | Vulnerability findings and audit | N | N | N | N | Y |
-| Branch, file, commit, and pipeline writes | N | Y | N | P | N |
+| Branch, file, commit, and pipeline writes | N | Y | N | P | P |
 | Webhook lifecycle and event breadth | N | P | Y | Y | P |
 
 | ID | Missing item | Implemented by | Why it matters | Proposed ICUHUB addition | Priority | Wave |
@@ -205,13 +206,13 @@ ICUHUB differentiator: creator-aware Code Insights, PR approval/merge/restrictio
 | Issues, projects, comments | Y | Y | Y | Y | Y |
 | Audit records | N | N | N | N | Y |
 | Users, groups, teams, roles | Y | Y | P | P | N |
-| Attachments | P | N | Y | Y | N |
-| Changelogs and worklogs | Y | Y | P | Y | P: detail only |
+| Attachments | P | N | Y | Y | Y |
+| Changelogs and worklogs | Y | Y | P | Y | P: changelogs only |
 | Agile, versions, components | Y | Y | P | P | N |
 | Configuration, dashboards, filters | Y | P | P | P | P |
 | Core issue writes | N | Y | Y | Y | Y |
 | Comment, attachment, worklog lifecycle | N | N | Y | Y | P |
-| Webhook event and registration lifecycle | N | Y | Y | N | P |
+| Webhook event and registration lifecycle | N | Y | Y | N | Y |
 
 | ID | Missing item | Implemented by | Why it matters | Proposed ICUHUB addition | Priority | Wave |
 |---|---|---|---|---|---|---|
@@ -239,14 +240,14 @@ ICUHUB differentiator: Cloud `cloudId` and granular scopes, route-key reconcilia
 | Object or operation | Singer / Steampipe | n8n / XSOAR | Elastic | DefectDojo / StackStorm | ICUHUB |
 |---|---:|---:|---:|---:|---:|
 | Issues, projects, comments | Y | Y | N | P | Y |
-| Audit REST and node-local files | N | P: files | Y | N | P: REST only |
+| Audit REST and node-local files | N | P: files | Y | N | Y |
 | Users, groups, project roles | Y | P | N | P | N |
-| Attachments | N | Y | N | P | P: writes only |
-| Changelogs and worklogs | Y | P | N | P | P: detail only |
+| Attachments | N | Y | N | P | Y |
+| Changelogs and worklogs | Y | P | N | P | P: changelogs only |
 | Agile, versions, components | Y | P | N | P | N |
 | Configuration and dashboards | Y | P | N | P | P |
 | Core issue and attachment writes | N | Y | N | Y | Y |
-| Comment update and agile writes | N | Y | N | P | N |
+| Comment update and agile writes | N | Y | N | P | P: comments only |
 | PAT and signed webhooks | P | Y | Y | P | Y |
 
 | ID | Missing item | Implemented by | Why it matters | Proposed ICUHUB addition | Priority | Wave |
@@ -382,8 +383,8 @@ ICUHUB differentiator: ICUHUB uniquely combines normalized incremental/full Kyve
 | Builds and BuildConfigs | Y | P | P | Y |
 | ImageStreams and tag/digest history | Y | P | P | Y |
 | DeploymentConfigs, rollout state, and triggers | Y | N | P | N |
-| Projects as tenancy objects | Y | P | P | N |
-| Users, identities, and group memberships | Y | N | P | N |
+| Projects as tenancy objects | Y | P | P | Y |
+| Users, identities, and group memberships | Y | N | P | P: read only |
 | OAuthAccessToken metadata | Y | N | P | N |
 | ClusterVersion read | N | N | P | Y |
 | Kyverno/OpenReports policy evidence | N | P | P | Y |
@@ -413,14 +414,14 @@ ICUHUB differentiator: ICUHUB provides native SCC assessment and guarded update,
 |---|---|---|---|
 | V2 alert polling, detail, dismiss, and reopen | Y | P | Y |
 | Alert snooze | P | N | Y |
-| Alert remediation and command preview | Y | N | P |
-| CSPM management audit log | P | Y | N |
-| Resource, event, and network RQL search | Y | P | N |
-| Resource-level misconfiguration scan info | P | Y | P |
-| Full vulnerability search and download | P | Y | P |
-| Resource get and resource-list reads | Y | P | N |
+| Alert remediation and command preview | Y | N | Y |
+| CSPM management audit log | P | Y | Y |
+| Resource, event, and network RQL search | Y | P | P |
+| Resource-level misconfiguration scan info | P | Y | Y |
+| Full vulnerability search and download | P | Y | Y |
+| Resource get and resource-list reads | Y | P | Y |
 | Unified asset details and relationships | Y | P | N |
-| Cloud accounts, status, and owners | Y | N | N |
+| Cloud accounts, status, and owners | Y | N | Y |
 | Users, roles, and permission queries | Y | N | N |
 | External host findings | Y | N | N |
 | Access-key metadata and lifecycle | Y | N | N |
@@ -433,7 +434,7 @@ ICUHUB differentiator: ICUHUB provides native SCC assessment and guarded update,
 |---|---|---|---|---|---|---|
 | GAP-PCSPM-01 | CSPM audit events | [Elastic audit input](https://raw.githubusercontent.com/elastic/integrations/main/packages/prisma_cloud/data_stream/audit/agent/stream/input.yml.hbs) | Administrative and configuration activity is essential for investigating who changed posture, policies, accounts, or credentials. | `cspm_audit_events`; OCSF 6003; cursor: time_id with overlap and event-ID dedupe; read; idempotency: none; auth: CSPM JWT with separate audit-read probe. | must | 2 |
 | GAP-PCSPM-02 | Resource inventory and misconfiguration | [XSOAR requests](https://raw.githubusercontent.com/demisto/content/master/Packs/PrismaCloud/Integrations/PrismaCloudV2/PrismaCloudV2.py), [Elastic misconfiguration input](https://raw.githubusercontent.com/elastic/integrations/main/packages/prisma_cloud/data_stream/misconfiguration/agent/stream/cel.yml.hbs) | Alerts are filtered findings, not a complete asset and configuration inventory. Resource-level evidence supports relationship mapping and posture reconciliation. | `cspm_resources_snapshot`, `cspm_resource_misconfigurations_snapshot`, `get_resource`, `list_resources`; records: Resource and OCSF 2003; cursor: snapshot and pageToken; read; idempotency: none. | must | 2 |
-| GAP-PCSPM-03 | Full vulnerability export | [Elastic vulnerability input](https://raw.githubusercontent.com/elastic/integrations/main/packages/prisma_cloud/data_stream/vulnerability/agent/stream/cel.yml.hbs) | Alert-only ingestion can omit vulnerabilities without a matching alert policy or current alert. UVE search returns CVE aggregates and does not prove complete per-asset coverage. | Open prerequisite: `search_vulnerabilities` is implemented through `POST /uve/api/v1/vulnerabilities/search`, but `cspm_vulnerability_export` is not registered. Close only with a documented complete per-asset export, real response evidence, OCSF 2002 row identity, snapshot digest, expiry handling, and fail-closed completeness. | must | 2 |
+| GAP-PCSPM-03 | Full vulnerability export | [Primary UVE schema](https://github.com/PaloAltoNetworks/pan.dev/blob/99309c7201326d247517c7432e4c53cc9be0f304/openapi-specs/cspm/UVESearchMicroService.json), [V3 impacted-asset download](https://pan.dev/prisma-cloud/api/cspm/download-vulnerability-file-v-3), [Elastic vulnerability CSV evidence](https://github.com/elastic/integrations/blob/9ae756f00f82786ac3496ce99c2dd288c5a5c031/packages/prisma_cloud/data_stream/vulnerability/_dev/test/pipeline/test-vulnerability.log) | Alert-only ingestion can omit vulnerabilities without a matching alert policy or current alert. The all-query V1 CSV is capped at 10,000 rows and cannot establish complete coverage by itself. | Offline implemented: `cspm_vulnerability_export` and `download_vulnerability_export` enumerate all CVEs across stable UVE RQL pages, download each CVE through V3, bound gzip/CSV and record counts, reconcile unique impacted assets, preserve package/location-sensitive OCSF 2002 identity, and hash the fixed query plus all downloads into the snapshot. Failed counts, duplicate identities, query drift, token cycles, and HTTP 202 close nothing. Live validation remains `GAP-PRISMA-001`. | must | 2 |
 | GAP-PCSPM-04 | RQL investigation reads | [XSOAR request code](https://raw.githubusercontent.com/demisto/content/master/Packs/PrismaCloud/Integrations/PrismaCloudV2/PrismaCloudV2.py) | Analysts and automated triage need ad hoc blast-radius, network-path, and cloud-event queries, not only predetermined streams. | `search_config`, `search_event`, `search_network`; record: query result; cursor: pageToken; read; idempotency: none; auth: read-only CSPM scopes; bound query, time, and page inputs. | should | 2 |
 | GAP-PCSPM-05 | Unified asset context | [XSOAR asset request and dispatcher](https://raw.githubusercontent.com/demisto/content/master/Packs/PrismaCloud/Integrations/PrismaCloudV2/PrismaCloudV2.py) | Relationships and network context turn an isolated alert into an attack-path and ownership investigation. | `get_asset`, `get_asset_findings`, `get_asset_relationships`, `get_asset_network`, optional `cspm_asset_relationships_snapshot`; records: Asset and relationship edge; cursor: pageToken and snapshot; read; idempotency: none. | should | 2 |
 | GAP-PCSPM-06 | Cloud-account discovery and health | [XSOAR request code](https://raw.githubusercontent.com/demisto/content/master/Packs/PrismaCloud/Integrations/PrismaCloudV2/PrismaCloudV2.py) | Account scope determines whether sync is complete and who owns remediation. Empty results can otherwise hide unmonitored accounts. | `cspm_accounts_snapshot`, `get_account_status`, `list_account_owners`; records: Target and Account; cursor: snapshot; read; idempotency: none; drive target discovery and `not_evaluated` health. | must | 2 |
@@ -455,15 +456,15 @@ ICUHUB differentiator: ICUHUB adds async alert export submission, polling, and d
 | Image vulnerabilities and compliance | Y | N | Y | Y |
 | Host vulnerabilities and compliance | Y | Y | P | Y |
 | Registry image read and on-demand scan | P | N | N | Y |
-| Container vulnerability scan results | Y | N | P | P |
+| Container vulnerability scan results | Y | N | P | Y |
 | CI scan results | Y | N | P | N |
 | Runtime incidents | Y | Y | N | Y |
-| Runtime container and host audit events | Y | P | N | P |
-| WAAS/firewall and file-integrity events | Y | N | N | N |
+| Runtime container and host audit events | Y | P | N | Y |
+| WAAS/firewall and file-integrity events | Y | N | N | P: WAAS only |
 | Host runtime profiles | Y | Y | N | N |
 | Container profiles and container/host forensics | Y | N | N | N |
 | CVE details and impacted resources | Y | N | P | N |
-| Defenders, settings, and Defender logs | Y | N | N | N |
+| Defenders, settings, and Defender logs | Y | N | N | P: Defender inventory only |
 | Policies, feeds, alert profiles, namespaces, and backups | Y | N | N | N |
 | Syslog/TCP/UDP push inputs | N | P | N | N |
 | Offline JSON/CSV import | N | N | Y | N |
@@ -506,11 +507,11 @@ This section compares the ICUHUB connector specifications with inspected DefectD
 | Live issues, delta export, artifacts, and activity | no | no | yes |
 | Revision-checked triage and comments | no | no | yes |
 | FPR upload/download and artifact lifecycle | no | no | yes |
-| Offline FPR SAST findings | yes | yes | no |
-| Standalone Fortify XML across versions | yes | no | no |
-| Embedded WebInspect DAST evidence | partial | yes | no |
-| FPR suppression and threaded comments | yes | partial | no |
-| Explicit FPR line-location semantics | yes | no | no |
+| Offline FPR SAST findings | yes | yes | yes |
+| Standalone Fortify XML across versions | yes | no | yes |
+| Embedded WebInspect DAST evidence | partial | yes | yes |
+| FPR suppression and threaded comments | yes | partial | yes |
+| Explicit FPR line-location semantics | yes | no | yes |
 | Signed webhooks and reconciliation | no | no | yes |
 
 #### Gaps
@@ -561,9 +562,9 @@ ICUHUB differentiator: FoD OAuth release synchronization, overlapping delta reco
 | Invicti Enterprise XML | no | yes | no |
 | Netsparker desktop/cloud XML | no | yes | no |
 | Acunetix XML and JSON families | yes | yes | no |
-| Accepted-risk and false-positive mapping | yes | no | no |
-| Verification, proof, and classification fields | partial | yes | partial |
-| Multiple locations and HTTP evidence per issue | yes | partial | no |
+| Accepted-risk and false-positive mapping | yes | no | yes |
+| Verification, proof, and classification fields | partial | yes | yes |
+| Multiple locations and HTTP evidence per issue | yes | partial | partial: bounded HTTP evidence only |
 
 #### Gaps
 
@@ -587,16 +588,16 @@ ICUHUB differentiator: The live REST surface, rate-limit-aware issue windows, pe
 | Standard/Netsparker desktop XML | no | yes | no |
 | Acunetix XML | yes | yes | no |
 | Acunetix 360 and export JSON | partial | yes | no |
-| Accepted-risk and false-positive state | yes | no | no |
-| Verification, proof, and classifications | partial | yes | no |
-| Multiple locations per repeated issue | yes | partial | no |
+| Accepted-risk and false-positive state | yes | no | yes |
+| Verification, proof, and classifications | partial | yes | yes |
+| Multiple locations per repeated issue | yes | partial | partial: bounded HTTP evidence only |
 | Remote Enterprise scan actions | no | no | no |
 
 #### Gaps
 
 | ID | Missing item | Implemented by | Why it matters | Proposed ICUHUB addition | Priority | Wave |
 |---|---|---|---|---|---|---|
-| GAP-IS-01 | Standard and Netsparker XML parsing | [Invicti](https://raw.githubusercontent.com/infobyte/faraday_plugins/master/faraday_plugins/plugins/repo/invicti/plugin.py), [Netsparker](https://raw.githubusercontent.com/infobyte/faraday_plugins/master/faraday_plugins/plugins/repo/netsparker/plugin.py) | Desktop users and historical archives are not uniformly JSON. Native Standard reports should not require an Enterprise tenant. | `invicti_standard_xml` and `netsparker_desktop_xml` on `parse_report`/`report_issues` OCSF 2002; report hash plus scan/report ID `snapshot` cursor; read; idempotency none; local-file auth. | must | 3 |
+| GAP-IS-01 | Standard and Netsparker XML parsing | [Current Invicti list documentation](https://docs.invicti.com/ie-is/lists-invicti), [Invicti](https://raw.githubusercontent.com/infobyte/faraday_plugins/master/faraday_plugins/plugins/repo/invicti/plugin.py), [Netsparker](https://raw.githubusercontent.com/infobyte/faraday_plugins/master/faraday_plugins/plugins/repo/netsparker/plugin.py) | Desktop users and historical archives are not uniformly JSON. Native Standard reports should not require an Enterprise tenant. | `invicti_standard_xml` and `netsparker_desktop_xml` on `parse_report`/`report_issues` OCSF 2002; report hash plus scan/report ID `snapshot` cursor; read; idempotency none; local-file auth. | must | 3 |
 | GAP-IS-02 | Acunetix XML and both JSON schemas | [DefectDojo Acunetix](https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/master/dojo/tools/acunetix/parser.py), [Faraday Acunetix XML](https://raw.githubusercontent.com/infobyte/faraday_plugins/master/faraday_plugins/plugins/repo/acunetix/plugin.py), [Faraday 360 JSON](https://raw.githubusercontent.com/infobyte/faraday_plugins/master/faraday_plugins/plugins/repo/acunetix360/plugin.py), [Faraday export JSON](https://raw.githubusercontent.com/infobyte/faraday_plugins/master/faraday_plugins/plugins/repo/acunetix_json/plugin.py) | The JSON layouts have different roots and vulnerability-type resolution. One schema assumption silently rejects valid exports. | Three Acunetix profiles on `report_issues` OCSF 2002 with schema-specific parser versions; file-hash `snapshot` cursor; read; idempotency none; local-file auth only. | should | 3 |
 | GAP-IS-03 | State, verification, evidence, and compliance mappings | [DefectDojo](https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/master/dojo/tools/acunetix/parse_acunetix360_json.py), [Faraday DTO](https://raw.githubusercontent.com/infobyte/faraday_plugins/master/faraday_plugins/plugins/repo/acunetix360/DTO.py) | Without these fields, file and webhook records cannot reproduce scanner triage or proof and cannot support compliance workflows. | Typed fields on `report_issues` and `webhook_issues` OCSF 2002; report `snapshot` and webhook `delivery_id` cursors; read; idempotency none; local-file or existing webhook-secret auth. | must | 3 |
 | GAP-IS-04 | Location-preserving dedupe | [DefectDojo Netsparker parser](https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/master/dojo/tools/netsparker/parser.py) | Configurable reports can omit stable issue IDs, making title-only dedupe especially destructive. | `location_set`, `location_key`, and per-location evidence on OCSF 2002; existing report/webhook cursors; read; idempotency none; existing auth. | should | 3 |
@@ -612,10 +613,10 @@ ICUHUB differentiator: Authenticated Send To Actions, configuration-revision rep
 | API 3.0 security findings | partial | yes | yes |
 | API 2.0 security/legal alerts | no | no | yes |
 | Legal violations, libraries, and activity | partial | no | yes |
-| Project summaries and severity rollups | no | yes | no |
-| Reachability, exploitability, and suppression | partial | yes | no |
-| Source locations, KEV, and fix enrichment | yes | partial | no |
-| Offline Unified Agent/manual/API JSON | yes | no | no |
+| Project summaries and severity rollups | no | yes | yes |
+| Reachability, exploitability, and suppression | partial | yes | yes |
+| Source locations, KEV, and fix enrichment | yes | partial | yes |
+| Offline Unified Agent/manual/API JSON | yes | no | yes |
 | Activation-key bundle and regional host derivation | no | yes | no |
 | Email/user-key/org JWT login | no | yes | yes |
 | Forced full reconciliation | no | yes | yes |
@@ -762,14 +763,14 @@ ICUHUB differentiator: Remediation-aware cumulative/patched increments, SC 6.7 u
 | `.nessus` XML findings | yes | yes | no | yes |
 | Offline CSV findings | yes | partial | no | no |
 | Host and service inventory | partial | yes | partial | no |
-| Compliance checks as compliance violations | no | yes | no | no |
+| Compliance checks as compliance violations | no | yes | no | yes |
 | Scan list/status polling | no | no | yes | yes |
 | History enumeration and history export | no | no | no | yes |
 | Direct JSON scan details/results | no | no | yes | no |
 | Create and launch scan from policy | no | no | yes | no |
 | Delete scan | no | no | yes | no |
 | API-key auth | no | no | no | yes |
-| Username/password session auth | no | no | yes | no |
+| Username/password session auth | no | no | yes | yes |
 | Custom CA bundle | no | no | yes | yes |
 | Approved target network guard | no | no | yes | no |
 | Async export and `TRUNCATED` handling | no | no | no | yes |

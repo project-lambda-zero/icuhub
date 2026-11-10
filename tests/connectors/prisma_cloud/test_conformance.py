@@ -13,7 +13,7 @@ def test_dod_surface_is_declared() -> None:
     assert {
         "cspm_config_alerts", "cspm_vulnerability_alerts", "cspm_detection_alerts",
         "cspm_compliance_posture", "cspm_audit_events", "cspm_resources_snapshot",
-        "cspm_resource_misconfigurations_snapshot",
+        "cspm_resource_misconfigurations_snapshot", "cspm_vulnerability_export",
         "cspm_accounts_snapshot", "cspm_rql_assets", "cspm_inventory_aggregates",
         "cspm_policies",
         "compute_image_vulnerabilities", "compute_host_vulnerabilities",
@@ -23,13 +23,11 @@ def test_dod_surface_is_declared() -> None:
         "compute_runtime_host_audits", "compute_runtime_incidents", "compute_waas_alerts",
         "compute_defenders", "compute_collections",
     } <= set(streams)
-    assert "cspm_vulnerability_export" not in streams
     operations = set(PrismaCloud.operations())
-    assert "search_vulnerabilities" in operations
+    assert {"search_vulnerabilities", "download_vulnerability_export"} <= operations
     assert not {
         "submit_vulnerability_export",
         "get_vulnerability_export_status",
-        "download_vulnerability_export",
     } & operations
     assert {
         "dismiss_alert", "snooze_alert", "reopen_alert", "remediate_alert",
