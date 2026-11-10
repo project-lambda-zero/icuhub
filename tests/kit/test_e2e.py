@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from sample_tracker import SampleTracker
+from tests.kit.sample_tracker import SampleTracker
 
 from icuhub.kit.errors import VendorContractError, WebhookRejected
 from icuhub.kit.testing import (
