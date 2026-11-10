@@ -21,13 +21,37 @@ from icuhub.api.problems import ProblemError
 from icuhub.api.rest.deps import CallerDep, TenantSession, parse_uuid
 from icuhub.core.actions import decide
 from icuhub.core.auth_types import Caller
-from icuhub.storage.models import Approval, AuditRecord, Finding, PolicyRule
+from icuhub.core.evidence_export import EvidenceExportError, export_evidence_bundle
+from icuhub.storage.models import Approval, AuditRecord, CorrelationCase, Finding, PolicyRule
 
 __all__ = ["router"]
 
 router = APIRouter(prefix="/v1", tags=["resources"])
 
 _PAGE_MAX = 500
+
+
+@router.get("/cases/{case_id}/evidence-export")
+async def export_case_evidence(
+    case_id: str,
+    caller: Caller = Depends(require_roles("auditor")),
+    session: AsyncSession = TenantSession,
+) -> dict[str, Any]:
+    parsed_id = parse_uuid(case_id)
+    case = (
+        await session.execute(
+            select(CorrelationCase).where(
+                CorrelationCase.id == parsed_id,
+                CorrelationCase.tenant_id == caller.tenant_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if case is None:
+        raise ProblemError(404, "case-not-found", "Case not found", "case evidence is unavailable")
+    try:
+        return await export_evidence_bundle(session, caller, parsed_id)
+    except EvidenceExportError as exc:
+        raise ProblemError(503, "evidence-export-unavailable", "Evidence export unavailable", str(exc)) from exc
 
 
 class FindingOut(BaseModel):

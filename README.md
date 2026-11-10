@@ -5,10 +5,11 @@ Each vendor integration is built once, and every internal platform uses it throu
 governed, audited path. The first consumer is AILA; others include the posture management
 console and other enterprise hubs.
 
-**Status: Phase 1.** Decisions D1-D21 are closed (`docs/adr/`). The shared schema package
+**Status: MVP implementation.** Decisions D1-D21 are closed (`docs/adr/`). The shared schema package
 [`packages/icuhub-schemas`](packages/icuhub-schemas) (OCSF 1.9.0, SARIF 2.1.0, CloudEvents
-envelope, finding fingerprint) is implemented; the service is not built yet. See
-[`docs/ROADMAP.md`](docs/ROADMAP.md) for the phases.
+envelope, finding fingerprint), durable core runtime, REST/MCP surfaces, and initial connectors
+are implemented. The remaining connector and cross-vendor DoD work is tracked in
+[`docs/ROADMAP.md`](docs/ROADMAP.md) and [`docs/IMPLEMENTATION_GAPS.md`](docs/IMPLEMENTATION_GAPS.md).
 
 ## What it does
 
@@ -18,6 +19,7 @@ envelope, finding fingerprint) is implemented; the service is not built yet. See
 | Connection store + credential broker | Tenant-scoped connections; credentials injected server-side, never exposed to consumers |
 | Policy + approvals | Every operation classified `read` / `write` / `destructive`; write actions require approval unless three switches are on |
 | Audit | Every external call recorded with caller, tenant, correlation ID; hash-chained; exportable as OCSF |
+| Evidence export | `GET /v1/cases/{case_id}/evidence-export` returns an Ed25519-signed, tenant-isolated bundle with offline digest, audit-chain, and evidence-reference verification |
 | Normalization | OCSF for events and findings, SARIF 2.1.0 for code findings |
 
 ## Entry points
@@ -55,6 +57,14 @@ python -m ruff check .
 python -m compileall -q src packages tools
 python -m pytest -q packages/icuhub-schemas/tests tests
 python tools/license_check.py
+```
+
+Evidence export uses an Ed25519 PKCS8 private key and its SubjectPublicKeyInfo public key:
+`ICUHUB_EVIDENCE_SIGNING_KEY_FILE` and `ICUHUB_EVIDENCE_VERIFICATION_KEY_FILE`. The private key is
+never included in an export. Verify a bundle without database access:
+
+```bash
+python -m icuhub.core.evidence_export verify bundle.json --public-key evidence-verification.pem
 ```
 
 AI coding agents: start with [`AGENTS.md`](AGENTS.md).

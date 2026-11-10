@@ -43,6 +43,8 @@ class Settings(BaseModel):
     webhook_max_body_bytes: int = Field(default=10485760, ge=1)
     webhook_rotation_window_s: int = Field(default=300, ge=0)
     public_base_url: str | None = None
+    evidence_signing_key_file: Path | None = None
+    evidence_verification_key_file: Path | None = None
 
     kek_provider: Literal["file", "openbao"] = "file"
     kek_file_path: Path | None = None
