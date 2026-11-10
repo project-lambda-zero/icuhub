@@ -21,6 +21,16 @@ only fields documented at the sources below.
   response. Source: https://docs.gitlab.com/api/projects/ (list projects;
   simple listing fields `id`, `name`, `path`, `path_with_namespace`,
   `description`, `web_url`, `last_activity_at`).
+- `merge_request_hook.json`, `note_hook.json`, `vulnerability_hook.json`,
+  `pipeline_hook.json`, `job_hook.json`: project webhook event payloads.
+  Source: https://docs.gitlab.com/user/project/integrations/webhook_events/
+  (`object_kind` values `merge_request`, `note`, `vulnerability`,
+  `pipeline`, `build`). All identifiers, names, and URLs are synthetic.
+  `job_hook.json` carries a placeholder `runner.token` to exercise redaction.
+- `audit_event_hook.json`: audit event delivery shape. [UNVERIFIED] No
+  documented standard webhook schema for `object_kind: audit_event` was
+  confirmed; fields mirror `GET /api/v4/groups/:id/audit_events`
+  (https://docs.gitlab.com/api/audit_events/). All values are synthetic.
 - `user.json`: `GET /api/v4/user` identity probe response. Source:
   https://docs.gitlab.com/api/users/ (current user fields `id`, `username`,
   `name`, `state`, `web_url`). [UNVERIFIED] The probe path itself is pinned

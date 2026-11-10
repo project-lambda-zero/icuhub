@@ -6,6 +6,8 @@ from icuhub.connectors.fortify_fod import FortifyFod
 from icuhub.connectors.fortify_ssc import FortifySsc
 from icuhub.connectors.github import GitHub
 from icuhub.connectors.github_enterprise_server import GitHubEnterpriseServer
+from icuhub.connectors.gitlab import GitLab
+from icuhub.connectors.gitlab_self_managed import GitLabSelfManaged
 from icuhub.connectors.google_threat_intelligence import GoogleThreatIntelligence
 from icuhub.connectors.invicti_enterprise import InvictiEnterprise
 from icuhub.connectors.invicti_standard import InvictiStandard
@@ -24,6 +26,8 @@ CONNECTORS: dict[str, type[Connector]] = {
     FortifyFod.kind: FortifyFod,
     GitHub.kind: GitHub,
     GitHubEnterpriseServer.kind: GitHubEnterpriseServer,
+    GitLab.kind: GitLab,
+    GitLabSelfManaged.kind: GitLabSelfManaged,
     Smtp.kind: Smtp,
     Nessus.kind: Nessus,
     InvictiEnterprise.kind: InvictiEnterprise,

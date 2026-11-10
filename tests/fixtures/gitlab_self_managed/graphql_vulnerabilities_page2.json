@@ -1,0 +1,35 @@
+{
+  "data": {
+    "project": {
+      "vulnerabilities": {
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": null
+        },
+        "nodes": [
+          {
+            "id": "gid://gitlab/Vulnerability/7002",
+            "uuid": "5c1d9e2a-7b3f-4e6a-8d0c-1f2e3a4b5c6d",
+            "state": "CONFIRMED",
+            "severity": "MEDIUM",
+            "reportType": "SAST",
+            "updatedAt": "2026-11-09T10:05:00Z",
+            "identifiers": [
+              {
+                "name": "CWE-787",
+                "externalType": "cwe",
+                "externalId": "787",
+                "url": "https://cwe.mitre.org/data/definitions/787.html"
+              }
+            ],
+            "location": {
+              "file": "src/parser/write.c",
+              "startLine": 42,
+              "endLine": 44
+            }
+          }
+        ]
+      }
+    }
+  }
+}

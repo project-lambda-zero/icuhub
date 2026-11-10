@@ -1,0 +1,12 @@
+{
+  "id": 3301,
+  "iid": 88,
+  "project_id": 42,
+  "status": "manual",
+  "source": "push",
+  "ref": "fix/cve-2026-1234",
+  "sha": "89abcdef0123456789abcdef0123456789abcdef",
+  "web_url": "https://gitlab.example.test/example-group/example-project/-/pipelines/3301",
+  "created_at": "2026-11-09T12:05:00.000Z",
+  "updated_at": "2026-11-09T12:05:00.000Z"
+}

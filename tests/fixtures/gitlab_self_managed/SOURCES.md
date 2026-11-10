@@ -18,5 +18,13 @@ only fields documented at the sources below.
   https://docs.gitlab.com/api/users/ (current user fields `id`, `username`,
   `name`, `state`, `web_url`). [UNVERIFIED] The probe path itself is pinned
   by connector behavior tests, not by a live capture.
+- `merge_request_hook.json`, `pipeline_hook.json`: project webhook event
+  payloads. Source: https://docs.gitlab.com/user/project/integrations/webhook_events/
+  (`object_kind` values `merge_request` and `pipeline`). Hostnames, project
+  identifiers, and names are synthetic.
+- `audit_event_hook.json`: instance audit event delivery shape. [UNVERIFIED]
+  No documented standard webhook schema for `object_kind: audit_event` was
+  confirmed; fields mirror `GET /api/v4/audit_events`
+  (https://docs.gitlab.com/api/audit_events/). All values are synthetic.
 - Merge request fixtures are shared in shape with `tests/fixtures/gitlab/`
   (`GET /api/v4/merge_requests`, https://docs.gitlab.com/api/merge_requests/).

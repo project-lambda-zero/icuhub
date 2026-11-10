@@ -1,0 +1,24 @@
+{
+  "id": 5520,
+  "name": "publish-sarif",
+  "stage": "test",
+  "status": "success",
+  "allow_failure": false,
+  "ref": "fix/cve-2026-1234",
+  "commit": {
+    "id": "1111222233334444555566667777888899990000"
+  },
+  "pipeline": {
+    "id": 4410,
+    "project_id": 77,
+    "status": "success"
+  },
+  "artifacts": [
+    {
+      "file_type": "sarif",
+      "filename": "gl-sast-report.sarif",
+      "size": 1834
+    }
+  ],
+  "web_url": "https://gitlab.selfmanaged.example.test/example-group/self-managed-project/-/jobs/5520"
+}

@@ -1,0 +1,67 @@
+{
+  "object_kind": "pipeline",
+  "object_attributes": {
+    "id": 660001,
+    "iid": 12,
+    "ref": "main",
+    "tag": false,
+    "sha": "0123456789abcdef0123456789abcdef01234567",
+    "before_sha": "fedcba9876543210fedcba9876543210fedcba98",
+    "source": "push",
+    "status": "success",
+    "detailed_status": "passed",
+    "stages": ["build", "test"],
+    "created_at": "2026-11-09 09:40:00 UTC",
+    "finished_at": "2026-11-09 09:44:00 UTC",
+    "duration": 240,
+    "queued_duration": 4,
+    "url": "https://gitlab.com/example-group/example-project/-/pipelines/660001"
+  },
+  "merge_request": null,
+  "user": {
+    "id": 1001,
+    "name": "Example User",
+    "username": "example-user"
+  },
+  "project": {
+    "id": 40123,
+    "name": "example-project",
+    "web_url": "https://gitlab.com/example-group/example-project",
+    "path_with_namespace": "example-group/example-project",
+    "default_branch": "main"
+  },
+  "commit": {
+    "id": "0123456789abcdef0123456789abcdef01234567",
+    "message": "Synthetic commit",
+    "timestamp": "2026-11-09T09:39:00+00:00",
+    "url": "https://gitlab.com/example-group/example-project/-/commit/0123456789abcdef0123456789abcdef01234567",
+    "author": {
+      "name": "Example User",
+      "email": "example-user@example.invalid"
+    }
+  },
+  "builds": [
+    {
+      "id": 550001,
+      "stage": "build",
+      "name": "compile",
+      "status": "success",
+      "created_at": "2026-11-09 09:40:01 UTC",
+      "started_at": "2026-11-09 09:40:30 UTC",
+      "finished_at": "2026-11-09 09:42:00 UTC",
+      "duration": 90.0,
+      "allow_failure": false
+    },
+    {
+      "id": 550002,
+      "stage": "test",
+      "name": "unit",
+      "status": "success",
+      "created_at": "2026-11-09 09:40:01 UTC",
+      "started_at": "2026-11-09 09:42:05 UTC",
+      "finished_at": "2026-11-09 09:44:00 UTC",
+      "duration": 115.0,
+      "allow_failure": false
+    }
+  ]
+}

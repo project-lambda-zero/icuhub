@@ -1,0 +1,19 @@
+{
+  "id": 9101,
+  "name": "publish-sarif",
+  "stage": "test",
+  "status": "failed",
+  "failure_reason": "script_failure",
+  "allow_failure": false,
+  "ref": "fix/cve-2026-1234",
+  "commit": {
+    "id": "89abcdef0123456789abcdef0123456789abcdef"
+  },
+  "pipeline": {
+    "id": 3301,
+    "project_id": 42,
+    "status": "failed"
+  },
+  "artifacts": [],
+  "web_url": "https://gitlab.example.test/example-group/example-project/-/jobs/9101"
+}

@@ -17,6 +17,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Fortify SSC 25.4-aligned discovery, all-visibility reconciliation, activity replay, bounded issue/artifact/webhook reads, offline FPR and Fortify/WebInspect XML imports, custom-tag triage, upload dedupe, webhook registration, and explicitly gated purge actions.
 - Fortify on Demand v3 discovery, complete issue and scan reconciliation, downloaded data-export snapshots, bounded issue/report/FPR reads, governed bulk triage, scan start/import, report creation, and separately gated cancellation and deletion with async ID recovery.
 - GitHub.com and GitHub Enterprise Server editions with 29 streams, 36 reads, SARIF and native security actions, PR governance, App/PAT authentication, hint-only signed webhooks, and edition-specific feature probes.
+- GitLab.com and GitLab Self-Managed editions with GraphQL vulnerability reconciliation, project/group/repository/MR/pipeline/audit streams, bounded file/log/artifact evidence, asynchronous exports, MR governance, and edition-aware Standard Webhook verification.
 - F5 BIG-IP iRule collection and natural-key reads plus bounded, write-gated `create_irule` with exact no-op, conflict rejection, and uncertain-outcome reconciliation.
 - Event and deterministic artifact-replay stream declarations, with hint-only webhooks able to enqueue canonical full or incremental reconciliation.
 - Integration inventory of the existing consumer platforms with an ICUHUB disposition per integration (`docs/INTEGRATION_INVENTORY.md`).

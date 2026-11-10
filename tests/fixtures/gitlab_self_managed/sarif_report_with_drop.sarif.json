@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "example-sast",
+          "version": "1.4.0"
+        }
+      },
+      "results": [
+        {
+          "ruleId": "PARSER-OOB-READ",
+          "level": "error",
+          "message": {
+            "text": "Index may exceed buffer length."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/parser.py"
+                },
+                "region": {
+                  "startLine": 14,
+                  "endLine": 14
+                }
+              }
+            }
+          ]
+        },
+        {
+          "level": "warning",
+          "message": {
+            "text": "Result without a rule identifier."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "src/loader.py"
+                },
+                "region": {
+                  "startLine": 3,
+                  "endLine": 3
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

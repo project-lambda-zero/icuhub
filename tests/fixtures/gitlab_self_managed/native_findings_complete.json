@@ -1,0 +1,15 @@
+{
+  "complete": true,
+  "items": [
+    {
+      "id": 8801,
+      "uuid": "c5b8f4d3-2e7a-4b9c-8d1f-3a4b5c6d7e8f",
+      "state": "detected",
+      "report_type": "sast",
+      "location": {
+        "file": "src/parser.py",
+        "start_line": 14
+      }
+    }
+  ]
+}

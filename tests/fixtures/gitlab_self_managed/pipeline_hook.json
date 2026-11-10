@@ -1,0 +1,46 @@
+{
+  "object_kind": "pipeline",
+  "object_attributes": {
+    "id": 880001,
+    "iid": 21,
+    "ref": "main",
+    "tag": false,
+    "sha": "89abcdef0123456789abcdef0123456789abcdef",
+    "before_sha": "76543210fedcba9876543210fedcba9876543210",
+    "source": "push",
+    "status": "failed",
+    "detailed_status": "failed",
+    "stages": ["build", "deploy"],
+    "created_at": "2026-11-09 06:40:00 UTC",
+    "finished_at": "2026-11-09 06:43:00 UTC",
+    "duration": 180,
+    "queued_duration": 6,
+    "url": "https://gitlab.example.com/example-team/example-service/-/pipelines/880001"
+  },
+  "merge_request": null,
+  "user": {
+    "id": 2001,
+    "name": "Example Operator",
+    "username": "example-operator"
+  },
+  "project": {
+    "id": 7,
+    "name": "example-service",
+    "web_url": "https://gitlab.example.com/example-team/example-service",
+    "path_with_namespace": "example-team/example-service",
+    "default_branch": "main"
+  },
+  "builds": [
+    {
+      "id": 990001,
+      "stage": "build",
+      "name": "package",
+      "status": "failed",
+      "created_at": "2026-11-09 06:40:01 UTC",
+      "started_at": "2026-11-09 06:40:20 UTC",
+      "finished_at": "2026-11-09 06:41:10 UTC",
+      "duration": 50.0,
+      "allow_failure": false
+    }
+  ]
+}

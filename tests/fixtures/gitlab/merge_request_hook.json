@@ -1,0 +1,71 @@
+{
+  "object_kind": "merge_request",
+  "event_type": "merge_request",
+  "user": {
+    "id": 1001,
+    "name": "Example User",
+    "username": "example-user",
+    "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/1001/avatar.png",
+    "email": "example-user@example.invalid"
+  },
+  "project": {
+    "id": 40123,
+    "name": "example-project",
+    "description": "Synthetic project for webhook tests",
+    "web_url": "https://gitlab.com/example-group/example-project",
+    "namespace": "example-group",
+    "path_with_namespace": "example-group/example-project",
+    "default_branch": "main",
+    "ci_config_path": ""
+  },
+  "object_attributes": {
+    "id": 990001,
+    "iid": 7,
+    "target_branch": "main",
+    "source_branch": "feature/example-change",
+    "source_project_id": 40123,
+    "target_project_id": 40123,
+    "author_id": 1001,
+    "title": "Example merge request",
+    "description": "Synthetic merge request body.",
+    "state": "opened",
+    "merge_status": "can_be_merged",
+    "action": "open",
+    "created_at": "2026-11-09 10:00:00 UTC",
+    "updated_at": "2026-11-09 10:05:00 UTC",
+    "url": "https://gitlab.com/example-group/example-project/-/merge_requests/7",
+    "source": {
+      "id": 40123,
+      "name": "example-project",
+      "web_url": "https://gitlab.com/example-group/example-project"
+    },
+    "target": {
+      "id": 40123,
+      "name": "example-project",
+      "web_url": "https://gitlab.com/example-group/example-project"
+    },
+    "last_commit": {
+      "id": "0123456789abcdef0123456789abcdef01234567",
+      "message": "Synthetic commit",
+      "url": "https://gitlab.com/example-group/example-project/-/commit/0123456789abcdef0123456789abcdef01234567"
+    },
+    "work_in_progress": false,
+    "draft": false,
+    "detailed_merge_status": "mergeable"
+  },
+  "labels": [],
+  "changes": {
+    "updated_at": {
+      "previous": "2026-11-09 10:00:00 UTC",
+      "current": "2026-11-09 10:05:00 UTC"
+    }
+  },
+  "repository": {
+    "name": "example-project",
+    "url": "git@gitlab.com:example-group/example-project.git",
+    "homepage": "https://gitlab.com/example-group/example-project"
+  },
+  "synthetic_extension_field": {
+    "note": "Unknown fields must be tolerated and preserved."
+  }
+}

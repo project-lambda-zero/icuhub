@@ -1,0 +1,52 @@
+[
+  {
+    "id": "6a9c2f1e0b7d4a3c8e5f1a2b3c4d5e6f7a8b9c0d",
+    "individual_note": false,
+    "notes": [
+      {
+        "id": 501,
+        "type": "DiffNote",
+        "body": "Parser call site still uses the unpatched signature.\n\n<!-- icuhub-action-key:review-note-0001 -->",
+        "author": {
+          "id": 99,
+          "name": "Integration Bot",
+          "username": "icuhub-integration"
+        },
+        "created_at": "2026-11-09T12:30:00.000Z",
+        "system": false,
+        "resolvable": true,
+        "resolved": false,
+        "position": {
+          "base_sha": "aaaa1111bbbb2222cccc3333dddd4444eeee5555",
+          "start_sha": "aaaa1111bbbb2222cccc3333dddd4444eeee5555",
+          "head_sha": "89abcdef0123456789abcdef0123456789abcdef",
+          "old_path": "src/parser.py",
+          "new_path": "src/parser.py",
+          "position_type": "text",
+          "old_line": null,
+          "new_line": 14
+        }
+      }
+    ]
+  },
+  {
+    "id": "7b0d3a2f1c8e5b4d9f6a2b3c4d5e6f7a8b9c0d1e",
+    "individual_note": true,
+    "notes": [
+      {
+        "id": 502,
+        "type": null,
+        "body": "Please confirm the lockfile change is intended.",
+        "author": {
+          "id": 12,
+          "name": "Example Reviewer",
+          "username": "example.reviewer"
+        },
+        "created_at": "2026-11-09T13:00:00.000Z",
+        "system": false,
+        "resolvable": false,
+        "resolved": false
+      }
+    ]
+  }
+]

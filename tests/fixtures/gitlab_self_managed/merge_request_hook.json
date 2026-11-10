@@ -1,0 +1,45 @@
+{
+  "object_kind": "merge_request",
+  "event_type": "merge_request",
+  "user": {
+    "id": 2001,
+    "name": "Example Operator",
+    "username": "example-operator",
+    "avatar_url": "https://gitlab.example.com/uploads/-/system/user/avatar/2001/avatar.png",
+    "email": "example-operator@example.invalid"
+  },
+  "project": {
+    "id": 7,
+    "name": "example-service",
+    "web_url": "https://gitlab.example.com/example-team/example-service",
+    "namespace": "example-team",
+    "path_with_namespace": "example-team/example-service",
+    "default_branch": "main"
+  },
+  "object_attributes": {
+    "id": 330001,
+    "iid": 3,
+    "target_branch": "main",
+    "source_branch": "fix/example-defect",
+    "source_project_id": 7,
+    "target_project_id": 7,
+    "author_id": 2001,
+    "title": "Example self-managed merge request",
+    "description": "Synthetic merge request body.",
+    "state": "merged",
+    "merge_status": "can_be_merged",
+    "action": "merge",
+    "created_at": "2026-11-09 07:00:00 UTC",
+    "updated_at": "2026-11-09 07:20:00 UTC",
+    "merged_at": "2026-11-09 07:20:00 UTC",
+    "url": "https://gitlab.example.com/example-team/example-service/-/merge_requests/3",
+    "work_in_progress": false,
+    "draft": false
+  },
+  "labels": [],
+  "repository": {
+    "name": "example-service",
+    "url": "git@gitlab.example.com:example-team/example-service.git",
+    "homepage": "https://gitlab.example.com/example-team/example-service"
+  }
+}
