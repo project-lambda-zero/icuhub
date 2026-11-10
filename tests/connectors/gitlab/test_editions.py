@@ -12,6 +12,7 @@ from icuhub.connectors._gitlab.models import SelfManagedGitLabConfig
 from icuhub.connectors.gitlab import GitLab
 from icuhub.connectors.gitlab.models import GitLabComConfig
 from icuhub.connectors.gitlab_self_managed import GitLabSelfManaged
+from icuhub.kit.errors import PermissionDenied
 from icuhub.kit.testing import RouteTransport, conformance_problems, make_connector
 
 API = "/api/v4"
@@ -24,6 +25,7 @@ def _routes(version: Any = None) -> dict[tuple[str, str], Any]:
     routes: dict[tuple[str, str], Any] = {
         ("GET", f"{API}/user"): {"status": 200, "json": {"id": 7}},
         ("GET", f"{API}/license"): {"status": 200, "json": {"plan": "ultimate"}},
+        ("GET", f"{API}/audit_events"): {"status": 200, "json": []},
     }
     if version is not None:
         routes[("GET", f"{API}/version")] = version
@@ -95,3 +97,47 @@ def test_self_managed_check_degrades_when_version_is_malformed() -> None:
     assert report.vendor_version is None
     assert report.status == "degraded"
     assert report.detail["version_error"] == "VendorContractError"
+
+
+def test_self_managed_check_marks_ultimate_capabilities_healthy_only_on_ultimate_plan() -> None:
+    connector = _self_managed(_routes({"status": 200, "json": {"version": "19.1.0"}}))
+    report = asyncio.run(connector.check())
+    assert report.capabilities["FindingSource"].status == "healthy"
+    assert report.capabilities["CodeScanningSink"].status == "healthy"
+
+    routes = _routes({"status": 200, "json": {"version": "19.1.0"}})
+    routes[("GET", f"{API}/license")] = {"status": 200, "json": {"plan": "premium"}}
+    report = asyncio.run(_self_managed(routes).check())
+    assert report.capabilities["FindingSource"].status == "not_evaluated"
+    assert report.capabilities["FindingSource"].reason == "PlanNotUltimate"
+    assert report.capabilities["CodeScanningSink"].status == "not_evaluated"
+
+
+def test_self_managed_check_reports_standard_webhooks_by_version() -> None:
+    old = asyncio.run(_self_managed(_routes({"status": 200, "json": {"version": "18.9.2"}})).check())
+    assert old.detail["standard_webhooks"] == "not_evaluated"
+    new = asyncio.run(_self_managed(_routes({"status": 200, "json": {"version": "19.1.0"}})).check())
+    assert new.detail["standard_webhooks"] == "available"
+
+
+def test_self_managed_check_reports_audit_events_state() -> None:
+    report = asyncio.run(_self_managed(_routes({"status": 200, "json": {"version": "19.1.0"}})).check())
+    assert report.detail["audit_events"] == "available"
+
+    routes = _routes({"status": 200, "json": {"version": "19.1.0"}})
+    routes[("GET", f"{API}/audit_events")] = {"status": 403, "json": {"message": "403 Forbidden"}}
+    report = asyncio.run(_self_managed(routes).check())
+    assert report.detail["audit_events"] == "not_evaluated:PermissionDenied"
+
+
+def test_self_managed_check_reports_configured_trust_root() -> None:
+    connector = _self_managed(_routes({"status": 200, "json": {"version": "19.1.0"}}))
+    report = asyncio.run(connector.check())
+    assert report.detail["ca_bundle"] == "system_trust"
+
+
+def test_require_ultimate_rejects_non_ultimate_namespace_plan() -> None:
+    routes = _routes({"status": 200, "json": {"version": "19.1.0"}})
+    routes[("GET", f"{API}/license")] = {"status": 200, "json": {"plan": "free"}}
+    with pytest.raises(PermissionDenied):
+        asyncio.run(_self_managed(routes).require_ultimate(5))

@@ -17,7 +17,22 @@ from icuhub_schemas import ocsf
 
 __all__ = ["map_issue_to_finding", "map_report_to_findings", "map_scan_result_to_finding"]
 
-_SEVERITY = {"Informational": 1, "Low": 2, "Medium": 3, "High": 4, "Critical": 5, "Unknown": 0}
+_SEVERITY = {
+    "BestPractice": (1, "Informational"),
+    "Information": (1, "Informational"),
+    "Low": (2, "Low"),
+    "Medium": (3, "Medium"),
+    "High": (4, "High"),
+    "Critical": (5, "Critical"),
+}
+_STATUS = {
+    "Present": (1, "New"),
+    "Revived": (1, "New"),
+    "FixedUnconfirmed": (2, "In Progress"),
+    "Ignored": (3, "Suppressed"),
+    "FalsePositive": (3, "Suppressed"),
+    "FixedConfirmed": (4, "Resolved"),
+}
 _PRODUCT = ocsf.Product(name="Invicti", vendor_name="Invicti")
 
 
@@ -72,6 +87,7 @@ def _map(
         "proof": proof.model_dump(),
         "scan_id": scan_id or issue.scan_id,
         "state": issue.state,
+        "raw_severity": issue.severity,
         "tags": issue.tags,
         "fingerprint": issue_fingerprint(issue),
     }
@@ -82,7 +98,8 @@ def _map(
             "snapshot_id": report.snapshot.snapshot_id,
             "parser_version": report.parser_version,
         }
-    resolved = issue.state.lower() in {"fixed", "fixedconfirmed", "fixed_confirmed", "resolved"}
+    severity_id, severity_caption = _SEVERITY.get(issue.severity, (0, "Unknown"))
+    status_id, status_caption = _STATUS.get(issue.state, (0, "Unknown"))
     seen = _ms(issue.last_seen, ctx.received_at)
     safe_detail = proof.attack_detail.content if proof.attack_detail else None
     return ocsf.VulnerabilityFinding(
@@ -99,10 +116,10 @@ def _map(
             first_seen_time=_ms(issue.first_seen, ctx.received_at) if issue.first_seen else None,
             last_seen_time=seen,
         ),
-        severity_id=_SEVERITY.get(issue.severity, 0),
-        severity=issue.severity,
-        status="Resolved" if resolved else "Unknown",
-        status_id=2 if resolved else 0,
+        severity_id=severity_id,
+        severity=severity_caption,
+        status=status_caption,
+        status_id=status_id,
         status_detail=issue.state,
         vulnerabilities=[
             ocsf.Vulnerability(

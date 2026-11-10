@@ -88,7 +88,8 @@ class NessusHistory(BaseModel):
     time_start: int | None = None
     time_end: int | None = None
     status: str | None = None
-    archived: bool | None = None
+    # Tenable "Get scan history" and "Get scan details" both document ``is_archived`` (boolean).
+    archived: bool | None = Field(default=None, validation_alias=AliasChoices("is_archived", "archived"))
     uuid: str | None = None
     targets: Any = None
     incomplete_targets: Any = None
@@ -106,8 +107,8 @@ class NessusHistoryList(BaseModel):
 
     history: list[NessusHistory] = Field(default_factory=list)
     total: int | None = None
-    limit: int
-    offset: int
+    limit: int = 50
+    offset: int = 0
     exclude_rollover: Literal[True] = True
 
 
@@ -161,6 +162,7 @@ class DownloadExportArgs(_ScanRef):
     file_id: str = Field(min_length=1, max_length=256, pattern=_ID_PATTERN)
     export_kind: Literal["file", "token"] = "file"
     created_at: datetime | None = None
+    history_id: str | None = Field(default=None, min_length=1, max_length=128, pattern=_ID_PATTERN)
 
 
 class NessusExport(BaseModel):

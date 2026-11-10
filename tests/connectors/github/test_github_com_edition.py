@@ -145,6 +145,7 @@ def test_forbidden_code_scanning_probe_marks_finding_source_not_evaluated() -> N
         RouteTransport(
             {
                 ("GET", "/rate_limit"): {"status": 200, "json": _load("rate_limit.json")},
+                ("GET", "/user"): {"status": 200, "json": {"id": 1, "login": "synthetic-user"}},
                 ("GET", ALERTS_PATH): {"status": 403, "json": _load("probe_forbidden.json")},
             }
         ),
@@ -238,7 +239,10 @@ def test_merge_apply_is_refused_before_any_write_without_destructive_enabled() -
 
 
 def test_health_reports_and_errors_never_carry_the_personal_access_token() -> None:
-    healthy = _build(RouteTransport({("GET", "/rate_limit"): {"status": 200, "json": _load("rate_limit.json")}}))
+    healthy = _build(RouteTransport({
+        ("GET", "/rate_limit"): {"status": 200, "json": _load("rate_limit.json")},
+        ("GET", "/user"): {"status": 200, "json": {"id": 1, "login": "synthetic-user"}},
+    }))
     report = asyncio.run(healthy.check())
     assert PAT_VALUE not in json.dumps(report.model_dump(mode="json"))
 

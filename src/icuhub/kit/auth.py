@@ -21,7 +21,13 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 from icuhub.kit._urls import require_https
-from icuhub.kit.errors import AuthFailed, ConfigError, TransientVendorError, VendorContractError
+from icuhub.kit.errors import (
+    AuthFailed,
+    ConfigError,
+    RefreshTokenNotPersisted,
+    TransientVendorError,
+    VendorContractError,
+)
 
 __all__ = [
     "AUTH_STRATEGIES",
@@ -234,9 +240,12 @@ class OAuth2RefreshToken:
     """OAuth 2.0 refresh-token grant with rotating refresh tokens.
 
     The access token is cached until 60 seconds before expiry. Concurrent callers
-    share one token fetch. A rotated refresh token returned by the token endpoint
-    replaces the held one in memory; kit secrets are read-only, so rotation is not
-    persisted across process restarts.
+    share one token fetch. Rotating refresh tokens invalidate the previous value, so
+    a rotated refresh token is handed to ``on_rotate`` under the single-flight lock,
+    before the new access token is cached or the held refresh token is replaced. If
+    ``on_rotate`` raises, the fetch fails with ``RefreshTokenNotPersisted`` and the
+    rotated value is discarded; memory-only rotation is never used when a persistence
+    callback is configured. Without ``on_rotate`` the rotated value is held in memory.
     """
 
     token_url: str
@@ -246,6 +255,7 @@ class OAuth2RefreshToken:
     _: KW_ONLY
     transport: httpx2.AsyncBaseTransport | None = field(default=None, repr=False)
     clock: Clock = field(default=utc_now, repr=False)
+    on_rotate: Callable[[str], Awaitable[None]] | None = field(default=None, repr=False, compare=False)
     _bound: TokenHttp | None = field(default=None, init=False, repr=False, compare=False)
     _token: str | None = field(default=None, init=False, repr=False, compare=False)
     _expires_at: datetime | None = field(default=None, init=False, repr=False, compare=False)
@@ -295,10 +305,22 @@ class OAuth2RefreshToken:
             raise VendorContractError("token response has no positive expires_in")
         rotated = body.get("refresh_token")
         if isinstance(rotated, str) and rotated:
-            self.refresh_token = rotated
+            await self._adopt_rotated_locked(rotated)
         self._token = token
         self._expires_at = self.clock() + timedelta(seconds=float(expires_in))
         return token
+
+    async def _adopt_rotated_locked(self, rotated: str) -> None:
+        if self.on_rotate is None:
+            self.refresh_token = rotated
+            return
+        try:
+            await self.on_rotate(rotated)
+        except Exception as exc:
+            raise RefreshTokenNotPersisted(
+                "vendor rotated the refresh token but the rotated value could not be persisted"
+            ) from exc
+        self.refresh_token = rotated
 
 
 @dataclass
@@ -400,7 +422,8 @@ class GitHubAppAuth:
                 return self._token
         return await self._fetch_locked()
 
-    def _app_jwt(self) -> str:
+    def app_jwt(self) -> str:
+        """Sign a short-lived RS256 App JWT. Used for App-scoped calls such as ``GET /app``."""
         now = int(self.clock().timestamp())
         header = {"alg": "RS256", "typ": "JWT"}
         payload = {
@@ -420,7 +443,7 @@ class GitHubAppAuth:
             f"{self.api_base}/app/installations/{self.installation_id}/access_tokens",
             expected=(200, 201),
             headers={
-                "Authorization": f"Bearer {self._app_jwt()}",
+                "Authorization": f"Bearer {self.app_jwt()}",
                 "Accept": "application/vnd.github+json",
             },
         )

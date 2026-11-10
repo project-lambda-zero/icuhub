@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -11,9 +12,10 @@ from pydantic import ValidationError
 from icuhub.connectors.mend_sca.connector import MendSca
 from icuhub.connectors.mend_sca.models import MendSCAConfig
 from icuhub.kit import build_manifest, conformance_problems
+from icuhub.kit import testing as kit_testing
 from icuhub.kit.testing import collect_stream
 
-from .conftest import BASE_CONFIG, ORG_UUID, SECRETS, make_mend
+from .conftest import BASE_CONFIG, ORG_UUID, REFRESH, SECRETS, RouteTransport, make_mend
 
 FIXTURES = Path(__file__).parents[2] / "fixtures" / "mend_sca"
 MANIFEST = Path(__file__).parents[3] / "src" / "icuhub" / "connectors" / "mend_sca" / "manifest.json"
@@ -101,3 +103,106 @@ def test_unknown_stream_is_rejected() -> None:
     connector = make_mend({})
     with pytest.raises(ValueError):
         collect_stream(connector, "no_such_stream")
+
+
+# -- 3.0 session lifecycle -------------------------------------------------
+# Login and refresh shapes: https://api-docs.mend.io/platform/3.0/access-management/login.md and
+# https://api-docs.mend.io/platform/3.0/access-management/refreshaccesstoken.md. The session clock is the kit
+# seam (``kit.testing._fixed_clock``), patched per test so the 1800 s access-token TTL can be crossed.
+
+REFRESH_PATH = "/api/v3.0/login/accessToken"
+LOGIN_PATH = "/api/v3.0/login"
+PROBE_PATH = f"/api/v3.0/orgs/{ORG_UUID}/projects"
+PROBE_ROUTE = ("GET", PROBE_PATH)
+
+
+@pytest.fixture
+def session_clock(monkeypatch: pytest.MonkeyPatch) -> dict[str, datetime]:
+    now = {"t": datetime(2026, 11, 10, 12, 0, tzinfo=UTC)}
+    monkeypatch.setattr(kit_testing, "_fixed_clock", lambda: now["t"])
+    return now
+
+
+def _count(transport: RouteTransport, path: str) -> int:
+    return sum(1 for request in transport.requests if request.url.path == path)
+
+
+def _scripted_refresh(*statuses: int) -> Any:
+    """Access-token route answering the scripted statuses in order; 200 issues a fresh ``jwt-N``."""
+    remaining = list(statuses)
+    issued = {"n": 0}
+
+    def handler(_request: Any) -> dict[str, Any]:
+        status = remaining.pop(0)
+        if status != 200:
+            return {"status": status, "json": {"errorMessage": "Unauthorized"}}
+        issued["n"] += 1
+        return {"json": {"response": {"orgUuid": ORG_UUID, "jwtToken": f"jwt-{issued['n']}", "tokenTTL": 1800}}}
+
+    return handler
+
+
+def test_expired_session_is_renewed_through_refresh_token_exchange(session_clock: dict[str, datetime]) -> None:
+    transport = RouteTransport({PROBE_ROUTE: {"json": {"response": []}}})
+    connector = make_mend(transport)
+
+    async def scenario() -> None:
+        await connector.call("GET", PROBE_PATH)
+        session_clock["t"] += timedelta(seconds=1801)
+        await connector.call("GET", PROBE_PATH)
+
+    asyncio.run(scenario())
+
+    assert _count(transport, LOGIN_PATH) == 1
+    assert _count(transport, REFRESH_PATH) == 2
+    refresh = [request for request in transport.requests if request.url.path == REFRESH_PATH][-1]
+    assert refresh.headers["wss-refresh-token"] == "example-refresh"
+    assert refresh.url.params["orgUuid"] == ORG_UUID
+    assert transport.requests[-1].headers["Authorization"] == "Bearer example-jwt"
+
+
+def test_rejected_refresh_token_falls_back_to_full_login(session_clock: dict[str, datetime]) -> None:
+    transport = RouteTransport(
+        {
+            PROBE_ROUTE: {"json": {"response": []}},
+            REFRESH: _scripted_refresh(200, 401, 200),
+        }
+    )
+    connector = make_mend(transport)
+
+    async def scenario() -> None:
+        await connector.call("GET", PROBE_PATH)
+        session_clock["t"] += timedelta(seconds=1801)
+        await connector.call("GET", PROBE_PATH)
+
+    asyncio.run(scenario())
+
+    assert _count(transport, LOGIN_PATH) == 2
+    assert _count(transport, REFRESH_PATH) == 3
+    assert transport.requests[-1].headers["Authorization"] == "Bearer jwt-2"
+
+
+def test_concurrent_callers_on_expired_session_issue_one_refresh(session_clock: dict[str, datetime]) -> None:
+    transport = RouteTransport({PROBE_ROUTE: {"json": {"response": []}}})
+    connector = make_mend(transport)
+
+    async def scenario() -> None:
+        await connector.call("GET", PROBE_PATH)
+        session_clock["t"] += timedelta(seconds=1801)
+        await asyncio.gather(*(connector.call("GET", PROBE_PATH) for _ in range(8)))
+
+    asyncio.run(scenario())
+
+    assert _count(transport, LOGIN_PATH) == 1
+    assert _count(transport, REFRESH_PATH) == 2
+
+
+def test_full_v3_login_sends_only_email_and_user_key(session_clock: dict[str, datetime]) -> None:
+    transport = RouteTransport({PROBE_ROUTE: {"json": {"response": []}}})
+    connector = make_mend(transport)
+
+    asyncio.run(connector.call("GET", PROBE_PATH))
+
+    login = [request for request in transport.requests if request.url.path == LOGIN_PATH]
+    assert len(login) == 1
+    assert json.loads(login[0].content) == {"email": BASE_CONFIG["email"], "userKey": "test-user-key"}

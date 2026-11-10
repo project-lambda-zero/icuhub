@@ -76,15 +76,22 @@ _UNKNOWN_VERSION = "unknown"
 _MS_PER_DAY = 86_400_000
 
 _SEVERITY = EnumTable(mapping={"Critical": 5, "High": 4, "Medium": 3, "Low": 2}, default=0)
-# OCSF FindingStatusId: 1 New, 3 Suppressed, 4 Resolved, 99 Other. Unrecognized vendor statuses are Other.
+# OCSF FindingStatusId. Mend 3.0 findingStatus (UNREVIEWED, IN_REVIEW, SUPPRESSED, ISSUE_CREATED,
+# REMEDIATED) and status (ACTIVE, IGNORED, LIBRARY_REMOVED, LIBRARY_IN_HOUSE, LIBRARY_WHITELIST) are
+# disjoint enums, so one table keyed on the raw value covers both. The raw value stays in status_detail.
+# Unrecognized values and the LIBRARY_IN_HOUSE / LIBRARY_WHITELIST states (no owner decision yet) map to
+# Unknown rather than an invented terminal state.
 _FINDING_STATUS_IDS: Final[dict[str, FindingStatusId]] = {
+    "UNREVIEWED": 1,
     "ACTIVE": 1,
-    "NEW": 1,
+    "IN_REVIEW": 2,
+    "ISSUE_CREATED": 2,
+    "SUPPRESSED": 3,
     "IGNORED": 3,
-    "RESOLVED": 4,
-    "FIXED": 4,
+    "REMEDIATED": 4,
+    "LIBRARY_REMOVED": 4,
 }
-_FINDING_STATUS_OTHER: Final[FindingStatusId] = 99
+_FINDING_STATUS_UNKNOWN: Final[FindingStatusId] = 0
 # OCSF CheckStatusId: 2 Fail for an open violation; any other vendor status is Other.
 _CHECK_FAIL: Final[CheckStatusId] = 2
 _CHECK_OTHER: Final[CheckStatusId] = 99
@@ -327,7 +334,7 @@ def _severity_label(parent: Mapping[str, Any]) -> str | None:
 def _finding_status_id(status: str | None) -> FindingStatusId | None:
     if status is None:
         return None
-    return _FINDING_STATUS_IDS.get(status.upper(), _FINDING_STATUS_OTHER)
+    return _FINDING_STATUS_IDS.get(status.upper(), _FINDING_STATUS_UNKNOWN)
 
 
 def _violation_check_status_id(status: str | None) -> CheckStatusId:
@@ -380,6 +387,17 @@ def _risk(vulnerability: Mapping[str, Any]) -> dict[str, Any] | None:
     return {"score": _number(risk, "score"), "level": _text(risk, "level")}
 
 
+_REACHABILITY_VALUES: Final[frozenset[str]] = frozenset(
+    {"REACHABLE", "POTENTIALLY_REACHABLE", "UNREACHABLE", "REACHABILITY_UNAVAILABLE"}
+)
+
+
+def _reachability(record: Mapping[str, Any]) -> str | None:
+    """Return the Mend reachability enum value, or None when the vendor value is absent or outside the enum."""
+    value = _text(record, "reachability")
+    return value if value in _REACHABILITY_VALUES else None
+
+
 def _threat_assessment(vulnerability: Mapping[str, Any]) -> dict[str, Any] | None:
     threat = _mapping(vulnerability, "threatAssessment", "vulnerability")
     if not threat:
@@ -390,15 +408,21 @@ def _threat_assessment(vulnerability: Mapping[str, Any]) -> dict[str, Any] | Non
     }
 
 
-def _top_fix(vulnerability: Mapping[str, Any]) -> dict[str, Any] | None:
-    top_fix = _mapping(vulnerability, "topFix", "vulnerability")
+def _top_fix(record: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Return the vendor topFix block from the finding record; ``id`` is an integer on the wire."""
+    top_fix = _mapping(record, "topFix", "finding")
     if not top_fix:
         return None
+    fix_id = top_fix.get("id")
     return {
-        "id": _text(top_fix, "id"),
+        "id": str(fix_id) if isinstance(fix_id, int) and not isinstance(fix_id, bool) else _text(top_fix, "id"),
+        "vulnerability": _text(top_fix, "vulnerability"),
         "type": _text(top_fix, "type"),
         "origin": _text(top_fix, "origin"),
+        "url": _text(top_fix, "url"),
+        "fix_resolution": _text(top_fix, "fixResolution"),
         "message": _text(top_fix, "message"),
+        "date": _text(top_fix, "date"),
     }
 
 
@@ -424,7 +448,7 @@ def _vulnerability_finding(
     detected = _time_ms(info, "detectedAt")
     modified = _time_ms(info, "modifiedAt")
     scores, cvss_detail = _cvss(vulnerability)
-    top_fix = _top_fix(vulnerability)
+    top_fix = _top_fix(raw)
     package = AffectedPackage(
         name=component.display_name,
         version=component.version or _UNKNOWN_VERSION,
@@ -492,6 +516,9 @@ def _vulnerability_finding(
                     "cvss": cvss_detail,
                     "risk": _risk(vulnerability),
                     "threat_assessment": _threat_assessment(vulnerability),
+                    "reachability": _reachability(raw),
+                    "exploitable": _bool(raw, "exploitable"),
+                    "malicious": _bool(raw, "malicious"),
                     "effective_info": _optional_dict(vulnerability, "effectiveInfo", "vulnerability"),
                     "top_fix": top_fix,
                     "finding_status": _text(info, "findingStatus"),

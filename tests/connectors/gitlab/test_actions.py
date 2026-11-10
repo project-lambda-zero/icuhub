@@ -46,7 +46,7 @@ from icuhub.connectors._gitlab.models import (
     MergeMergeRequestArgs,
     PublishSecurityReportArtifactArgs,
 )
-from icuhub.kit import ConfigError, Conflict, NotFound, OutcomeUnknown, StalePlan, VendorContractError
+from icuhub.kit import ActionOutcome, ConfigError, Conflict, NotFound, OutcomeUnknown, StalePlan, VendorContractError
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "gitlab"
 EDITIONS = ["gitlab", "gitlab_self_managed"]
@@ -123,7 +123,7 @@ class FakeGitLab:
     def add_mr(self, iid: int, source: str, target: str, sha: str) -> None:
         self.mrs[iid] = _mr(iid, source, target, sha)
 
-    async def require_ultimate(self) -> None:
+    async def require_ultimate(self, project_id: int) -> None:
         return None
 
     async def get_merge_request(self, project_id: int, iid: int) -> dict[str, Any]:
@@ -792,5 +792,151 @@ def test_publish_already_native_success_performs_no_write(edition: str) -> None:
         outcome = await apply_publish_security_report_artifact(fake, plan)
         assert outcome.status == "succeeded"
         assert writes == []
+
+    asyncio.run(scenario())
+
+
+class _ReadbackOmitsSourceBranch(FakeGitLab):
+    async def get_merge_request(self, project_id: int, iid: int) -> dict[str, Any]:
+        row = await super().get_merge_request(project_id, iid)
+        row.pop("source_branch")
+        return row
+
+
+def test_create_merge_request_readback_omitting_branch_is_unverified() -> None:
+    async def scenario() -> None:
+        fake = _ReadbackOmitsSourceBranch()
+        plan = await plan_create_merge_request(fake, _create_args())
+        outcome = await apply_create_merge_request(fake, plan)
+        assert outcome.status == "unverified"
+        assert outcome.error is not None
+        assert "source_branch" in outcome.error
+
+    asyncio.run(scenario())
+
+
+class _DiscussionVanishesAfterCreate(FakeGitLab):
+    def __init__(self) -> None:
+        super().__init__()
+        self.hidden = False
+
+    async def create_discussion(
+        self, project_id: int, iid: int, body: str, position: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        result = await super().create_discussion(project_id, iid, body, position)
+        self.hidden = True
+        return result
+
+    async def find_discussion(self, project_id: int, iid: int, action_key: str) -> dict[str, Any] | None:
+        if self.hidden:
+            return None
+        return await super().find_discussion(project_id, iid, action_key)
+
+
+def test_create_mr_note_readback_missing_after_create_fails() -> None:
+    async def scenario() -> None:
+        fake = _DiscussionVanishesAfterCreate()
+        fake.mrs[IID] = _mr(IID, "fix/cve-2026-1234", "main", HEAD)
+        args = CreateMrNoteOrDiscussionArgs(
+            project_id=PROJECT_ID,
+            iid=IID,
+            body="Reviewed the parser fix.",
+            action_key="note-review-0002",
+            approved_plan_hash=PLAN_PLACEHOLDER,
+        )
+        plan = await plan_create_mr_note_or_discussion(fake, args)
+        outcome = await apply_create_mr_note_or_discussion(fake, plan)
+        assert outcome.status == "failed"
+        assert outcome.error is not None
+        assert "under this action key" in outcome.error
+
+    asyncio.run(scenario())
+
+
+class _VulnerabilityWriteDropped(FakeGitLab):
+    async def set_vulnerability_state(self, vulnerability_id: int, state: str) -> None:
+        _row(self.vulnerabilities, vulnerability_id, "vulnerability")
+
+
+def test_vulnerability_write_not_applied_fails() -> None:
+    async def scenario() -> None:
+        fake = _VulnerabilityWriteDropped()
+        fake.vulnerabilities[VULNERABILITY_ID] = "detected"
+        args = ChangeVulnerabilityStateArgs(
+            vulnerability_id=VULNERABILITY_ID,
+            expected_state="detected",
+            state="resolved",
+            action_key="vuln-resolve-02",
+            approved_plan_hash=PLAN_PLACEHOLDER,
+        )
+        plan = await plan_change_vulnerability_state(fake, args)
+        outcome = await apply_change_vulnerability_state(fake, plan)
+        assert outcome.status == "failed"
+        assert outcome.error is not None
+        assert "expected resolved" in outcome.error
+
+    asyncio.run(scenario())
+
+
+class _VulnerabilityReadbackOmitsState(FakeGitLab):
+    def __init__(self) -> None:
+        super().__init__()
+        self.hidden = False
+
+    async def set_vulnerability_state(self, vulnerability_id: int, state: str) -> None:
+        await super().set_vulnerability_state(vulnerability_id, state)
+        self.hidden = True
+
+    async def get_vulnerability(self, vulnerability_id: int) -> dict[str, Any]:
+        if self.hidden:
+            return {"id": vulnerability_id}
+        return await super().get_vulnerability(vulnerability_id)
+
+
+def test_vulnerability_readback_omitting_state_is_unverified() -> None:
+    async def scenario() -> None:
+        fake = _VulnerabilityReadbackOmitsState()
+        fake.vulnerabilities[VULNERABILITY_ID] = "detected"
+        args = ChangeVulnerabilityStateArgs(
+            vulnerability_id=VULNERABILITY_ID,
+            expected_state="detected",
+            state="resolved",
+            action_key="vuln-resolve-03",
+            approved_plan_hash=PLAN_PLACEHOLDER,
+        )
+        plan = await plan_change_vulnerability_state(fake, args)
+        outcome = await apply_change_vulnerability_state(fake, plan)
+        assert outcome.status == "unverified"
+        assert outcome.error is not None
+        assert "cannot be established" in outcome.error
+
+    asyncio.run(scenario())
+
+
+def test_vulnerability_reconcile_wrong_state_is_failed_and_omitted_state_is_unverified() -> None:
+    async def scenario() -> None:
+        fake = FakeGitLab()
+        fake.vulnerabilities[VULNERABILITY_ID] = "detected"
+        args = ChangeVulnerabilityStateArgs(
+            vulnerability_id=VULNERABILITY_ID,
+            expected_state="detected",
+            state="resolved",
+            action_key="vuln-resolve-04",
+            approved_plan_hash=PLAN_PLACEHOLDER,
+        )
+        plan = await plan_change_vulnerability_state(fake, args)
+        ambiguous = ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref)
+
+        fake.vulnerabilities[VULNERABILITY_ID] = "dismissed"
+        wrong = await reconcile_change_vulnerability_state(fake, plan, ambiguous)
+        assert wrong.status == "failed"
+        assert wrong.error is not None
+        assert "expected resolved" in wrong.error
+
+        omitting = _VulnerabilityReadbackOmitsState()
+        omitting.vulnerabilities[VULNERABILITY_ID] = "detected"
+        omitting.hidden = True
+        omitted = await reconcile_change_vulnerability_state(omitting, plan, ambiguous)
+        assert omitted.status == "unverified"
 
     asyncio.run(scenario())

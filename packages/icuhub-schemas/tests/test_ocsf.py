@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from icuhub_schemas.ocsf import (
     OCSF_VERSION,
+    Advisory,
     ApiActivity,
     ApplicationSecurityPostureFinding,
     ComplianceFinding,
@@ -160,13 +161,24 @@ def test_from_ocsf_rejects_schema_violation_with_path() -> None:
     assert "$.severity_id" in [issue.path for issue in raised.value.issues]
 
 
-def test_vulnerability_requires_exactly_one_of_cve_or_cwe() -> None:
+def test_vulnerability_requires_exactly_one_of_advisory_cve_or_cwe() -> None:
     with pytest.raises(ValidationError):
         Vulnerability()
     with pytest.raises(ValidationError):
         Vulnerability(cve={"uid": "CVE-2024-0001"}, cwe={"uid": "CWE-79"})
+    with pytest.raises(ValidationError):
+        Vulnerability(advisory={"uid": "nessus-plugin:1"}, cve={"uid": "CVE-2024-0001"})
+    with pytest.raises(ValidationError):
+        Vulnerability(advisory={"uid": "nessus-plugin:1"}, cwe={"uid": "CWE-79"})
 
     assert Vulnerability(cwe={"uid": "CWE-79"}).cwe is not None
+    assert Vulnerability(advisory={"uid": "nessus-plugin:1"}).advisory is not None
+
+
+def test_advisory_requires_uid() -> None:
+    with pytest.raises(ValidationError):
+        Advisory(title="no identifier")
+    assert Advisory(uid="nessus-plugin:1", title="t").uid == "nessus-plugin:1"
 
 
 def test_incident_requires_assignee_or_assignee_group() -> None:

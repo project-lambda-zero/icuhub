@@ -712,18 +712,6 @@
         "title": "Page Size",
         "type": "integer"
       },
-      "previous_webhook_secret": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/SecretRef"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "writeOnly": true
-      },
       "principal_kind": {
         "default": "personal",
         "enum": [
@@ -766,18 +754,6 @@
         "exclusiveMinimum": 0,
         "title": "Timeout S",
         "type": "number"
-      },
-      "webhook_secret": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/SecretRef"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "writeOnly": true
       },
       "webhook_tolerance_s": {
         "default": 300,

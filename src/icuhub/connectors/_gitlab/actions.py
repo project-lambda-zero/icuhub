@@ -205,15 +205,22 @@ async def apply_create_merge_request(connector: Any, plan: ActionPlan) -> Action
     except _REJECTED as exc:
         return ActionOutcome(status="failed", error=str(exc))
     readback = await connector.get_merge_request(project_id, created["iid"])
+    omitted = [field for field in ("id", "source_branch", "target_branch") if readback.get(field) is None]
+    if omitted:
+        return ActionOutcome(
+            status="unverified",
+            vendor_ref=str(created["id"]),
+            error=f"read-back omits {', '.join(omitted)}; the approved merge request cannot be established",
+        )
     if (
         readback["id"] != created["id"]
         or readback["source_branch"] != request["source_branch"]
         or readback["target_branch"] != request["target_branch"]
     ):
         return ActionOutcome(
-            status="outcome_unknown",
+            status="failed",
             vendor_ref=str(created["id"]),
-            error="read-back does not match the created merge request",
+            error="read-back contradicts the created merge request",
         )
     return ActionOutcome(
         status="succeeded",
@@ -291,9 +298,9 @@ async def apply_create_mr_note_or_discussion(connector: Any, plan: ActionPlan) -
     readback = await connector.find_discussion(project_id, iid, action_key)
     if readback is None or readback["id"] != created["id"]:
         return ActionOutcome(
-            status="outcome_unknown",
+            status="failed",
             vendor_ref=str(created["id"]),
-            error="read-back did not find the posted discussion",
+            error="read-back did not find the posted discussion under this action key",
         )
     return ActionOutcome(
         status="succeeded",
@@ -428,7 +435,14 @@ async def apply_change_vulnerability_state(connector: Any, plan: ActionPlan) -> 
         return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
     except _REJECTED as exc:
         return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error=str(exc))
-    readback = str((await connector.get_vulnerability(vulnerability_id))["state"])
+    raw_readback = (await connector.get_vulnerability(vulnerability_id)).get("state")
+    if raw_readback is None:
+        return ActionOutcome(
+            status="unverified",
+            vendor_ref=plan.target_ref,
+            error="read-back omits the vulnerability state; the approved state cannot be established",
+        )
+    readback = str(raw_readback)
     if readback == target:
         return ActionOutcome(
             status="succeeded",
@@ -436,7 +450,7 @@ async def apply_change_vulnerability_state(connector: Any, plan: ActionPlan) -> 
             result={"vulnerability_id": vulnerability_id, "state": readback},
         )
     return ActionOutcome(
-        status="outcome_unknown",
+        status="failed",
         vendor_ref=plan.target_ref,
         error=f"read-back state is {readback}, expected {target}",
     )
@@ -446,7 +460,14 @@ async def reconcile_change_vulnerability_state(connector: Any, plan: ActionPlan,
     request = plan.request
     vulnerability_id = request["vulnerability_id"]
     target = request["state"]
-    state = str((await connector.get_vulnerability(vulnerability_id))["state"])
+    raw_state = (await connector.get_vulnerability(vulnerability_id)).get("state")
+    if raw_state is None:
+        return ActionOutcome(
+            status="unverified",
+            vendor_ref=plan.target_ref,
+            error="read-back omits the vulnerability state; the approved state cannot be established",
+        )
+    state = str(raw_state)
     if state == target:
         return ActionOutcome(
             status="succeeded",
@@ -454,9 +475,9 @@ async def reconcile_change_vulnerability_state(connector: Any, plan: ActionPlan,
             result={"vulnerability_id": vulnerability_id, "state": state},
         )
     return ActionOutcome(
-        status="outcome_unknown",
+        status="failed",
         vendor_ref=plan.target_ref,
-        error=f"state is {state}, expected {target}",
+        error=f"read-back state is {state}, expected {target}",
     )
 
 
@@ -548,7 +569,7 @@ def _publication_result(plan: ActionPlan, job_id: int | None, job_status: str) -
 async def plan_publish_security_report_artifact(
     connector: Any, args: PublishSecurityReportArtifactArgs
 ) -> ActionPlan:
-    await connector.require_ultimate()
+    await connector.require_ultimate(args.project_id)
     await _require_head(connector, args.project_id, args.iid, args.expected_head_sha)
     job = await connector.get_job(args.project_id, args.job_id)
     if not _same_sha(str(job["commit"]["id"]), args.expected_head_sha):
@@ -666,7 +687,7 @@ async def apply_publish_security_report_artifact(connector: Any, plan: ActionPla
     request = plan.request
     project_id = request["project_id"]
     job_id = request["job_id"]
-    await connector.require_ultimate()
+    await connector.require_ultimate(project_id)
     await _require_head(connector, project_id, request["iid"], request["expected_head_sha"])
     job = await connector.get_job(project_id, job_id)
     if str(job["status"]) != plan.preconditions["job_status"]:

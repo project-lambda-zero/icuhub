@@ -17,7 +17,7 @@ from icuhub.connectors.gitlab.connector import GitLab
 from icuhub.connectors.gitlab_self_managed.connector import GitLabSelfManaged
 from icuhub.kit import ConnectorConfig
 from icuhub.kit.cursors import SequenceCursor, TimeIdCursor
-from icuhub.kit.errors import VendorContractError
+from icuhub.kit.errors import ConfigError, VendorContractError
 from icuhub.kit.testing import RouteTransport, collect_stream, make_connector, map_all
 from icuhub.kit.types import Target
 
@@ -158,14 +158,20 @@ ARTIFACT_ROUTES: dict[tuple[str, str], Any] = {
     _get(f"/projects/{PROJECT_ID}/jobs/301/artifacts"): {"status": 200, "content": ARTIFACT_PAYLOAD},
 }
 
-AUDIT_KEYS = ("2026-11-09/a.json", "2026-11-09/b.json", "2026-11-09/c.json")
+# Documented layout: YYYY/MM/DD/<ms-epoch>_<first-event-id>.json. The timestamps are deliberately
+# unequal in digit count, so a lexical sort (1000000 < 1000 < 999) disagrees with the chronological order.
+AUDIT_KEYS = (
+    "2026/11/09/999_9001.json",
+    "2026/11/09/1000_9003.json",
+    "2026/11/09/1000000_9001.json",
+)
 
 
 def _audit_bodies() -> dict[str, bytes]:
     return {
-        "2026-11-09/a.json": (FIXTURES / "audit_objects_array.json").read_bytes(),
-        "2026-11-09/b.json": (FIXTURES / "audit_object_single.json").read_bytes(),
-        "2026-11-09/c.json": (FIXTURES / "audit_objects.jsonl").read_bytes(),
+        AUDIT_KEYS[0]: (FIXTURES / "audit_objects_array.json").read_bytes(),
+        AUDIT_KEYS[1]: (FIXTURES / "audit_object_single.json").read_bytes(),
+        AUDIT_KEYS[2]: (FIXTURES / "audit_object_retry.json").read_bytes(),
     }
 
 
@@ -482,22 +488,66 @@ def test_job_artifacts_cursor_does_not_pass_truncated_job() -> None:
 # Audit stream objects: GitLab.com only, incremental over presigned objects.
 
 
-def test_audit_stream_objects_reads_array_single_and_jsonl_payloads() -> None:
+def test_audit_stream_objects_reads_array_payloads_in_numeric_order() -> None:
     connector = _gitlab_com(_audit_routes(_audit_bodies()))
 
     batches = collect_stream(connector, "audit_stream_objects", _audit_target(), mode="incremental")
 
+    # Lexical key order would read the retry object (1000000_...) first and emit 9001 from it.
     records = _records(batches)
     assert [record["id"] for record in records] == [9001, 9002, 9003, 9004, 9005]
     assert [record["_audit_object_key"] for record in records] == [
-        "2026-11-09/a.json",
-        "2026-11-09/a.json",
-        "2026-11-09/b.json",
-        "2026-11-09/c.json",
-        "2026-11-09/c.json",
+        AUDIT_KEYS[0],
+        AUDIT_KEYS[0],
+        AUDIT_KEYS[1],
+        AUDIT_KEYS[2],
+        AUDIT_KEYS[2],
     ]
     assert batches[-1].complete is True
-    assert batches[-1].checkpoint.seq == "2026-11-09/c.json"
+    assert batches[-1].checkpoint.seq == AUDIT_KEYS[2]
+
+
+def test_audit_stream_objects_rejects_non_array_payload() -> None:
+    connector = _gitlab_com(_audit_routes({AUDIT_KEYS[0]: b'{"id": 1}'}))
+
+    with pytest.raises(VendorContractError, match="not a JSON array"):
+        collect_stream(connector, "audit_stream_objects", _audit_target((AUDIT_KEYS[0],)), mode="incremental")
+
+
+def test_audit_stream_objects_rejects_key_outside_documented_layout() -> None:
+    connector = _gitlab_com(_audit_routes(_audit_bodies()))
+    target = _audit_target((AUDIT_KEYS[0], "2026-11-09/c.json"))
+
+    with pytest.raises(ConfigError, match="does not match"):
+        collect_stream(connector, "audit_stream_objects", target, mode="incremental")
+
+
+def test_audit_retried_batch_under_new_key_maps_to_the_same_event_uid() -> None:
+    connector = _gitlab_com(_audit_routes(_audit_bodies()))
+    original_target = _audit_target((AUDIT_KEYS[0],))
+    retry_target = _audit_target((AUDIT_KEYS[2],))
+
+    original = map_all(
+        connector,
+        "audit_stream_objects",
+        _records(collect_stream(connector, "audit_stream_objects", original_target, mode="incremental")),
+        original_target,
+    )
+    retry = map_all(
+        connector,
+        "audit_stream_objects",
+        _records(collect_stream(connector, "audit_stream_objects", retry_target, mode="incremental")),
+        retry_target,
+    )
+
+    original_uids = {item.uid for item in original}
+    retry_uids = {item.uid for item in retry}
+    # Events 9001 and 9002 were delivered under both keys and must collapse to one evidence uid each.
+    assert original_uids == {"gitlab:audit_stream_object:audit_event:9001", "gitlab:audit_stream_object:audit_event:9002"}
+    assert retry_uids == original_uids | {
+        "gitlab:audit_stream_object:audit_event:9004",
+        "gitlab:audit_stream_object:audit_event:9005",
+    }
 
 
 def test_audit_stream_objects_presigned_urls_never_leak_into_records_or_mapped_evidence() -> None:
@@ -515,33 +565,35 @@ def test_audit_stream_objects_presigned_urls_never_leak_into_records_or_mapped_e
 
 
 def test_audit_stream_objects_gzip_payload_fails_closed() -> None:
-    target = _audit_target(("2026-11-09/c.json",))
-    connector = _gitlab_com(_audit_routes({"2026-11-09/c.json": gzip.compress(b'[{"id": 1}]')}))
+    target = _audit_target((AUDIT_KEYS[2],))
+    connector = _gitlab_com(_audit_routes({AUDIT_KEYS[2]: gzip.compress(b'[{"id": 1}]')}))
 
     with pytest.raises(VendorContractError):
         collect_stream(connector, "audit_stream_objects", target, mode="incremental")
 
 
 def test_audit_stream_objects_non_utf8_payload_fails_closed() -> None:
-    target = _audit_target(("2026-11-09/c.json",))
-    connector = _gitlab_com(_audit_routes({"2026-11-09/c.json": b"\xff\xfe\x00"}))
+    target = _audit_target((AUDIT_KEYS[2],))
+    connector = _gitlab_com(_audit_routes({AUDIT_KEYS[2]: b"\xff\xfe\x00"}))
 
     with pytest.raises(VendorContractError):
         collect_stream(connector, "audit_stream_objects", target, mode="incremental")
 
 
-def test_audit_stream_objects_resume_from_sequence_skips_already_read_keys() -> None:
+def test_audit_stream_objects_resume_skips_keys_up_to_checkpoint_in_numeric_order() -> None:
     bodies = _audit_bodies()
     # Only b and c have routes: requesting a would fail the test with an unknown-route error.
-    connector = _gitlab_com(_audit_routes({key: body for key, body in bodies.items() if key != "2026-11-09/a.json"}))
-    checkpoint = SequenceCursor(seq="2026-11-09/a.json")
+    connector = _gitlab_com(_audit_routes({key: body for key, body in bodies.items() if key != AUDIT_KEYS[0]}))
+    checkpoint = SequenceCursor(seq=AUDIT_KEYS[0])
 
     batches = collect_stream(
         connector, "audit_stream_objects", _audit_target(), checkpoint=checkpoint, mode="incremental"
     )
 
-    assert [record["id"] for record in _records(batches)] == [9003, 9004, 9005]
-    assert batches[-1].checkpoint.seq == "2026-11-09/c.json"
+    # Within a run the seen-id set starts empty, so 9001 and 9002 re-emit from the retry object. Their
+    # evidence uids are event-scoped, so they collapse onto the records already written from object a.
+    assert [record["id"] for record in _records(batches)] == [9003, 9001, 9002, 9004, 9005]
+    assert batches[-1].checkpoint.seq == AUDIT_KEYS[2]
 
 
 def test_audit_stream_objects_bound_on_cloud_connector_only() -> None:

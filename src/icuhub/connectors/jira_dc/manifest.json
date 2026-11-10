@@ -639,6 +639,18 @@
         "title": "Attachment Max Bytes",
         "type": "integer"
       },
+      "audit_collector_ca_bundle": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
       "audit_collector_client_cert": {
         "anyOf": [
           {
@@ -791,32 +803,6 @@
           "jira_10"
         ],
         "title": "Webhook Registration Family",
-        "type": "string"
-      },
-      "webhook_secret": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/SecretRef"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "writeOnly": true
-      },
-      "webhook_shared_header": {
-        "default": "x-icuhub-token",
-        "title": "Webhook Shared Header",
-        "type": "string"
-      },
-      "webhook_verifier_mode": {
-        "default": "hmac",
-        "enum": [
-          "hmac",
-          "shared_token"
-        ],
-        "title": "Webhook Verifier Mode",
         "type": "string"
       }
     },

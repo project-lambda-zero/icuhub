@@ -82,7 +82,10 @@ def test_rql_continuation_preserves_schema_and_fails_on_downgrade() -> None:
             return {"status": 200, "json": {"data": {"items": [{"id": "r1"}], "nextPageToken": "next", "metadata": {"schema": "v2"}}}}
         return {"status": 200, "json": {"data": {"items": []}}}
 
-    connector = cspm_connector({("POST", "/v2/config"): search})
+    connector = cspm_connector({
+        ("POST", "/search/api/v2/config"): search,
+        ("POST", "/search/config/page"): search,
+    })
     with pytest.raises(VendorContractError, match="metadata|schema"):
         asyncio.run(connector.search_config_v2(RqlInput(query="config from cloud.resource")))
 
@@ -104,7 +107,8 @@ def test_config_alert_maps_to_valid_compliance_finding() -> None:
 
 def test_detection_mapper_rejects_unclassified_policy_type() -> None:
     connector = cspm_connector({})
-    assert map_all(connector, "cspm_detection_alerts", [load_fixture("cspm_alert.json")]) == []
+    with pytest.raises(VendorContractError, match="unclassified_policy_type"):
+        map_all(connector, "cspm_detection_alerts", [load_fixture("cspm_alert.json")])
 
 
 def test_cloud_account_maps_to_ocsf_shaped_source_record() -> None:
@@ -119,7 +123,7 @@ def test_cloud_account_maps_to_ocsf_shaped_source_record() -> None:
 
 def test_audit_event_maps_to_api_activity() -> None:
     connector = cspm_connector({})
-    raw = {"id": "event-1", "timestamp": 1794150000000, "account": "123456789012", "user": "auditor", "resourceType": "alert", "resourceId": "alert-100", "action": "UPDATE", "status": "success"}
+    raw = {"id": "event-1", "cloudType": "aws", "timestamp": 1794150000000, "account": "123456789012", "user": "auditor", "resourceType": "alert", "resourceId": "alert-100", "action": "UPDATE", "status": "success"}
     mapped = map_all(connector, "cspm_audit_events", [raw])
     assert len(mapped) == 1
     assert isinstance(mapped[0], ApiActivity)

@@ -1,11 +1,11 @@
 """Connector-level tests for the GitHub Enterprise Server edition.
 
 Covers the GHES config root rules (self-hosted host, ``/api/v3`` REST root), the health check's
-``/meta`` version probe (``X-GitHub-Enterprise-Version``, degraded on missing header or probe
-failure), the repository stream on the self-hosted root, the pull request and code scanning
-mappers, and the HMAC webhook verifier with ``code_scanning_alert`` hint parsing. Requests are
-answered by ``RouteTransport`` from the synthetic fixtures in
-``tests/fixtures/github_enterprise_server/``.
+``/meta`` version probe (``installed_version`` from the body, degraded on a missing field, a
+disagreeing ``X-GitHub-Enterprise-Version`` header, or probe failure), the repository stream on
+the self-hosted root, the pull request and code scanning mappers, and the HMAC webhook verifier
+with ``code_scanning_alert`` hint parsing. Requests are answered by ``RouteTransport`` from the
+synthetic fixtures in ``tests/fixtures/github_enterprise_server/``.
 """
 
 from __future__ import annotations
@@ -55,6 +55,10 @@ def _load(name: str) -> Any:
 
 def _connector(routes: dict[tuple[str, str], Any]) -> GitHubEnterpriseServer:
     config = {"base_url": BASE, "personal_access_token": {"ref": PAT_REF}}
+    routes = {
+        ("GET", "/api/v3/user"): {"status": 200, "json": {"id": 1, "login": "synthetic-user"}},
+        **routes,
+    }
     return cast(GitHubEnterpriseServer, make_connector(GitHubEnterpriseServer, config, RouteTransport(routes), SECRETS))
 
 
@@ -126,7 +130,7 @@ def test_health_records_ghes_version_from_meta_header() -> None:
     assert "ghes_version_error" not in report.detail
 
 
-def test_missing_version_header_degrades_health() -> None:
+def test_installed_version_is_the_version_source_without_header() -> None:
     connector = _connector({
         ("GET", RATE_LIMIT_PATH): {"status": 200, "json": _load("rate_limit.json")},
         ("GET", META_PATH): {"status": 200, "json": _load("ghes_meta.json")},
@@ -134,9 +138,36 @@ def test_missing_version_header_degrades_health() -> None:
 
     report = asyncio.run(connector.check())
 
+    assert report.status == "healthy"
+    assert report.vendor_version == GHES_VERSION
+    assert report.detail["ghes_version"] == GHES_VERSION
+
+
+def test_meta_without_installed_version_degrades_health() -> None:
+    body = {key: value for key, value in _load("ghes_meta.json").items() if key != "installed_version"}
+    connector = _connector({
+        ("GET", RATE_LIMIT_PATH): {"status": 200, "json": _load("rate_limit.json")},
+        ("GET", META_PATH): {"status": 200, "json": body, "headers": {"X-GitHub-Enterprise-Version": GHES_VERSION}},
+    })
+
+    report = asyncio.run(connector.check())
+
     assert report.status == "degraded"
     assert report.vendor_version is None
     assert "ghes_version" not in report.detail
+    assert report.detail["ghes_version_error"] == "VendorContractError"
+
+
+def test_header_disagreeing_with_installed_version_degrades_health() -> None:
+    connector = _connector({
+        ("GET", RATE_LIMIT_PATH): {"status": 200, "json": _load("rate_limit.json")},
+        ("GET", META_PATH): {"status": 200, "json": _load("ghes_meta.json"), "headers": {"X-GitHub-Enterprise-Version": "3.13.0"}},
+    })
+
+    report = asyncio.run(connector.check())
+
+    assert report.status == "degraded"
+    assert report.vendor_version is None
     assert report.detail["ghes_version_error"] == "VendorContractError"
 
 

@@ -23,7 +23,7 @@ from icuhub.connectors.fortify_ssc import FortifySsc
 from icuhub.connectors.fortify_ssc.connector import ActivityRecord, ArtifactRecord
 from icuhub.connectors.fortify_ssc.models import GetIssueArgs
 from icuhub.kit.cursors import SequenceCursor, TimeIdCursor
-from icuhub.kit.errors import ConfigError, VendorContractError
+from icuhub.kit.errors import ConfigError, RateLimited, TransientVendorError, VendorContractError
 from icuhub.kit.testing import RouteTransport, collect_stream, make_connector, map_all
 from icuhub.kit.types import Target
 from icuhub_schemas.ocsf import VulnerabilityFinding, validate_ocsf
@@ -96,21 +96,28 @@ def _issue_item(n: int) -> dict[str, Any]:
 # --- auth and health -------------------------------------------------------
 
 
+def _probe_body(**overrides: Any) -> dict[str, Any]:
+    """A healthy ``POST /userSession/info`` response; ``overrides`` replace individual data fields."""
+    data = {
+        "webappVersion": "25.4.0.0137",
+        "applicationContextPath": "/ssc",
+        "licenseCapabilities": [],
+        "permissions": [],
+    } | overrides
+    return {"data": data}
+
+
 def test_build_auth_sends_fortify_token_header() -> None:
-    seen: list[str] = []
-    params: list[Any] = []
+    seen: list[tuple[str, str]] = []
 
-    def project_versions(request: Any) -> dict[str, Any]:
-        seen.append(request.headers["authorization"])
-        params.append(request.url.params)
-        return {"status": 200, "json": _load("project_versions.json")}
+    def probe(request: Any) -> dict[str, Any]:
+        seen.append((request.method, request.headers["authorization"]))
+        return {"status": 200, "json": _probe_body()}
 
-    connector = _connector({("GET", f"{API}/projectVersions"): project_versions})
+    connector = _connector({("POST", f"{API}/userSession/info"): probe})
     asyncio.run(connector.check())
 
-    assert seen == ["FortifyToken fixture-token"]
-    assert params[0]["limit"] == "1"
-    assert params[0]["withoutCount"] == "true"
+    assert seen == [("POST", "FortifyToken fixture-token")]
 
 
 def test_non_ascii_token_is_rejected_at_build() -> None:
@@ -123,28 +130,72 @@ def test_non_ascii_token_is_rejected_at_build() -> None:
         )
 
 
-def test_check_is_healthy_when_project_versions_answer() -> None:
-    connector = _connector(
-        {("GET", f"{API}/projectVersions"): {"status": 200, "json": _load("project_versions.json")}}
-    )
-    report = asyncio.run(connector.check())
+def _probe_route(body: dict[str, Any] | None = None, status: int = 200) -> dict[tuple[str, str], Any]:
+    return {("POST", f"{API}/userSession/info"): {"status": status, "json": body if body is not None else {}}}
+
+
+def test_check_is_healthy_on_supported_version_and_matching_context_root() -> None:
+    report = asyncio.run(_connector(_probe_route(_probe_body())).check())
 
     assert report.status == "healthy"
+    assert report.vendor_version == "25.4.0.0137"
     assert report.capabilities["FindingSource"].status == "healthy"
 
 
 def test_check_is_failing_on_unauthorized() -> None:
-    connector = _connector({("GET", f"{API}/projectVersions"): {"status": 401, "json": {}}})
-    report = asyncio.run(connector.check())
+    report = asyncio.run(_connector(_probe_route(status=401)).check())
 
     assert report.status == "failing"
+    assert report.capabilities["FindingSource"].reason == "vendor rejected credentials"
 
 
 def test_check_is_degraded_on_forbidden() -> None:
-    connector = _connector({("GET", f"{API}/projectVersions"): {"status": 403, "json": {}}})
+    report = asyncio.run(_connector(_probe_route(status=403)).check())
+
+    assert report.status == "degraded"
+
+
+def test_check_is_degraded_when_rate_limited(monkeypatch: pytest.MonkeyPatch) -> None:
+    connector = _connector(_probe_route(_probe_body()))
+
+    async def rate_limited() -> None:
+        raise RateLimited(retry_after_s=0, message="probe remained rate limited")
+
+    monkeypatch.setattr(connector, "_probe_session", rate_limited)
     report = asyncio.run(connector.check())
 
     assert report.status == "degraded"
+    assert report.capabilities["FindingSource"].reason == "vendor unavailable"
+
+
+def test_check_is_degraded_when_transient_vendor_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    connector = _connector(_probe_route(_probe_body()))
+
+    async def transient() -> None:
+        raise TransientVendorError("probe exhausted its retry budget")
+
+    monkeypatch.setattr(connector, "_probe_session", transient)
+    report = asyncio.run(connector.check())
+
+    assert report.status == "degraded"
+    assert report.capabilities["FindingSource"].reason == "vendor unavailable"
+
+
+@pytest.mark.parametrize("version", ["24.1.0.0001", "not-a-version"])
+def test_check_is_failing_below_minimum_or_non_numeric_version(version: str) -> None:
+    report = asyncio.run(_connector(_probe_route(_probe_body(webappVersion=version))).check())
+
+    assert report.status == "failing"
+    assert report.vendor_version == version
+    assert "24.2 or later is required" in report.capabilities["FindingSource"].reason
+
+
+def test_check_is_failing_when_effective_context_root_differs_from_base_url() -> None:
+    report = asyncio.run(_connector(_probe_route(_probe_body(applicationContextPath="/other"))).check())
+
+    assert report.status == "failing"
+    assert report.vendor_version == "25.4.0.0137"
+    assert "context root" in report.capabilities["FindingSource"].reason
 
 
 # --- issues stream ---------------------------------------------------------
@@ -271,7 +322,8 @@ def test_issue_mapper_emits_ocsf_vulnerability_finding() -> None:
     assert first.cloud.provider == "fortify_ssc"
     assert first.time == int(datetime(2026, 3, 1, 10, 0, tzinfo=UTC).timestamp() * 1000)
     assert first.vulnerabilities == []
-    assert first.status_id is None
+    assert first.status_id == 1
+    assert first.status == "New"
 
     source = _source(first)
     assert source["issue_id"] == 1001
@@ -307,6 +359,18 @@ def test_audit_state_reads_official_fixture_field() -> None:
     first, _ = _findings(connector, _load("issues_page1.json")["data"])
 
     assert _source(first)["audit_state"] == "Unaudited"
+
+
+def test_removed_issue_maps_to_resolved_even_when_suppressed() -> None:
+    connector = _connector({})
+    (finding,) = _findings(
+        connector, [_issue_item(8) | {"removed": True, "suppressed": True, "issueStatus": "Suppressed"}]
+    )
+
+    assert finding.status_id == 4
+    assert finding.status == "Resolved"
+    assert _source(finding)["removed"] is True
+    assert finding.status_detail == "Suppressed"
 
 
 def test_audit_state_reads_top_level_field() -> None:

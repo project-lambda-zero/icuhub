@@ -820,6 +820,7 @@ The kit supplies `time_id` and `snapshot` cursors, complete-snapshot absence clo
 | Operation | Endpoint | Notes |
 |---|---|---|
 | `get_alert` (cspm) | `GET /alert/:id` | Detail and status reconciliation; 5/second, burst 10/second |
+| `search_vulnerabilities` (cspm) | `POST /uve/api/v1/vulnerabilities/search` | Bounded UVE CVE aggregate search with query-token and completeness validation. It is not a complete per-asset vulnerability export and does not close `GAP-PCSPM-03` |
 | `list_alert_filters` (cspm) | not sourced | Alert filter read capability probe |
 | `list_alerts_v2` (cspm) | `POST /v2/alert` | Time windows in Unix milliseconds, filters, sorting, `limit`, `offset`, `pageToken`; 2/second sustained, burst 10/second; use `detailed=true` or `get_alert` for full mapping |
 | `submit_alert_export` (cspm) | `POST /alert/jobs` | Async JSON or CSV export for backfill and status reconciliation; 2/second sustained, burst 10/second |

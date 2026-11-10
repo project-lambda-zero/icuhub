@@ -138,30 +138,41 @@ def _changed_fields(
     return diff
 
 
-def _requested_values_present(
+def _classify_read_back(
     current: dict[str, Any], encoded: dict[str, dict[str, Any]]
-) -> bool:
+) -> tuple[str, str] | None:
+    """Return None when every approved value reads back, else (status, reason).
+
+    A present field whose stored value differs disproves the approved state (failed). A field
+    absent from a readable record is omitted or permission-hidden, so the data cannot establish
+    the state (unverified). A definitive disproof outranks an omission.
+    """
     contents = _field_contents(current)
+    omitted = False
     for field_id, desired_field in encoded.items():
         current_field = contents.get(str(field_id))
         if not isinstance(current_field, dict):
-            return False
+            omitted = True
+            continue
         if _stored_value(current_field) != _desired_value(desired_field):
-            return False
-    return True
+            return "failed", "read-back does not match the requested field values"
+    if omitted:
+        return "unverified", "read-back omitted approved fields; state cannot be established"
+    return None
 
 
 async def _read_back_fields(
     connector: Any, content_id: int, encoded: dict[str, dict[str, Any]]
-) -> str | None:
-    """Return None when the mapped fields read back as requested, else the reason they did not."""
+) -> tuple[str, str] | None:
+    """Return None when the mapped fields read back as requested, else (status, reason).
+
+    A failed read is a reconcilable outcome_unknown.
+    """
     try:
         current = await connector.api.content(content_id)
     except (NotFound, OutcomeUnknown) as exc:
-        return f"read-back failed: {type(exc).__name__}"
-    if not _requested_values_present(current, encoded):
-        return "read-back does not match the requested field values"
-    return None
+        return "outcome_unknown", f"read-back failed: {type(exc).__name__}"
+    return _classify_read_back(current, encoded)
 
 
 async def plan_create(connector: Any, args: CreateFindingOrExceptionInput) -> ActionPlan:
@@ -223,9 +234,12 @@ async def apply_create(connector: Any, plan: ActionPlan) -> ActionOutcome:
         content_id = await connector.api.create_content(int(plan.request["level_id"]), encoded)
     except OutcomeUnknown as exc:
         return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
-    reason = await _read_back_fields(connector, content_id, encoded)
-    if reason is not None:
-        return ActionOutcome(status="outcome_unknown", vendor_ref=str(content_id), error=reason)
+    read_back = await _read_back_fields(connector, content_id, encoded)
+    if read_back is not None:
+        status, reason = read_back
+        return ActionOutcome(
+            status=status, vendor_ref=str(content_id), error=reason, result={"content_id": content_id}
+        )
     return ActionOutcome(
         status="succeeded", vendor_ref=str(content_id), result={"content_id": content_id}
     )
@@ -246,6 +260,15 @@ async def reconcile_create(connector: Any, plan: ActionPlan, outcome: ActionOutc
     if not matches:
         return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref)
     content_id = int(matches[0]["content_id"])
+    encoded = await connector.api.encode_fields(
+        int(plan.request["level_id"]), plan.request["field_values"]
+    )
+    read_back = await _read_back_fields(connector, content_id, encoded)
+    if read_back is not None:
+        status, reason = read_back
+        return ActionOutcome(
+            status=status, vendor_ref=str(content_id), error=reason, result={"content_id": content_id}
+        )
     return ActionOutcome(
         status="succeeded", vendor_ref=str(content_id), result={"content_id": content_id}
     )
@@ -294,9 +317,10 @@ async def apply_update(connector: Any, plan: ActionPlan) -> ActionOutcome:
     except OutcomeUnknown as exc:
         return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
     content_id = int(plan.request["content_id"])
-    reason = await _read_back_fields(connector, content_id, encoded)
-    if reason is not None:
-        return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=reason)
+    read_back = await _read_back_fields(connector, content_id, encoded)
+    if read_back is not None:
+        status, reason = read_back
+        return ActionOutcome(status=status, vendor_ref=plan.target_ref, error=reason)
     return ActionOutcome(
         status="succeeded",
         vendor_ref=plan.target_ref,
@@ -305,13 +329,15 @@ async def apply_update(connector: Any, plan: ActionPlan) -> ActionOutcome:
 
 
 async def reconcile_update(connector: Any, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
-    current = await connector.api.content(int(plan.request["content_id"]))
+    content_id = int(plan.request["content_id"])
     encoded = await connector.api.encode_fields(
         int(plan.request["level_id"]), plan.request["field_values"]
     )
-    if _requested_values_present(current, encoded):
-        return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
-    return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref)
+    read_back = await _read_back_fields(connector, content_id, encoded)
+    if read_back is not None:
+        status, reason = read_back
+        return ActionOutcome(status=status, vendor_ref=plan.target_ref, error=reason)
+    return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
 
 
 def _field_attachments(current: dict[str, Any], field_id: int) -> list[dict[str, Any]]:
@@ -356,16 +382,15 @@ async def _associate_attachment(
     content_id = int(plan.request["content_id"])
     mapping = _mapping(connector, str(plan.request["record_type"]))
     current = await connector.api.content(content_id)
-    existing = _field_attachments(current, field_id)
-    if any(int(item["Id"]) == attachment_id for item in existing):
+    existing_ids = [int(item["Id"]) for item in _field_attachments(current, field_id)]
+    if attachment_id in existing_ids:
         return
-    items = [*existing, {"Id": attachment_id, "Name": str(plan.request["filename"])}]
-    # [UNVERIFIED] Type 11 (attachment) FieldContents write shape. encode_fields has no
-    # attachment branch, so the entry is built here; confirm against the Archer contract.
+    # Type 11 FieldContents value is a list of attachment ids (vendor content example).
+    encoded = {str(field_id): {"Type": 11, "Value": [*existing_ids, attachment_id], "FieldId": field_id}}
     await connector.api.update_content(
         content_id,
         mapping.level_id,
-        {str(field_id): {"Type": 11, "Value": items, "FieldId": field_id}},
+        encoded,
         int(current["Version"]),
     )
 
@@ -378,9 +403,9 @@ async def _verify_attachment(
         current = await connector.api.content(content_id)
         if attachment_id not in {int(item["Id"]) for item in _field_attachments(current, field_id)}:
             return ActionOutcome(
-                status="outcome_unknown",
+                status="failed",
                 vendor_ref=str(attachment_id),
-                error="attachment is not associated with the content after the write",
+                error="attachment is absent from the content after the association write",
                 result={"attachment_id": attachment_id},
             )
         payload = await connector.api.attachment_bytes(attachment_id)
@@ -393,9 +418,9 @@ async def _verify_attachment(
         )
     except BudgetExhausted:
         return ActionOutcome(
-            status="failed",
+            status="unverified",
             vendor_ref=str(attachment_id),
-            error="stored attachment exceeds attachment_max_bytes and cannot be verified",
+            error="stored attachment exceeds attachment_max_bytes; its bytes cannot be verified",
             result={"attachment_id": attachment_id},
         )
     if hashlib.sha256(payload).hexdigest() != str(plan.request["sha256"]):
@@ -419,9 +444,9 @@ async def _associate_and_verify(
         await _associate_attachment(connector, plan, field_id, attachment_id)
     except (Conflict, PermissionDenied) as exc:
         return ActionOutcome(
-            status="failed",
+            status="outcome_unknown",
             vendor_ref=str(attachment_id),
-            error=f"association rejected after upload: {type(exc).__name__}",
+            error=f"association unconfirmed after upload: {type(exc).__name__}",
             result={"attachment_id": attachment_id},
         )
     except (NotFound, OutcomeUnknown) as exc:
@@ -470,6 +495,7 @@ async def plan_upload_attachment(connector: Any, args: UploadAttachmentInput) ->
             "field_name": args.field_name,
             "filename": args.filename,
             "content_base64": args.content_base64,
+            "is_sensitive": bool(args.is_sensitive),
             "sha256": digest,
         },
     )
@@ -485,21 +511,14 @@ async def apply_upload_attachment(connector: Any, plan: ActionPlan) -> ActionOut
     current = await connector.api.content(content_id)
     _check_version(current, plan.preconditions["version"])
     try:
-        uploaded = await connector.api.upload_attachment(
-            content_id,
-            field_id,
+        attachment_id = await connector.api.upload_attachment(
             str(plan.request["filename"]),
             str(plan.request["content_base64"]),
+            bool(plan.request["is_sensitive"]),
         )
     except OutcomeUnknown as exc:
         return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
-    if uploaded.get("Id") is None:
-        return ActionOutcome(
-            status="outcome_unknown",
-            vendor_ref=plan.target_ref,
-            error="Archer upload response has no Id",
-        )
-    return await _associate_and_verify(connector, plan, field_id, int(uploaded["Id"]))
+    return await _associate_and_verify(connector, plan, field_id, attachment_id)
 
 
 async def reconcile_upload_attachment(connector: Any, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
@@ -549,33 +568,114 @@ async def plan_execute_data_feed(connector: Any, args: ExecuteDataFeedInput) -> 
     )
 
 
+_DATA_FEED_STATUS_NAMES: dict[str, int] = {
+    "Running": 1,
+    "Completed": 2,
+    "Faulted": 3,
+    "Warning": 4,
+    "Terminating": 5,
+    "Terminated": 6,
+    "Pending": 7,
+}
+# [UNVERIFIED] Status code enum from the vendor datafeed history docs. Terminating is transitional,
+# so it stays accepted_async rather than a terminal failure.
+_DATA_FEED_CODE_OUTCOMES: dict[int, str] = {
+    1: "accepted_async",
+    2: "succeeded",
+    3: "failed",
+    4: "failed",
+    5: "accepted_async",
+    6: "failed",
+    7: "accepted_async",
+}
+
+
+def _history_id(run: dict[str, Any]) -> int | None:
+    value = run.get("HistoryId", run.get("Id"))
+    return int(value) if value is not None else None
+
+
+def _history_ids(runs: list[dict[str, Any]]) -> set[int]:
+    return {history_id for run in runs if (history_id := _history_id(run)) is not None}
+
+
+def _data_feed_run_outcome(run: dict[str, Any]) -> str | None:
+    raw = run.get("Status")
+    if raw is None:
+        raw = run.get("StatusName")
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        code: int | None = raw
+    else:
+        code = _DATA_FEED_STATUS_NAMES.get(str(raw))
+    return _DATA_FEED_CODE_OUTCOMES.get(code) if code is not None else None
+
+
 async def apply_execute_data_feed(connector: Any, plan: ActionPlan) -> ActionOutcome:
     _require_write(connector)
+    guid = str(plan.request["data_feed_guid"])
+    # Baseline run ids taken before the send so reconcile binds only to runs this send creates.
+    try:
+        baseline = await connector.api.data_feed_history(guid)
+    except OutcomeUnknown as exc:
+        return ActionOutcome(
+            status="failed",
+            vendor_ref=plan.target_ref,
+            error=f"baseline history read failed; data feed not executed: {exc}",
+        )
+    result: dict[str, Any] = {"pre_send_history_ids": sorted(_history_ids(baseline))}
     try:
         response = await connector.api.execute_data_feed(
-            str(plan.request["data_feed_guid"]),
+            guid,
             bool(plan.request["include_reference_feeds"]),
         )
     except OutcomeUnknown as exc:
-        return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
+        return ActionOutcome(
+            status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc), result=result
+        )
     return ActionOutcome(
-        status="accepted_async", vendor_ref=plan.target_ref, result={"response": response}
+        status="accepted_async",
+        vendor_ref=plan.target_ref,
+        result={**result, "response": response},
     )
 
 
 async def reconcile_execute_data_feed(connector: Any, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
-    runs = await connector.api.data_feed_history()
     guid = str(plan.request["data_feed_guid"])
-    for run in runs:
-        # [UNVERIFIED] Data-feed history key and terminal status spelling vary by release.
-        run_guid = run.get("DataFeedGuid") or run.get("Guid") or run.get("data_feed_guid")
-        if str(run_guid) != guid:
-            continue
-        status = str(run.get("Status") or run.get("StatusName") or run.get("status") or "").lower()
-        if status in {"completed", "success", "succeeded"}:
-            return ActionOutcome(status="succeeded", vendor_ref=guid, result={"run": run})
-        return ActionOutcome(status="accepted_async", vendor_ref=guid, result={"run": run})
-    return ActionOutcome(status="outcome_unknown", vendor_ref=guid)
+    pre_send = outcome.result.get("pre_send_history_ids")
+    if pre_send is None:
+        return ActionOutcome(
+            status="outcome_unknown", vendor_ref=guid, error="no pre-send history baseline recorded"
+        )
+    try:
+        runs = await connector.api.data_feed_history(guid)
+        baseline = set(pre_send)
+        new_runs = [
+            run
+            for run in runs
+            if (history_id := _history_id(run)) is not None and history_id not in baseline
+        ]
+        if not new_runs:
+            return ActionOutcome(
+                status="outcome_unknown", vendor_ref=guid, error="no run appeared after the send"
+            )
+        run = max(new_runs, key=lambda item: _history_id(item) or -1)
+        run_id = _history_id(run)
+        if run_id is None:  # Defensive: new_runs already excludes this case.
+            return ActionOutcome(status="outcome_unknown", vendor_ref=guid, error="run has no history Id")
+        status = _data_feed_run_outcome(run)
+        if status is None:
+            return ActionOutcome(
+                status="outcome_unknown",
+                vendor_ref=guid,
+                error="unrecognized data-feed run status",
+                result={"run": run},
+            )
+        result: dict[str, Any] = {"run": run}
+        if status not in {"succeeded", "accepted_async"}:
+            result["messages"] = await connector.api.data_feed_history_messages(run_id)
+    except OutcomeUnknown as exc:
+        return ActionOutcome(status="outcome_unknown", vendor_ref=guid, error=str(exc))
+    return ActionOutcome(status=status, vendor_ref=guid, result=result)
 
 
 async def plan_delete(connector: Any, args: DeleteContentInput) -> ActionPlan:
@@ -614,7 +714,11 @@ async def apply_delete(connector: Any, plan: ActionPlan) -> ActionOutcome:
 
 
 async def reconcile_delete(connector: Any, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
-    """Succeed only when the content is proven absent (a NotFound read after the delete)."""
+    """Succeed only when the content is proven absent (a NotFound read after the delete).
+
+    A readable record after the delete definitively disproves the approved state (failed). A
+    failed read leaves the state reconcilable (outcome_unknown).
+    """
     try:
         await connector.api.content(int(plan.request["content_id"]))
     except NotFound:
@@ -622,7 +726,7 @@ async def reconcile_delete(connector: Any, plan: ActionPlan, outcome: ActionOutc
     except OutcomeUnknown as exc:
         return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
     return ActionOutcome(
-        status="outcome_unknown",
+        status="failed",
         vendor_ref=plan.target_ref,
         error="content is still present after delete",
     )

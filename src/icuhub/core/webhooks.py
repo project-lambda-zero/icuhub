@@ -216,6 +216,7 @@ async def run_webhook_job(payload: dict[str, Any], lease: Any = None) -> dict[st
         try:
             grouped: dict[str, list[dict[str, Any]]] = {}
             reconciliations = 0
+            unbound = 0
             for spec in specs:
                 for record in spec.fn(connector, delivery):
                     if record.reconcile is not None:
@@ -230,6 +231,11 @@ async def run_webhook_job(payload: dict[str, Any], lease: Any = None) -> dict[st
                                 )
                             ).scalar_one_or_none()
                             target_id = target.id if target is not None else None
+                        commit_sha = record.raw.get("commit_sha")
+                        if commit_sha is not None and target_id is None:
+                            # A commit SHA belongs to one repository; with no known target it is not reconciled.
+                            unbound += 1
+                            continue
                         try:
                             await trigger_sync(
                                 session,
@@ -238,6 +244,7 @@ async def run_webhook_job(payload: dict[str, Any], lease: Any = None) -> dict[st
                                 record.stream,
                                 target_id=target_id,
                                 mode=record.reconcile,
+                                commit_sha=commit_sha,
                             )
                         except DuplicateActiveJob:
                             # A repeated delivery reuses the active sync; the delivery still processes.
@@ -259,7 +266,12 @@ async def run_webhook_job(payload: dict[str, Any], lease: Any = None) -> dict[st
                     totals[key] += result[key]
             row.status = "processed"
             row.processed_at = _now()
-            return {"status": "processed", **totals, "reconciliations": reconciliations}
+            return {
+                "status": "processed",
+                **totals,
+                "reconciliations": reconciliations,
+                "unbound_reconciliations": unbound,
+            }
         except Exception as exc:  # noqa: BLE001 - failure class is recorded at this boundary
             row.status = "failed"
             row.error = type(exc).__name__

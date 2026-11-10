@@ -26,7 +26,9 @@ __all__ = [
     "Location",
     "Message",
     "PhysicalLocation",
+    "PropertyBag",
     "Region",
+    "ReportingConfiguration",
     "ReportingDescriptor",
     "Result",
     "Run",
@@ -86,12 +88,28 @@ class Location(_Model):
     message: Message | None = None
 
 
+class PropertyBag(_Model):
+    """SARIF property bag: an open map of string-keyed values (``security-severity`` lives here)."""
+
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
+
+
 class Result(_Model):
     rule_id: str | None = Field(default=None, alias="ruleId")
+    rule_index: int | None = Field(default=None, alias="ruleIndex", ge=-1)
     level: ResultLevel | None = None
+    rank: float | None = Field(default=None, ge=-1, le=100)
     message: Message
     locations: list[Location] | None = None
     partial_fingerprints: dict[str, str] | None = Field(default=None, alias="partialFingerprints")
+    properties: PropertyBag | None = None
+
+
+class ReportingConfiguration(_Model):
+    level: ResultLevel | None = None
+    rank: float | None = Field(default=None, ge=-1, le=100)
+    enabled: bool | None = None
+    properties: PropertyBag | None = None
 
 
 class ReportingDescriptor(_Model):
@@ -100,6 +118,8 @@ class ReportingDescriptor(_Model):
     short_description: Message | None = Field(default=None, alias="shortDescription")
     full_description: Message | None = Field(default=None, alias="fullDescription")
     help_uri: str | None = Field(default=None, alias="helpUri")
+    default_configuration: ReportingConfiguration | None = Field(default=None, alias="defaultConfiguration")
+    properties: PropertyBag | None = None
 
 
 class ToolComponent(_Model):

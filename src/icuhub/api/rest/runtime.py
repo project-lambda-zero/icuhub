@@ -119,7 +119,7 @@ class SyncBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     stream: str
-    mode: Literal["incremental", "full"] = "incremental"
+    mode: Literal["incremental", "full", "targeted"] = "incremental"
     target_id: str | None = None
 
 
@@ -135,14 +135,17 @@ async def sync_now(
     cls = services.runtime._class(row)
     if body.stream not in cls.streams():
         raise ProblemError(404, "not-found", "Not found", f"{row.kind} has no stream {body.stream!r}")
-    job_id = await trigger_sync(
-        session,
-        caller,
-        row.id,
-        body.stream,
-        mode=body.mode,
-        target_id=parse_uuid(body.target_id) if body.target_id else None,
-    )
+    try:
+        job_id = await trigger_sync(
+            session,
+            caller,
+            row.id,
+            body.stream,
+            mode=body.mode,
+            target_id=parse_uuid(body.target_id) if body.target_id else None,
+        )
+    except ValueError as exc:
+        raise ProblemError(422, "validation", "Validation failed", str(exc)) from exc
     return {"job_id": str(job_id), "state": "queued"}
 
 

@@ -14,7 +14,7 @@ from icuhub.kit.errors import ConfigError, PermissionDenied, StalePlan
 from icuhub.kit.testing import ReadOnlyGuard
 from icuhub.kit.types import ActionOutcome, ActionPlan
 
-from .conftest import LOGIN, ORG_UUID, RouteTransport, make_mend
+from .conftest import LOGIN, ORG_UUID, REFRESH, RouteTransport, make_mend
 
 PROJECT_TOKEN = "project-token"
 ALERT_UUID = "alert-uuid"
@@ -58,14 +58,14 @@ def _reconcile(connector: Any, name: str, plan: ActionPlan, outcome: ActionOutco
 def _read_only_mend(routes: dict[tuple[str, str], Any]) -> tuple[Any, Any]:
     """Build a connector whose transport permits no write except the login POST."""
     transport = RouteTransport(routes)
-    return make_mend(ReadOnlyGuard(transport, allowed_post_paths=(LOGIN[1],))), transport
+    return make_mend(ReadOnlyGuard(transport, allowed_post_paths=(LOGIN[1], REFRESH[1]))), transport
 
 
 def _writes(transport: Any) -> list[Any]:
     return [
         request
         for request in transport.requests
-        if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path != LOGIN[1]
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"} and request.url.path not in {LOGIN[1], REFRESH[1]}
     ]
 
 
@@ -225,6 +225,50 @@ def test_triage_write_5xx_is_attempted_once_and_reported_unknown(kind: str) -> N
 
     assert outcome.status == "outcome_unknown"
     assert state["status"] == ("ACTIVE" if kind == "alert" else "UNREVIEWED")
+    assert len(_writes(transport)) == 1
+
+
+@pytest.mark.parametrize("kind", ["alert", "finding"])
+def test_triage_readback_showing_unapproved_status_is_failed(kind: str) -> None:
+    name, fields, routes, state = _triage_case(kind)
+    transport = RouteTransport(routes)
+    connector = make_mend(transport, config_overrides={"write_enabled": True})
+    plan = _plan(connector, name, **fields)
+    outcome = _apply(connector, name, plan)
+    assert outcome.status == "succeeded"
+
+    # Vendor reverted to a known wrong state before the readback: the readback definitively disproves the write.
+    state["status"] = "ACTIVE" if kind == "alert" else "UNREVIEWED"
+    reconciled = _reconcile(connector, name, plan, outcome)
+
+    assert reconciled.status == "failed"
+    assert reconciled.error is not None
+    assert len(_writes(transport)) == 1
+
+
+@pytest.mark.parametrize("kind", ["alert", "finding"])
+def test_triage_readback_missing_item_is_unverified(kind: str) -> None:
+    name, fields, routes, _ = _triage_case(kind)
+    path, key = (ALERT_LIST_PATH, "retVal") if kind == "alert" else (ROOT_LIST_PATH, "response")
+    present = {"value": True}
+    listing = routes[("GET", path)]
+
+    def readback(request: Any) -> dict[str, Any]:
+        if present["value"]:
+            return listing(request)
+        return {"json": {key: [], "additionalData": {"isLastPage": True}}}
+
+    routes[("GET", path)] = readback
+    transport = RouteTransport(routes)
+    connector = make_mend(transport, config_overrides={"write_enabled": True})
+    plan = _plan(connector, name, **fields)
+    outcome = _apply(connector, name, plan)
+    assert outcome.status == "succeeded"
+
+    present["value"] = False
+    reconciled = _reconcile(connector, name, plan, outcome)
+
+    assert reconciled.status == "unverified"
     assert len(_writes(transport)) == 1
 
 

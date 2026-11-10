@@ -52,16 +52,25 @@ def file_sha256(data: bytes) -> str:
 
 def iter_nessus(
     data: bytes, *, limits: NessusImportLimits | None = None
-) -> Iterator[tuple[NessusHost, NessusItem]]:
-    """Yield one ``(host, item)`` pair per ``ReportItem`` in document order."""
+) -> Iterator[tuple[str, NessusHost, NessusItem]]:
+    """Yield one ``(report_name, host, item)`` triple per ``ReportItem`` in document order.
+
+    A Nessus export holds exactly one ``Report``; its ``name`` scopes finding identity for uploads.
+    """
     bounds = limits or NessusImportLimits()
     root = parse_xml(data, max_bytes=bounds.max_bytes)
     if local(root.tag) != ROOT:
         raise VendorContractError(f"unsupported Nessus XML root {local(root.tag)!r}; expected {ROOT!r}")
     _check_depth(root, bounds.max_depth)
+    reports = _children(root, _REPORT)
+    if len(reports) > 1:
+        raise VendorContractError(f"Nessus export must contain one Report, found {len(reports)}")
     host_count = 0
     item_count = 0
-    for report in _children(root, _REPORT):
+    for report in reports:
+        report_name = report.get("name")
+        if not report_name:
+            raise VendorContractError("Nessus Report has no name attribute")
         for host_element in _children(report, _REPORT_HOST):
             host_count += 1
             if host_count > bounds.max_hosts:
@@ -71,7 +80,7 @@ def iter_nessus(
                 item_count += 1
                 if item_count > bounds.max_items:
                     raise BudgetExhausted(f"Nessus report exceeds {bounds.max_items} items")
-                yield host, _item(item_element, item_count - 1, bounds)
+                yield report_name, host, _item(item_element, item_count - 1, bounds)
 
 
 def _check_depth(root: Element, max_depth: int) -> None:

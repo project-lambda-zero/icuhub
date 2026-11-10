@@ -63,10 +63,14 @@ def parse_publish_sarif(
     max_runs: int,
     max_results_per_run: int,
 ) -> VendorResult:
-    """Parse and validate a SARIF artifact, retaining results that carry a ``ruleId``.
+    """Parse and validate a SARIF artifact, retaining results that carry a ``ruleId`` and a ``physicalLocation``.
 
-    Results without a ``ruleId`` cannot be published as findings and are reported in ``dropped``;
-    the result is then ``partial``.
+    Results without a ``ruleId`` or without a ``physicalLocation`` cannot be published as located findings and are
+    reported in ``dropped``; the result is then ``partial``.
+
+    Over-limit artifacts are refused rather than truncated. GitLab truncates runs and results beyond its caps and
+    emits a warning; this connector fails closed on the same breach so a publication never silently covers a subset
+    of the scan.
 
     Raises:
         VendorContractError: the artifact exceeds ``max_bytes``, or has more than ``max_runs`` runs
@@ -99,6 +103,14 @@ def parse_publish_sarif(
                         "uri": _first_uri(result),
                     }
                 )
+            elif not _has_physical_location(result):
+                dropped.append(
+                    {
+                        "reason": "missing physicalLocation",
+                        "message": result.message.text,
+                        "uri": None,
+                    }
+                )
             else:
                 kept.append(result)
         runs.append(run.model_copy(update={"results": kept}))
@@ -108,6 +120,10 @@ def parse_publish_sarif(
         coverage="partial" if dropped else "complete",
         dropped=dropped,
     )
+
+
+def _has_physical_location(result: Any) -> bool:
+    return any(location.physical_location is not None for location in result.locations or [])
 
 
 def _first_uri(result: Any) -> str | None:

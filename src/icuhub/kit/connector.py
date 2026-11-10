@@ -73,7 +73,7 @@ KNOWN_CAPABILITIES: frozenset[str] = frozenset(
 
 _SPEC_ATTR = "_ICUHUB_SPEC"
 _REGISTRY_ATTR = "_icuhub_registry"
-_MODES: frozenset[str] = frozenset({"incremental", "full", "event", "replay"})
+_MODES: frozenset[str] = frozenset({"incremental", "full", "event", "replay", "targeted"})
 _STABILITIES: frozenset[str] = frozenset({"experimental", "beta", "stable"})
 _EGRESS: frozenset[str] = frozenset({"internal", "vendor_tenant", "third_party_shared"})
 _ACTION_CLASSES: frozenset[str] = frozenset({"write", "destructive"})
@@ -84,6 +84,9 @@ class SecretResolver(Protocol):
     """Resolves an opaque secret reference to raw bytes (implemented by the credential broker)."""
 
     async def resolve(self, ref: SecretRef) -> bytes: ...
+
+    async def rotate(self, ref: SecretRef, secret: bytes) -> None:
+        """Replace the value stored behind ``ref``. Read-only resolvers raise ``ConfigError``."""
 
 
 class SecretRedactor:
@@ -114,6 +117,10 @@ class _RegisteringResolver:
         value = await self._inner.resolve(ref)
         self._redactor.add(value)
         return value
+
+    async def rotate(self, ref: SecretRef, secret: bytes) -> None:
+        await self._inner.rotate(ref, secret)
+        self._redactor.add(secret)
 
 
 class RedactingLoggerAdapter(logging.LoggerAdapter):  # type: ignore[type-arg]
@@ -454,7 +461,7 @@ def _check_stream(cls: type, spec: StreamSpec) -> None:
     _check_capability(cls, owner, spec.capability)
     _check_model(cls, owner + " cursor", spec.cursor)
     if not spec.modes or not set(spec.modes) <= _MODES:
-        raise _fail(cls, f"{owner} modes must be a non-empty subset of incremental/full/event/replay")
+        raise _fail(cls, f"{owner} modes must be a non-empty subset of incremental/full/event/replay/targeted")
     if spec.stability not in _STABILITIES:
         raise _fail(cls, f"{owner} stability {spec.stability!r} is not valid")
     if not inspect.isasyncgenfunction(spec.fn):

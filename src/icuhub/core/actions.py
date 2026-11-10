@@ -8,26 +8,30 @@ stored approved plan and persisted outcome, never by a blind retry (FR-POL-09, P
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
+import logging
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from icuhub.core.audit import append as audit_append
 from icuhub.core.auth_types import Caller
 from icuhub.core.policy import PolicyInput, effective_outcome, evaluate
-from icuhub.core.queue import enqueue
+from icuhub.core.queue import Lease, LeaseLost, enqueue, heartbeat
 from icuhub.core.services import get_services
 from icuhub.kit.connector import ActionSpec, Connector
 from icuhub.kit.errors import Conflict, NotFound, PermissionDenied, StalePlan
 from icuhub.kit.types import ActionOutcome, ActionPlan
 from icuhub.storage.db import session_scope
 from icuhub.storage.models import (
+    ACTION_ACTIVE_STATES,
     ActionPlanRow,
     ActionRequest,
     Approval,
@@ -38,6 +42,8 @@ from icuhub.storage.models import (
     Tenant,
 )
 from icuhub_schemas.events import CloudEvent
+
+_LOG = logging.getLogger("icuhub.actions")
 
 __all__ = [
     "JOB_HANDLERS",
@@ -159,21 +165,39 @@ class _ReadOnlyHttp:
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
 
-    async def request(self, method: str, url: str, **kwargs: Any) -> Any:
+    def _guard(self, method: str, url: str) -> None:
         verb = method.upper()
         if verb in ("GET", "HEAD", "OPTIONS"):
-            return await self._inner.request(method, url, **kwargs)
+            return
         path = urlsplit(str(url)).path
         if verb == "POST" and any(
             path == allowed or (allowed.endswith("/") and path.startswith(allowed)) for allowed in self._allowed
         ):
-            return await self._inner.request(method, url, **kwargs)
+            return
         raise AssertionError(f"plan must not send vendor writes: {verb} {url}")
 
-    def __getattribute__(self, name: str) -> Any:
-        if name in ("request", "_inner", "_allowed", "__dict__", "__class__"):
-            return object.__getattribute__(self, name)
-        return getattr(object.__getattribute__(self, "_inner"), name)
+    async def request(self, method: str, path_or_url: str, **kwargs: Any) -> Any:
+        self._guard(method, path_or_url)
+        return await self._inner.request(method, path_or_url, **kwargs)
+
+    async def stream_download(self, method: str, url: str, *, max_bytes: int, headers: Any = None) -> Any:
+        self._guard(method, url)
+        return await self._inner.stream_download(method, url, max_bytes=max_bytes, headers=headers)
+
+    async def stream_download_result(
+        self,
+        method: str,
+        url: str,
+        *,
+        max_bytes: int,
+        params: Any = None,
+        headers: Any = None,
+        expected: Any = (200,),
+    ) -> Any:
+        self._guard(method, url)
+        return await self._inner.stream_download_result(
+            method, url, max_bytes=max_bytes, params=params, headers=headers, expected=expected
+        )
 
 
 async def _transition(
@@ -220,7 +244,7 @@ async def _transition(
             data={"action": request.action, "connection_id": str(request.connection_id), "state": state},
         ),
     )
-    if state in ("succeeded", "failed", "no_op", "stale_plan"):
+    if state in ("succeeded", "failed", "no_op", "stale_plan", "unverified"):
         from icuhub.core.evidence_export import _action, _outcome_digest  # noqa: PLC0415
 
         digest = _outcome_digest(_action(request))
@@ -236,7 +260,7 @@ async def _transition(
         )
     if state == "succeeded":
         await _schedule_post_action_assessment(session, request)
-    if state in ("succeeded", "failed", "no_op", "stale_plan", "outcome_unknown"):
+    if state in ("succeeded", "failed", "no_op", "stale_plan", "outcome_unknown", "unverified"):
         from icuhub.core.tickets import on_action_terminal  # noqa: PLC0415 - tickets builds actions
 
         await on_action_terminal(session, request)
@@ -269,6 +293,120 @@ def _store_plan(request: ActionRequest, plan: ActionPlan) -> ActionPlanRow:
     )
 
 
+async def _replay_existing(
+    session: AsyncSession,
+    caller: Caller,
+    *,
+    action: str,
+    args_digest: str,
+    idempotency_key: str,
+    connection_id: uuid.UUID,
+    natural_key: str | None,
+) -> ActionRequest | None:
+    """Return the request an equivalent submission already admitted, or None.
+
+    A matching idempotency key replays for the same caller. An active natural key on the same
+    connection and action replays for any caller. Different arguments under either identity are
+    refused with ``Conflict``.
+    """
+    by_key = (
+        await session.execute(
+            select(ActionRequest).where(
+                ActionRequest.tenant_id == caller.tenant_id,
+                ActionRequest.caller_id == caller.id,
+                ActionRequest.idempotency_key == idempotency_key,
+            )
+        )
+    ).scalar_one_or_none()
+    if by_key is not None:
+        if by_key.args_digest != args_digest or by_key.action != action:
+            raise Conflict("idempotency key was already used with different arguments")
+        return by_key
+    if natural_key is None:
+        return None
+    by_natural = (
+        await session.execute(
+            select(ActionRequest).where(
+                ActionRequest.tenant_id == caller.tenant_id,
+                ActionRequest.connection_id == connection_id,
+                ActionRequest.action == action,
+                ActionRequest.natural_key == natural_key,
+                ActionRequest.state.in_(ACTION_ACTIVE_STATES),
+            )
+        )
+    ).scalar_one_or_none()
+    if by_natural is None:
+        return None
+    if by_natural.args_digest != args_digest:
+        raise Conflict("natural key already has an active request with different arguments")
+    return by_natural
+
+
+async def _admit(
+    session: AsyncSession,
+    caller: Caller,
+    *,
+    connection_id: uuid.UUID,
+    action: str,
+    classification: str,
+    args: dict[str, Any],
+    args_digest: str,
+    idempotency_key: str,
+    correlation_id: str | None,
+    mode: str,
+    natural_key: str | None,
+) -> tuple[ActionRequest, bool]:
+    """Insert a ``received`` request, or return the equivalent one a concurrent submission admitted.
+
+    The insert runs in a savepoint. The partial unique index on the natural key (and the
+    idempotency unique constraint) turn a concurrent duplicate into ``IntegrityError``; the winner
+    is then re-read and replayed or refused. Returns ``(request, created)``.
+    """
+    replay = await _replay_existing(
+        session,
+        caller,
+        action=action,
+        args_digest=args_digest,
+        idempotency_key=idempotency_key,
+        connection_id=connection_id,
+        natural_key=natural_key,
+    )
+    if replay is not None:
+        return replay, False
+    request = ActionRequest(
+        tenant_id=caller.tenant_id,
+        connection_id=connection_id,
+        action=action,
+        classification=classification,
+        args_json=args,
+        args_digest=args_digest,
+        caller_id=caller.id,
+        correlation_id=correlation_id,
+        idempotency_key=idempotency_key,
+        natural_key=natural_key,
+        mode=mode,
+        state="received",
+    )
+    try:
+        async with session.begin_nested():
+            session.add(request)
+            await session.flush()
+    except IntegrityError as exc:
+        replay = await _replay_existing(
+            session,
+            caller,
+            action=action,
+            args_digest=args_digest,
+            idempotency_key=idempotency_key,
+            connection_id=connection_id,
+            natural_key=natural_key,
+        )
+        if replay is None:
+            raise Conflict("action request was claimed by a concurrent submission; retry") from exc
+        return replay, False
+    return request, True
+
+
 async def submit_action(
     session: AsyncSession,
     caller: Caller,
@@ -283,18 +421,16 @@ async def submit_action(
     """Create (or replay) an action request through plan and policy."""
     services = get_services()
     args_digest = _digest(args)
-    existing = (
-        await session.execute(
-            select(ActionRequest).where(
-                ActionRequest.tenant_id == caller.tenant_id,
-                ActionRequest.caller_id == caller.id,
-                ActionRequest.idempotency_key == idempotency_key,
-            )
-        )
-    ).scalar_one_or_none()
+    existing = await _replay_existing(
+        session,
+        caller,
+        action=action,
+        args_digest=args_digest,
+        idempotency_key=idempotency_key,
+        connection_id=connection_id,
+        natural_key=None,
+    )
     if existing is not None:
-        if existing.args_digest != args_digest or existing.action != action:
-            raise Conflict("idempotency key was already used with different arguments")
         return existing
     connection = await session.get(Connection, connection_id)
     if connection is None or connection.tenant_id != caller.tenant_id:
@@ -305,23 +441,24 @@ async def submit_action(
         raise NotFound(f"{connection.kind} has no action {action!r}")
     if connection.allowed_operations is not None and action not in connection.allowed_operations:
         raise PermissionDenied(f"action {action!r} is not enabled on this connection")
-    request = ActionRequest(
-        tenant_id=caller.tenant_id,
+    connector = await services.runtime.open(session, caller.tenant_id, connection.id)
+    plan = await _plan(connector, spec, args)
+    natural_key = plan.idempotency_key if spec.idempotency == "natural_key" else None
+    request, created = await _admit(
+        session,
+        caller,
         connection_id=connection.id,
         action=action,
         classification=spec.classification,
-        args_json=args,
+        args=args,
         args_digest=args_digest,
-        caller_id=caller.id,
-        correlation_id=correlation_id,
         idempotency_key=idempotency_key,
+        correlation_id=correlation_id,
         mode=mode,
-        state="received",
+        natural_key=natural_key,
     )
-    session.add(request)
-    await session.flush()
-    connector = await services.runtime.open(session, caller.tenant_id, connection.id)
-    plan = await _plan(connector, spec, args)
+    if not created:
+        return request
     session.add(_store_plan(request, plan))
     await _record_case_evidence(
         session,
@@ -426,9 +563,12 @@ async def decide(
         await _transition(session, request, "expired", caller_id=caller.id)
         await _record_approval_evidence(session, request, approval)
         return request
+    # Direct membership, not has_role: has_role treats admin as every role, and FR-ADM-03 forbids admin approval.
+    if "approver" not in caller.roles:
+        raise PermissionDenied("approval requires the approver role")
     if caller.id == request.caller_id:
         raise PermissionDenied("requester cannot approve their own action (SoD)")
-    if approval.approver_group and approval.approver_group not in caller.groups and not caller.has_role("admin"):
+    if approval.approver_group and approval.approver_group not in caller.groups:
         raise PermissionDenied(f"approver must be in group {approval.approver_group!r}")
     approval.decision = decision
     approval.decided_by = caller.id
@@ -520,27 +660,82 @@ async def _enqueue_reconcile(
     )
 
 
+async def _renew_lease(lease: Lease) -> None:
+    """Extend the job lease every ``ttl / 3`` until cancelled, lost, or unable to reach the queue.
+
+    Renewal only keeps a slow vendor send from being reclaimed mid-flight. A reclaimed job that
+    finds ``executing`` never resends: it records ``outcome_unknown`` and reconciles.
+    """
+    interval = lease.ttl.total_seconds() / 3
+    current = lease
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            current = await heartbeat(current)
+        except LeaseLost:
+            _LOG.warning("apply lease lost for job %s; send continues without renewal", lease.job_id)
+            return
+        except (OSError, TimeoutError, RuntimeError):
+            _LOG.exception("apply lease renewal failed for job %s; send continues without renewal", lease.job_id)
+            return
+
+
 async def run_apply_job(payload: dict[str, Any], lease: Any = None) -> dict[str, Any]:
-    """Worker handler for the ``apply`` job kind: runs once, from ``approved`` only."""
+    """Run one apply attempt with lease renewal across planning and the vendor send."""
+    if lease is None:
+        return await _run_apply_job(payload)
+    renewer = asyncio.create_task(_renew_lease(lease))
+    try:
+        return await _run_apply_job(payload)
+    finally:
+        renewer.cancel()
+        await asyncio.gather(renewer, return_exceptions=True)
+
+
+async def _run_apply_job(payload: dict[str, Any]) -> dict[str, Any]:
+    """Run the durable apply state machine without owning lease renewal."""
     services = get_services()
     request_id = uuid.UUID(payload["action_request_id"])
-    async with session_scope(uuid.UUID(payload["tenant_id"])) as session:
+    tenant_id = uuid.UUID(payload["tenant_id"])
+    # Block A: plan, verify the stored plan hash, and commit the `executing` claim before any vendor write.
+    async with session_scope(tenant_id) as session:
         request = await session.get(ActionRequest, request_id)
         if request is None:
             return {"skipped": True}
+        if request.state == "executing":
+            # A prior attempt committed the claim but recorded no outcome; the vendor send may already have happened.
+            await _transition(session, request, "outcome_unknown", caller_id="worker", error_class="ExecutionInterrupted")
+            await _enqueue_reconcile(session, request, dedupe_key=f"{tenant_id}:reconcile:{request.id}")
+            return {"state": "outcome_unknown"}
         if request.state != "approved":
             return {"skipped": True, "state": request.state}
-        await _transition(session, request, "executing", caller_id="worker")
+        stored_plan = await session.get(ActionPlanRow, request.id)
+        if stored_plan is None:
+            await _transition(session, request, "failed", caller_id="worker", error_class="MissingStoredPlan")
+            return {"state": "failed", "error": "MissingStoredPlan"}
         connection = await session.get(Connection, request.connection_id)
         cls = services.runtime._class(connection)
         spec = cls.actions()[request.action]
         connector = await services.runtime.open(session, request.tenant_id, request.connection_id)
-        stored_plan = await session.get(ActionPlanRow, request.id)
         try:
             fresh = await _plan(connector, spec, request.args_json)
-            if stored_plan is not None and fresh.plan_hash != stored_plan.plan_hash:
-                await _transition(session, request, "stale_plan", caller_id="worker", error_class="StalePlan")
-                return {"state": "stale_plan"}
+        except StalePlan:
+            await _transition(session, request, "stale_plan", caller_id="worker", error_class="StalePlan")
+            return {"state": "stale_plan"}
+        except Exception as exc:  # noqa: BLE001 - failure class is recorded at this boundary
+            await _transition(session, request, "failed", caller_id="worker", error_class=type(exc).__name__)
+            return {"state": "failed", "error": type(exc).__name__}
+        if fresh.plan_hash != stored_plan.plan_hash:
+            await _transition(session, request, "stale_plan", caller_id="worker", error_class="StalePlan")
+            return {"state": "stale_plan"}
+        await _transition(session, request, "executing", caller_id="worker")
+    # Block B: the claim is durable; reopen the connector on this session so secrets resolve against it.
+    async with session_scope(tenant_id) as session:
+        request = await session.get(ActionRequest, request_id)
+        if request is None or request.state != "executing":
+            return {"skipped": True}
+        connector = await services.runtime.open(session, request.tenant_id, request.connection_id)
+        try:
             outcome: ActionOutcome = await getattr(connector, spec.apply.__name__)(fresh)
         except StalePlan:
             await _transition(session, request, "stale_plan", caller_id="worker", error_class="StalePlan")
@@ -573,6 +768,22 @@ async def run_apply_job(payload: dict[str, Any], lease: Any = None) -> dict[str,
         return {"state": outcome.status}
 
 
+async def _exhaust_reconcile(session: AsyncSession, request: ActionRequest, error_class: str, attempts: int) -> None:
+    """Read-back keeps failing: record ``outcome_unknown`` and enqueue nothing further.
+
+    The write may or may not have happened and no read-back established either way, so the
+    request stays in the reconcilable ``outcome_unknown`` state for operator follow-up.
+    """
+    await _transition(
+        session,
+        request,
+        "outcome_unknown",
+        caller_id="worker",
+        result={**(request.result_json or {}), "reconcile_attempts": attempts},
+        error_class=error_class,
+    )
+
+
 async def run_reconcile_job(payload: dict[str, Any], lease: Any = None) -> dict[str, Any]:
     """Worker handler resolving ``accepted_async`` and ``outcome_unknown`` through the reconcile hook.
 
@@ -589,8 +800,8 @@ async def run_reconcile_job(payload: dict[str, Any], lease: Any = None) -> dict[
         cls = services.runtime._class(connection)
         spec = cls.actions()[request.action]
         if spec.reconcile is None:
-            await _transition(session, request, "failed", caller_id="worker", error_class="NoReconciliationPath")
-            return {"state": "failed"}
+            await _transition(session, request, "unverified", caller_id="worker", error_class="NoReconciliationPath")
+            return {"state": "unverified"}
         connector = await services.runtime.open(session, request.tenant_id, request.connection_id)
         stored = await session.get(ActionPlanRow, request.id)
         plan = ActionPlan(
@@ -609,16 +820,16 @@ async def run_reconcile_job(payload: dict[str, Any], lease: Any = None) -> dict[
         except Exception as exc:  # noqa: BLE001 - failure class is recorded at this boundary
             attempts += 1
             if attempts >= _MAX_RECONCILE_ATTEMPTS:
-                await _transition(session, request, "failed", caller_id="worker", error_class=type(exc).__name__)
-                return {"state": "failed"}
+                await _exhaust_reconcile(session, request, type(exc).__name__, attempts)
+                return {"state": "outcome_unknown", "attempts": attempts}
             request.result_json = {**(request.result_json or {}), "reconcile_attempts": attempts}
             await _enqueue_reconcile(session, request, run_at=datetime.now(UTC) + timedelta(seconds=min(300, 15 * attempts)))
             return {"state": request.state, "attempts": attempts}
         if outcome.status == "accepted_async":
             polls += 1
             if polls > _MAX_ASYNC_POLLS:
-                await _transition(session, request, "failed", caller_id="worker", error_class="AsyncTimeout")
-                return {"state": "failed"}
+                await _transition(session, request, "unverified", caller_id="worker", error_class="AsyncTimeout")
+                return {"state": "unverified"}
             await _transition(
                 session,
                 request,
@@ -631,8 +842,8 @@ async def run_reconcile_job(payload: dict[str, Any], lease: Any = None) -> dict[
         if outcome.status == "outcome_unknown":
             attempts += 1
             if attempts >= _MAX_RECONCILE_ATTEMPTS:
-                await _transition(session, request, "failed", caller_id="worker", error_class="ReconcileExhausted")
-                return {"state": "failed"}
+                await _exhaust_reconcile(session, request, "ReconcileExhausted", attempts)
+                return {"state": "outcome_unknown", "attempts": attempts}
             persisted = _persisted(outcome, polls=polls, attempts=attempts)
             if request.state == "outcome_unknown":
                 request.result_json = persisted

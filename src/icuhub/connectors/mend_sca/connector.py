@@ -161,12 +161,12 @@ class MendSca(Connector):
     scopes: ClassVar[tuple[Scope, ...]] = (
         Scope(
             name="projects",
-            probe="GET project listing (v3.0 orgs/projects or v2.0 projects) [UNVERIFIED]",
+            probe="GET /api/v3.0/orgs/{orgUuid}/projects (v2.0 projects on 2.0 tenants)",
             required_by=("FindingSource",),
         ),
         Scope(
             name="security_findings",
-            probe="GET /api/v3.0/projects/{uuid}/dependencies/findings/security [UNVERIFIED]",
+            probe="GET /api/v3.0/projects/{uuid}/dependencies/findings/security",
             required_by=("FindingSource",),
         ),
         Scope(
@@ -202,30 +202,74 @@ class MendSca(Connector):
         if cfg.org_token is not None:
             org_token = _decode(await self.ctx.secrets.resolve(cfg.org_token), "org_token")
 
-        async def login() -> tuple[str, str, Any]:
+        # The 3.0 refresh token is held in memory for this connector instance. SessionLogin
+        # calls login() again on expiry or 401, so the closure carries the latest token forward.
+        # A process restart begins with no refresh token: the first session is a full 3.0 /login
+        # with the configured userKey, then /login/accessToken. No durable refresh token is required.
+        refresh_token: str | None = None
+
+        async def login() -> tuple[str, str, datetime]:
+            nonlocal refresh_token
             # self.http is attached after build_auth returns; resolve it lazily.
-            return await self._login(user_key, org_token)
+            name, value, expires_at, refresh_token = await self._login(user_key, org_token, refresh_token)
+            return name, value, expires_at
 
         return SessionLogin(login, clock=self.ctx.clock)
 
-    async def _login(self, user_key: str, org_token: str | None) -> tuple[str, str, Any]:
+    async def _login(
+        self, user_key: str, org_token: str | None, refresh_token: str | None
+    ) -> tuple[str, str, datetime, str | None]:
+        """Return ``(header, value, expires_at, refresh_token)`` for the next session.
+
+        On 3.0, a held refresh token is exchanged at ``/login/accessToken``; a rejected refresh
+        token falls back to a full ``/login``. The 2.0 path always logs in with the org token.
+        """
         cfg = self._config()
-        body: dict[str, Any] = {"email": cfg.email, "userKey": user_key}
         if cfg.api_version == "2.0":
-            body["orgToken"] = org_token
-        else:
-            # [UNVERIFIED] v3.0 login body key names; spec documents /login with org UUID.
-            body["orgUuid"] = cfg.org_uuid
+            body: dict[str, Any] = {"email": cfg.email, "userKey": user_key, "orgToken": org_token}
+            result = await self.http.request(
+                "POST", f"{cfg.base_url}/login", json=body, idempotency="non_idempotent", authenticate=False
+            )
+            payload = result.json()
+            name, value, expires_at = self._session_from(_dig(payload, "retVal", "jwtToken"), None)
+            return name, value, expires_at, None
+        if refresh_token is not None:
+            session = await self._refresh_access_token(refresh_token)
+            if session is not None:
+                return (*session, refresh_token)
+        # Platform 3.0 /login takes email and userKey only (the org defaults to the last one signed
+        # in to) and returns a refresh token and jwtTTL. The JWT itself comes from /login/accessToken.
+        # https://api-docs.mend.io/platform/3.0/access-management/login.md
+        body = {"email": cfg.email, "userKey": user_key}
         result = await self.http.request(
             "POST", f"{cfg.base_url}/login", json=body, idempotency="non_idempotent", authenticate=False
         )
+        issued = _dig(result.json(), "response", "refreshToken")
+        if not isinstance(issued, str) or not issued:
+            raise AuthFailed("Mend login returned no refresh token")
+        session = await self._refresh_access_token(issued)
+        if session is None:
+            raise AuthFailed("Mend login refresh token was rejected by /login/accessToken")
+        return (*session, issued)
+
+    async def _refresh_access_token(self, refresh_token: str) -> tuple[str, str, datetime] | None:
+        """Exchange a 3.0 refresh token for a session. Return None when the vendor rejects it."""
+        cfg = self._config()
+        result = await self.http.request(
+            "POST",
+            f"{cfg.base_url}/login/accessToken",
+            params={"orgUuid": cfg.org_uuid},
+            headers={"wss-refresh-token": refresh_token},
+            idempotency="non_idempotent",
+            authenticate=False,
+            expected=(200, 401, 403),
+        )
+        if result.status != 200:
+            return None
         payload = result.json()
-        if cfg.api_version == "2.0":
-            token = _dig(payload, "retVal", "jwtToken")
-            ttl = None
-        else:
-            token = _dig(payload, "response", "jwtToken")
-            ttl = _dig(payload, "response", "tokenTTL")
+        return self._session_from(_dig(payload, "response", "jwtToken"), _dig(payload, "response", "tokenTTL"))
+
+    def _session_from(self, token: Any, ttl: Any) -> tuple[str, str, datetime]:
         if not isinstance(token, str) or not token:
             raise AuthFailed("Mend login returned no JWT")
         seconds = ttl if isinstance(ttl, int | float) and ttl > 0 else _DEFAULT_TOKEN_TTL_S
@@ -281,7 +325,10 @@ class MendSca(Connector):
     async def _v3_pages(
         self, path: str, *, limit: int, max_pages: int, extra: dict[str, Any] | None = None
     ) -> AsyncIterator[tuple[int, list[dict[str, Any]], dict[str, Any]]]:
-        """Cursor/``limit`` pagination; envelope ``response`` list plus ``additionalData.next`` [UNVERIFIED]."""
+        """Cursor/``limit`` pagination over the 3.0 envelope: ``response`` list plus ``additionalData.next``.
+
+        Envelope per https://api-docs.mend.io/platform/3.0/projects/getorganizationprojects.md.
+        """
         page = 0
         cursor: str | None = None
         while True:

@@ -2,7 +2,7 @@
 
 GitLab.com and GitLab Self-Managed share this base. Edition packages add ``kind``,
 ``display_name``, and ``config_model``. Ultimate-only publication fails closed: ``require_ultimate``
-raises ``PermissionDenied`` unless the host reports the Ultimate plan.
+raises ``PermissionDenied`` unless the target project's namespace reports the Ultimate plan.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ from icuhub.kit.connector import webhook
 from icuhub.kit.errors import BudgetExhausted, ConnectorError, PermissionDenied
 from icuhub.kit.paginate import link_header_pages
 
-__all__ = ["GitLabConnectorBase"]
+__all__ = ["PLAN_NEEDS_TARGET", "ULTIMATE_CAPABILITIES", "ULTIMATE_PLAN", "GitLabConnectorBase"]
 
 _FINDING_OPERATIONS = frozenset(
     {"list_vulnerabilities", "get_vulnerability_detail", "get_vulnerability_export", "download_vulnerability_export"}
@@ -83,7 +83,9 @@ _VULNERABILITY_VERBS: dict[str, str] = {
     "detected": "revert",
 }
 _SARIF_SUFFIXES = (".sarif", ".sarif.json")
-_ULTIMATE_PLAN = "ultimate"
+ULTIMATE_PLAN = "ultimate"
+ULTIMATE_CAPABILITIES = ("CodeScanningSink", "FindingSource")
+PLAN_NEEDS_TARGET = "PlanNeedsPublicationTarget"
 
 
 def _list_items(body: Any) -> list[dict[str, Any]]:
@@ -200,17 +202,10 @@ class GitLabConnectorBase(Connector):
         except (ConnectorError, OSError, TimeoutError, RuntimeError) as exc:
             capabilities["SourceControl"] = CapabilityHealth(status="degraded", reason=type(exc).__name__)
             status = "degraded"
-        try:
-            await self.require_ultimate()
-            for name in ("CodeScanningSink", "FindingSource"):
-                capabilities[name] = CapabilityHealth(status="healthy")
-        except PermissionDenied as exc:
-            for name in ("CodeScanningSink", "FindingSource"):
-                capabilities[name] = CapabilityHealth(status="not_evaluated", reason=type(exc).__name__)
-        except (ConnectorError, OSError, TimeoutError, RuntimeError) as exc:
-            for name in ("CodeScanningSink", "FindingSource"):
-                capabilities[name] = CapabilityHealth(status="degraded", reason=type(exc).__name__)
-            status = "degraded"
+        # GitLab.com scopes plans per namespace, so no connector-level probe can evaluate Ultimate.
+        # Publication checks the plan of the target project's namespace at plan time instead.
+        for name in ULTIMATE_CAPABILITIES:
+            capabilities[name] = CapabilityHealth(status="not_evaluated", reason=PLAN_NEEDS_TARGET)
         return HealthReport(status=status, capabilities=capabilities, vendor_version=None)
 
     @webhook(event_types=EVENT_TYPES)
@@ -278,20 +273,29 @@ class GitLabConnectorBase(Connector):
 
     # --- probes -------------------------------------------------------------------------------
 
-    async def require_ultimate(self) -> None:
-        """Fail closed unless the host reports the Ultimate plan through ``GET /license``.
+    async def _plan_for_project(self, project_id: int) -> str | None:
+        """Return the plan of the namespace that owns ``project_id``.
 
-        ``GET /license`` is documented for Self-Managed and Dedicated instances and needs an
-        administrator token. GitLab.com does not expose its plan at this path, so publication
-        is refused there until a live probe is confirmed under ``ICUHUB_ACC=1``.
-        A 403 or 404 maps to ``PermissionDenied`` so the health report shows ``not_evaluated``.
+        GitLab.com scopes plans per namespace: ``GET /projects/:id`` names the owning namespace
+        and ``GET /namespaces/:id`` returns its ``plan``. A missing namespace maps to
+        ``PermissionDenied`` so publication fails closed.
         """
+        project = await self._get(f"/projects/{project_id}")
+        namespace = project.get("namespace") if isinstance(project, dict) else None
+        namespace_id = namespace.get("id") if isinstance(namespace, dict) else None
+        if not isinstance(namespace_id, int) or isinstance(namespace_id, bool):
+            raise VendorContractError("GitLab project response has no namespace id")
         try:
-            body = await self._get("/license")
+            body = await self._get(f"/namespaces/{namespace_id}")
         except NotFound as exc:
-            raise PermissionDenied("GitLab license endpoint is unavailable; Ultimate cannot be verified") from exc
-        plan = body.get("plan")
-        if plan != _ULTIMATE_PLAN:
+            raise PermissionDenied("GitLab namespace is unavailable; Ultimate cannot be verified") from exc
+        plan = body.get("plan") if isinstance(body, dict) else None
+        return plan if isinstance(plan, str) else None
+
+    async def require_ultimate(self, project_id: int) -> None:
+        """Fail closed unless the namespace owning ``project_id`` reports the Ultimate plan."""
+        plan = await self._plan_for_project(project_id)
+        if plan != ULTIMATE_PLAN:
             raise PermissionDenied(f"GitLab plan {plan!r} does not include Ultimate security features")
 
     # --- merge requests and discussions -------------------------------------------------------

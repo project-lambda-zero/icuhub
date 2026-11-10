@@ -15,8 +15,6 @@ live Data Center response.
 from __future__ import annotations
 
 import asyncio
-import hashlib
-import hmac
 import json
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -27,20 +25,17 @@ import httpx2
 import pytest
 
 from icuhub.connectors._jira.models import DeleteIssueInput
-from icuhub.connectors._jira.webhooks import JiraDeliveryVerifier
 from icuhub.connectors.jira_dc import JiraDataCenter
 from icuhub.connectors.jira_dc.connector import SearchIssuesArgs
-from icuhub.kit.errors import ConfigError, VendorContractError, WebhookRejected
+from icuhub.kit.errors import ConfigError, VendorContractError
 from icuhub.kit.testing import RouteTransport, collect_stream, make_connector, map_all
 from icuhub.kit.types import SourceRecord, WebhookDelivery
-from icuhub.kit.webhook import SharedToken
 from icuhub_schemas.ocsf import ApiActivity
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "jira_dc"
 BASE = "https://jira.example.test"
 PAT_REF = "jira-pat"
 SECRETS = {PAT_REF: b"synthetic-pat"}
-HMAC_SECRET = b"synthetic-webhook-secret"
 NOW = datetime(2026, 11, 9, 12, 0, 0, tzinfo=UTC)
 CONNECTION_ID = "test-connection"
 
@@ -74,11 +69,6 @@ def _recording(payload: Any, log: list[httpx2.Request], status: int = 200) -> Ca
 
 def _delivery(body: bytes, headers: dict[str, str] | None = None) -> WebhookDelivery:
     return WebhookDelivery(headers=headers or {}, body=body, received_at=NOW)
-
-
-def _hmac_headers(body: bytes, secret: bytes = HMAC_SECRET) -> dict[str, str]:
-    digest = hmac.new(secret, body, hashlib.sha256).hexdigest()
-    return {"x-hub-signature": f"sha256={digest}"}
 
 
 # --- auth and health --------------------------------------------------------
@@ -294,75 +284,23 @@ def test_delete_issue_is_refused_when_destructive_writes_are_disabled() -> None:
         )
 
 
-# --- webhooks: HMAC ---------------------------------------------------------
+# --- webhooks: polling only ---------------------------------------------------
 
 
-def test_hmac_webhook_verifies_signed_body() -> None:
-    connector = _connector({})
-    body = _bytes("webhook_issue_updated.json")
-    verifier = connector.webhook_verifier(HMAC_SECRET)
-    assert verifier is not None
-
-    result = verifier.verify(_delivery(body, _hmac_headers(body)), now=NOW)
-
-    assert result.occurred_at == NOW
-
-
-def test_hmac_webhook_rejects_wrong_signature() -> None:
-    connector = _connector({})
-    body = _bytes("webhook_issue_updated.json")
-    verifier = connector.webhook_verifier(HMAC_SECRET)
-    assert verifier is not None
-
-    with pytest.raises(WebhookRejected, match="invalid webhook signature"):
-        verifier.verify(_delivery(body, _hmac_headers(body, secret=b"other-secret")), now=NOW)
-
-
-def test_hmac_webhook_rejects_missing_signature_header() -> None:
-    connector = _connector({})
-    body = _bytes("webhook_issue_updated.json")
-    verifier = connector.webhook_verifier(HMAC_SECRET)
-    assert verifier is not None
-
-    with pytest.raises(WebhookRejected, match="missing webhook header: x-hub-signature"):
-        verifier.verify(_delivery(body, {}), now=NOW)
-
-
-def test_empty_hmac_secret_is_refused() -> None:
+def test_data_center_webhook_verifier_is_disabled_without_a_signature_contract() -> None:
     connector = _connector({})
 
-    with pytest.raises(ConfigError, match="must not be empty"):
-        connector.webhook_verifier(b"")
+    assert connector.webhook_verifier(b"synthetic-secret") is None
+    assert connector.webhook_verifier(b"") is None
 
 
-# --- webhooks: shared token -------------------------------------------------
+@pytest.mark.parametrize("field", ["webhook_verifier_mode", "webhook_shared_header", "webhook_secret"])
+def test_unsourced_webhook_configuration_is_rejected(field: str) -> None:
+    values = _config()
+    values[field] = "hmac" if field == "webhook_verifier_mode" else {"ref": "legacy"}
 
-
-def test_shared_token_mode_returns_delivery_verifier_wrapping_shared_token() -> None:
-    connector = _connector({}, webhook_verifier_mode="shared_token")
-
-    verifier = connector.webhook_verifier(b"synthetic-token")
-
-    assert isinstance(verifier, JiraDeliveryVerifier)
-    assert isinstance(verifier._inner, SharedToken)
-
-
-def test_shared_token_webhook_accepts_matching_token_and_rejects_mismatch() -> None:
-    connector = _connector({}, webhook_verifier_mode="shared_token")
-    body = _bytes("webhook_issue_updated.json")
-    verifier = connector.webhook_verifier(b"synthetic-token")
-    assert verifier is not None
-
-    verifier.verify(_delivery(body, {"x-icuhub-token": "synthetic-token"}), now=NOW)
-    with pytest.raises(WebhookRejected, match="invalid webhook token"):
-        verifier.verify(_delivery(body, {"x-icuhub-token": "wrong"}), now=NOW)
-
-
-def test_shared_token_secret_must_be_utf8() -> None:
-    connector = _connector({}, webhook_verifier_mode="shared_token")
-
-    with pytest.raises(ConfigError, match="UTF-8"):
-        connector.webhook_verifier(b"\xff\xfe")
+    with pytest.raises(ValueError):
+        JiraDataCenter.config_model.model_validate(values)
 
 
 # --- webhooks: parsing ------------------------------------------------------

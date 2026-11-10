@@ -326,6 +326,11 @@ The `COVERAGE_GAPS.md` section 9 must gaps for each kind are listed in its table
 | Must gaps absorbed (GAP-* ids) | `GAP-PCSPM-01`: CSPM audit events.<br>`GAP-PCSPM-02`: resource and resource-misconfiguration snapshots plus resource reads.<br>`GAP-PCSPM-03`: complete vulnerability export with expiry, digest, row identity, and completeness.<br>`GAP-PCSPM-06`: cloud-account discovery, status, and ownership driving target scope and health.<br>`GAP-PCSPM-12`: `get_alert_remediation` preview required in the remediation plan. |
 | Live acceptance checks (operator, `ICUHUB_ACC=1`) | On the configured regional tenant, prove login, expiry/401 reauthentication, single-flight renewal, and independent list/detail/audit/policy/RQL/inventory/account/export scopes; wrong host, role, or account scope is not empty success. Discover an alert by alert time, change only its status, and prove detail plus complete all-status export updates the existing observation without a new alert timestamp. Exercise equal timestamps, final-page token anomalies, failed export/page, and RQL continuation schema loss; affected partitions remain incomplete and close nothing. Verify account status/owner records and denied accounts as `not_evaluated`. Run dismiss/snooze/reopen read-back, suppression expiry aligned with the Archer exception policy, and F2/F3 echo and expiry reconciliation. Require preview and approval for remediation, inject timeout and negative permission cases, and prove `outcome_unknown` reconciliation without a duplicate or unverified success. |
 
+Implementation status 2026-11-10: `cspm_vulnerability_export` is not registered because a documented, complete
+per-asset export contract has not been established. `search_vulnerabilities` uses the UVE search API and preserves
+query-token and completeness evidence, but its CVE aggregates do not close this requirement. `GAP-PCSPM-03` remains
+open; the requirement is not deferred or replaced by alert ingestion or UVE search.
+
 ### 4.16 prisma_cloud / compute
 
 | Row | Definition of done |

@@ -40,7 +40,8 @@ def test_enterprise_issue_maps_to_valid_ocsf_2002(
     assert finding.type_uid == 200201
     assert finding.severity_id == 4
     assert finding.severity == "High"
-    assert finding.status_id == 0
+    assert finding.status_id == 1
+    assert finding.status == "New"
     assert finding.status_detail == "Present"
     assert finding.finding_info.uid == enterprise_issue_raw["Id"]
     assert finding.finding_info.first_seen_time is not None
@@ -56,19 +57,32 @@ def test_enterprise_issue_maps_to_valid_ocsf_2002(
 
 
 @pytest.mark.parametrize(
-    ("severity", "severity_id"),
-    [("Critical", 5), ("High", 4), ("Medium", 3), ("Low", 2), ("Informational", 1), ("Unknown", 0)],
+    ("vendor_label", "severity_id", "caption"),
+    [
+        ("Critical", 5, "Critical"),
+        ("High", 4, "High"),
+        ("Medium", 3, "Medium"),
+        ("Low", 2, "Low"),
+        ("Information", 1, "Informational"),
+        ("BestPractice", 1, "Informational"),
+        ("Unknown", 0, "Unknown"),
+    ],
 )
-def test_all_native_severity_labels_map_without_recomputation(
-    enterprise_issue_raw: dict[str, Any], map_context: MapContext, severity: str, severity_id: int
+def test_all_native_severity_labels_map_to_ocsf_id_and_caption(
+    enterprise_issue_raw: dict[str, Any],
+    map_context: MapContext,
+    vendor_label: str,
+    severity_id: int,
+    caption: str,
 ) -> None:
     raw = deepcopy(enterprise_issue_raw)
-    raw["Severity"] = severity
+    raw["Severity"] = vendor_label
 
     finding = map_issue_to_finding(parse_issue(raw), map_context)
 
-    assert finding.severity == severity
     assert finding.severity_id == severity_id
+    assert finding.severity == caption
+    assert _invicti_fields(finding)["raw_severity"] == vendor_label
 
 
 def test_unrecognized_severity_is_unknown_and_text_is_preserved(
@@ -80,7 +94,8 @@ def test_unrecognized_severity_is_unknown_and_text_is_preserved(
     finding = map_issue_to_finding(parse_issue(raw), map_context)
 
     assert finding.severity_id == 0
-    assert finding.severity == "VendorFutureSeverity"
+    assert finding.severity == "Unknown"
+    assert _invicti_fields(finding)["raw_severity"] == "VendorFutureSeverity"
 
 
 def test_typed_gap_fields_and_bounded_proof_are_present(
@@ -97,6 +112,8 @@ def test_typed_gap_fields_and_bounded_proof_are_present(
     finding = map_issue_to_finding(parse_issue(raw), map_context)
     fields = _invicti_fields(finding)
 
+    assert finding.status_id == 0
+    assert finding.status == "Unknown"
     assert finding.status_detail == "CustomVendorState"
     assert fields["verification"] == {"confirmed": False, "certainty": 75}
     assert fields["accepted_risk"] is True
@@ -137,8 +154,42 @@ def test_state_is_never_inferred_from_jira_like_fields(
     finding = map_issue_to_finding(parse_issue(raw), map_context)
 
     assert finding.status_detail == "FixedUnconfirmed"
-    assert finding.status == "Unknown"
-    assert finding.status_id == 0
+    assert finding.status == "In Progress"
+    assert finding.status_id == 2
+
+
+@pytest.mark.parametrize(
+    ("state", "status_id", "caption"),
+    [
+        ("Present", 1, "New"),
+        ("Revived", 1, "New"),
+        ("FixedUnconfirmed", 2, "In Progress"),
+        ("Ignored", 3, "Suppressed"),
+        ("FalsePositive", 3, "Suppressed"),
+        ("FixedConfirmed", 4, "Resolved"),
+        ("AcceptedRisk", 0, "Unknown"),
+        ("FixedCantRetest", 0, "Unknown"),
+        ("Scanning", 0, "Unknown"),
+        ("Retest", 0, "Unknown"),
+        ("CustomVendorState", 0, "Unknown"),
+    ],
+)
+def test_documented_states_map_to_ocsf_status_and_preserve_raw_state(
+    enterprise_issue_raw: dict[str, Any],
+    map_context: MapContext,
+    state: str,
+    status_id: int,
+    caption: str,
+) -> None:
+    raw = deepcopy(enterprise_issue_raw)
+    raw["State"] = state
+
+    finding = map_issue_to_finding(parse_issue(raw), map_context)
+
+    assert finding.status_id == status_id
+    assert finding.status == caption
+    assert finding.status_detail == state
+    assert _invicti_fields(finding)["state"] == state
 
 
 def test_scan_result_mapping_preserves_scan_identity(map_context: MapContext) -> None:

@@ -123,21 +123,18 @@ def map_group_audit_event(_connector: GitLabConnectorBase, raw: dict[str, Any], 
 def map_audit_stream_object(_connector: GitLabConnectorBase, raw: dict[str, Any], _ctx: MapContext) -> list[BaseModel]:
     """OCSF API activity for an event read from a GitLab.com batched audit object.
 
-    A partial-coverage marker or stream error stays a source record so the gap is visible. An event
-    without an operation also stays a source record, keyed by its object and event id.
+    A partial-coverage marker or stream error stays a source record so the gap is visible. GitLab retries
+    whole batches and may write the same events under a new object key, so an event is identified by its
+    documented ``id`` alone (https://docs.gitlab.com/user/compliance/audit_event_streaming/): a re-delivered
+    event upserts the same record instead of duplicating it. An event without an operation stays a source record.
     """
     object_key = raw["_audit_object_key"]
     if raw.get("_partial_coverage") is True or "_stream_error" in raw:
         return [source("audit_stream_objects", uid("audit_stream_object", object_key, "partial"), raw)]
+    event_id = required(raw, "id")
     operation = raw.get("event_name")
     if not isinstance(operation, str) or not operation:
-        return [
-            source(
-                "audit_stream_objects",
-                uid("audit_stream_object", object_key, "audit_event", required(raw, "id")),
-                raw,
-            )
-        ]
+        return [source("audit_stream_objects", uid("audit_stream_object", "audit_event", event_id), raw)]
     return [_api_activity(raw, operation)]
 
 

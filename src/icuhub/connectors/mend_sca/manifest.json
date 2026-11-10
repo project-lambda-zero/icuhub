@@ -1527,14 +1527,14 @@
   "scopes": [
     {
       "name": "projects",
-      "probe": "GET project listing (v3.0 orgs/projects or v2.0 projects) [UNVERIFIED]",
+      "probe": "GET /api/v3.0/orgs/{orgUuid}/projects (v2.0 projects on 2.0 tenants)",
       "required_by": [
         "FindingSource"
       ]
     },
     {
       "name": "security_findings",
-      "probe": "GET /api/v3.0/projects/{uuid}/dependencies/findings/security [UNVERIFIED]",
+      "probe": "GET /api/v3.0/projects/{uuid}/dependencies/findings/security",
       "required_by": [
         "FindingSource"
       ]

@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 
+from icuhub.connectors.fortify_ssc.connector import FortifySsc
 from icuhub.connectors.fortify_ssc.webhooks import SscHmacVerifier, parse_delivery_payload
 from icuhub.kit.errors import ConfigError, VendorContractError, WebhookRejected
 from icuhub.kit.types import WebhookDelivery
@@ -56,7 +57,7 @@ def test_valid_signed_delivery_is_verified() -> None:
     result = _verify(_signed_headers())
 
     assert result.occurred_at == NOW
-    assert result.event_type is None
+    assert result.event_type == "ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS"
     delivery_id = result.delivery_id
     assert isinstance(delivery_id, str)
     assert len(delivery_id) == 64
@@ -64,8 +65,14 @@ def test_valid_signed_delivery_is_verified() -> None:
 
 
 def test_identity_is_stable_across_key_order_and_whitespace() -> None:
-    body_a = b'{"event":"ISSUE_CHANGED","issueId":1001}'
-    body_b = b'{ "issueId": 1001, "event": "ISSUE_CHANGED" }'
+    body_a = (
+        b'{"event":"ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS","webhookId":77,'
+        b'"triggeredAt":"2026-03-01T10:06:00.000+0000","issueId":1001}'
+    )
+    body_b = (
+        b'{ "issueId": 1001, "triggeredAt": "2026-03-01T10:06:00.000+0000", '
+        b'"webhookId": 77, "event": "ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS" }'
+    )
 
     id_a = _verify(_signed_headers(body=body_a), body=body_a).delivery_id
     id_b = _verify(_signed_headers(body=body_b), body=body_b).delivery_id
@@ -74,12 +81,67 @@ def test_identity_is_stable_across_key_order_and_whitespace() -> None:
 
 
 def test_identity_differs_for_different_bodies() -> None:
-    other = b'{"event":"ISSUE_CHANGED","issueId":1002}'
+    other = (
+        b'{"event":"ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS","webhookId":77,'
+        b'"triggeredAt":"2026-03-01T10:06:00.000+0000","issueId":1002}'
+    )
 
     id_fixture = _verify(_signed_headers()).delivery_id
     id_other = _verify(_signed_headers(body=other), body=other).delivery_id
 
     assert id_fixture != id_other
+
+
+def test_identity_differs_when_triggered_at_differs() -> None:
+    later = (
+        b'{"event":"ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS","webhookId":77,'
+        b'"triggeredAt":"2026-03-01T10:07:00.000+0000","projectVersionId":42,"issueId":1001}'
+    )
+
+    id_fixture = _verify(_signed_headers()).delivery_id
+    id_later = _verify(_signed_headers(body=later), body=later).delivery_id
+
+    assert id_fixture != id_later
+
+
+def test_delivery_event_dispatches_to_parse_delivery() -> None:
+    # Core dispatches when the verified event_type is listed on the webhook spec.
+    spec = FortifySsc.webhooks()["parse_delivery"]
+
+    result = _verify(_signed_headers())
+
+    assert result.event_type in spec.event_types
+
+
+@pytest.mark.parametrize(
+    ("body", "match"),
+    [
+        (
+            b'{"webhookId":77,"triggeredAt":"2026-03-01T10:06:00.000+0000"}',
+            "non-empty 'event'",
+        ),
+        (
+            b'{"event":7,"webhookId":77,"triggeredAt":"2026-03-01T10:06:00.000+0000"}',
+            "non-empty 'event'",
+        ),
+        (
+            b'{"event":"ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS","triggeredAt":"2026-03-01T10:06:00.000+0000"}',
+            "must carry a webhookId",
+        ),
+        (
+            b'{"event":"ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS","webhookId":true,"triggeredAt":"2026-03-01T10:06:00.000+0000"}',
+            "must carry a webhookId",
+        ),
+        (
+            b'{"event":"ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS","webhookId":77}',
+            "must carry a triggeredAt",
+        ),
+        (b"[]", "must be a JSON object"),
+    ],
+)
+def test_signed_body_missing_dedupe_or_dispatch_fields_is_rejected(body: bytes, match: str) -> None:
+    with pytest.raises(WebhookRejected, match=match):
+        _verify(_signed_headers(body=body), body=body)
 
 
 # --- verification: header and date rejections ------------------------------

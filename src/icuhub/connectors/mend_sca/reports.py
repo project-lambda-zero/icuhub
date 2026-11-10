@@ -24,7 +24,8 @@ _SCHEMA_KEYS: dict[str, Schema] = {
     "components": "platform_components",
     "response": "platform_3_response",
 }
-_ACTIVE = "ACTIVE"
+_SUPPRESSED_FINDING_STATUS = "SUPPRESSED"
+_IGNORED_STATUS = "IGNORED"
 
 
 def parse_report(data: bytes, *, config: MendSCAConfig, project_snapshot: str) -> ParsedMendReport:
@@ -160,8 +161,16 @@ def _row(
     nested = _obj(node.get("vulnerability"))
     top_fix = _obj(node.get("topFix"))
     finding_info = _obj(node.get("findingInfo"))
-    status = _opt_str(finding_info.get("findingStatus")) or _opt_str(finding_info.get("status"))
-    suppressed = status is not None and status != _ACTIVE
+    # Only the vendor's suppressing states hide a finding. UNREVIEWED, IN_REVIEW, and other open
+    # states stay active. The row is kept either way; suppression is a flag, not a drop.
+    finding_status = _opt_str(finding_info.get("findingStatus"))
+    status = _opt_str(finding_info.get("status"))
+    suppression_reason: str | None = None
+    if finding_status == _SUPPRESSED_FINDING_STATUS:
+        suppression_reason = finding_status
+    elif status == _IGNORED_STATUS:
+        suppression_reason = status
+    suppressed = suppression_reason is not None
     paths = [
         *(_opt_str(_obj(item).get("localPath")) for item in _list(node.get("sourceFiles"))),
         *(_opt_str(_obj(item).get("path")) for item in _list(node.get("locations"))),
@@ -187,7 +196,7 @@ def _row(
         "project_name": project_name,
         "dependency_path": [],
         "suppressed": suppressed,
-        "suppression_reason": status if suppressed else None,
+        "suppression_reason": suppression_reason,
         "fix_resolution": _opt_str(top_fix.get("fixResolution")),
         "source_file": ", ".join(path for path in paths if path) or None,
     }

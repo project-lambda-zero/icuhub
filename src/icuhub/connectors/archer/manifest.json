@@ -40,11 +40,6 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
-          "approved_plan_hash": {
-            "minLength": 1,
-            "title": "Approved Plan Hash",
-            "type": "string"
-          },
           "content_id": {
             "minimum": 1,
             "title": "Content Id",
@@ -64,8 +59,7 @@
         "required": [
           "content_id",
           "level_id",
-          "expected_version",
-          "approved_plan_hash"
+          "expected_version"
         ],
         "title": "DeleteContentInput",
         "type": "object"
@@ -80,11 +74,6 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
-          "approved_plan_hash": {
-            "minLength": 1,
-            "title": "Approved Plan Hash",
-            "type": "string"
-          },
           "data_feed_guid": {
             "minLength": 1,
             "title": "Data Feed Guid",
@@ -97,8 +86,7 @@
           }
         },
         "required": [
-          "data_feed_guid",
-          "approved_plan_hash"
+          "data_feed_guid"
         ],
         "title": "ExecuteDataFeedInput",
         "type": "object"
@@ -176,6 +164,11 @@
             "minLength": 1,
             "title": "Filename",
             "type": "string"
+          },
+          "is_sensitive": {
+            "default": false,
+            "title": "Is Sensitive",
+            "type": "boolean"
           },
           "record_type": {
             "minLength": 1,
@@ -389,6 +382,13 @@
         ],
         "default": null,
         "writeOnly": true
+      },
+      "data_feed_guids": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Data Feed Guids",
+        "type": "array"
       },
       "destructive_enabled": {
         "default": false,
@@ -660,9 +660,18 @@
       "classification": "read",
       "egress_class": "vendor_tenant",
       "input_schema": {
-        "description": "Input for operations that take no arguments.",
-        "properties": {},
-        "title": "EmptyInput",
+        "additionalProperties": false,
+        "properties": {
+          "data_feed_guid": {
+            "minLength": 1,
+            "title": "Data Feed Guid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "data_feed_guid"
+        ],
+        "title": "DataFeedHistoryInput",
         "type": "object"
       },
       "name": "get_data_feed_history",

@@ -13,6 +13,7 @@ __all__ = [
     "PaginationLoop",
     "PermissionDenied",
     "RateLimited",
+    "RefreshTokenNotPersisted",
     "StalePlan",
     "TransientVendorError",
     "UnsafeUrl",
@@ -29,6 +30,15 @@ class ConnectorError(Exception):
 
 class AuthFailed(ConnectorError):  # noqa: N818 -- name is part of the kit contract
     """The vendor rejected authentication."""
+
+
+class RefreshTokenNotPersisted(AuthFailed):
+    """The vendor rotated a refresh token but the rotated value could not be stored.
+
+    The previous refresh token is no longer valid after rotation, so the connection cannot
+    authenticate again until the operator re-authorizes. Raised instead of continuing with a
+    memory-only refresh token that would be lost on restart.
+    """
 
 
 class PermissionDenied(ConnectorError):  # noqa: N818 -- name is part of the kit contract

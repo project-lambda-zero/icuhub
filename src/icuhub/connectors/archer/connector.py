@@ -45,6 +45,7 @@ from .models import (
     ContentOutput,
     ContentRef,
     CreateFindingOrExceptionInput,
+    DataFeedHistoryInput,
     DataFeedHistoryOutput,
     DeleteContentInput,
     DiscoverOutput,
@@ -82,6 +83,7 @@ class Archer(Connector):
     plan_safe_post_paths: ClassVar[tuple[str, ...]] = (
         "/platformapi/core/security/login",
         "/platformapi/core/system/fielddefinition/level/",
+        "/platformapi/core/system/valueslistvalue/valueslist/",
         "/platformapi/core/content/contentid",
         "/ws/general.asmx",
         "/ws/search.asmx",
@@ -374,9 +376,9 @@ class Archer(Connector):
     async def get_attachment(self, args: AttachmentRef) -> AttachmentOutput:
         return await operations.get_attachment(self, args)
 
-    @operation("get_data_feed_history", input_model=EmptyInput, output_model=DataFeedHistoryOutput,
+    @operation("get_data_feed_history", input_model=DataFeedHistoryInput, output_model=DataFeedHistoryOutput,
                classification="read", capability="RiskRegister", egress_class="vendor_tenant")
-    async def get_data_feed_history(self, args: EmptyInput) -> DataFeedHistoryOutput:
+    async def get_data_feed_history(self, args: DataFeedHistoryInput) -> DataFeedHistoryOutput:
         return await operations.get_data_feed_history(self, args)
 
     # -- actions ----------------------------------------------------------

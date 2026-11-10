@@ -11,23 +11,21 @@ from __future__ import annotations
 
 import hashlib
 from abc import abstractmethod
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 from typing import Any, ClassVar, Literal
 
 from icuhub.connectors._jira.helpers import issue_state, list_field, seg, strip_order
 from icuhub.connectors._jira.models import JiraConfig
-from icuhub.connectors._jira.webhooks import JiraDeliveryVerifier
 from icuhub.kit.connector import Connector
-from icuhub.kit.errors import ConfigError, NotFound, StalePlan, VendorContractError
+from icuhub.kit.cursors import TimeIdCursor
+from icuhub.kit.errors import ConfigError, ConnectorError, NotFound, StalePlan, VendorContractError
 from icuhub.kit.http import IdempotencyMode
 from icuhub.kit.paginate import offset_pages
 from icuhub.kit.types import MapContext
-from icuhub.kit.webhook import HmacSignature, SharedToken, WebhookVerifier
+from icuhub.kit.webhook import WebhookVerifier
 
-__all__ = ["JIRA_WEBHOOK_SIGNATURE_HEADER", "JiraBase"]
-
-JIRA_WEBHOOK_SIGNATURE_HEADER = "x-hub-signature"
+__all__ = ["JiraBase"]
 _ISSUE_STATE_FIELDS = "id,updated,status"
 
 
@@ -110,6 +108,27 @@ class JiraBase(Connector):
             max_pages=cfg.max_pages,
         )
 
+    def advance_cursor(
+        self,
+        cursor: TimeIdCursor,
+        records: list[dict[str, Any]],
+        ts_of: Callable[[dict[str, Any]], datetime],
+        id_of: Callable[[dict[str, Any]], str],
+    ) -> TimeIdCursor:
+        """Advance a replay cursor, failing before the batch is emitted when tie IDs exceed ``max_tie_ids``.
+
+        The checkpoint stays at the last emitted batch, so the read is incomplete and no record is
+        dropped. Truncating the tie set would re-emit or skip boundary records without any signal.
+        """
+        advanced = cursor.advance(records, ts_of=ts_of, id_of=id_of)
+        limit = self.config.max_tie_ids
+        if len(advanced.last_ids_at_ts) > limit:
+            raise ConnectorError(
+                f"Jira replay window has {len(advanced.last_ids_at_ts)} records at one timestamp, "
+                f"above max_tie_ids={limit}; raise max_tie_ids and rerun the read"
+            )
+        return advanced
+
     def _search_jql(self, window: datetime | None) -> str:
         clauses: list[str] = []
         if window is not None:
@@ -162,19 +181,10 @@ class JiraBase(Connector):
 
     # ------------------------------------------------------------ webhooks + gates
 
-    def webhook_verifier(self, secret: bytes) -> WebhookVerifier | None:
-        if not secret:
-            raise ConfigError("Jira webhook secret must not be empty")
-        cfg = self.config
-        if cfg.webhook_verifier_mode == "hmac":
-            return JiraDeliveryVerifier(HmacSignature(JIRA_WEBHOOK_SIGNATURE_HEADER, secret))
-        try:
-            token = secret.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise ConfigError("webhook shared token must be UTF-8 text") from exc
-        return JiraDeliveryVerifier(
-            SharedToken(cfg.webhook_shared_header, token, id_header=None, event_header=None)
-        )
+    def webhook_verifier(self, _secret: bytes) -> WebhookVerifier | None:
+        # Jira Cloud overrides this with its OAuth bearer JWT contract. Data Center has no
+        # sourced signature contract, so its deliveries stay disabled and synchronization polls.
+        return None
 
     def require_destructive(self, action: str) -> None:
         """Refuse a destructive action unless the connection explicitly enables destructive writes."""

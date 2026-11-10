@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -12,14 +13,15 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from icuhub.core.audit import append as append_audit
 from icuhub.core.auth_types import Caller
 from icuhub.core.correlation import link_finding, record_raw_evidence
 from icuhub.core.credentials import EncryptedBlob
 from icuhub.core.outbox import add_event
 from icuhub.core.queue import DuplicateActiveJob, enqueue
 from icuhub.core.services import get_services
-from icuhub.kit.connector import Connector
-from icuhub.kit.errors import NotFound, VendorContractError
+from icuhub.kit.connector import Connector, StreamSpec
+from icuhub.kit.errors import ConfigError, NotFound, VendorContractError
 from icuhub.kit.types import MapContext, SourceRecord, TicketRecord
 from icuhub.storage.db import session_scope
 from icuhub.storage.models import (
@@ -54,6 +56,8 @@ __all__ = [
 
 _BATCH_SIZE = 500
 _REMOVAL_BREAKER = 0.30
+# Only "full" may close absence (_resolve_absent). "targeted" reads are filtered or scoped and never authorize closure.
+_SYNC_MODES: frozenset[str] = frozenset({"incremental", "full", "targeted"})
 
 
 def _canonical(value: Any) -> str:
@@ -83,11 +87,32 @@ def _apply_status(finding: Finding, status: str) -> bool:
     return True
 
 
+_FINGERPRINT_RE = re.compile(r"fp_[0-9a-f]{64}")
+
+
+def _explicit_fingerprint(document: dict[str, Any]) -> str | None:
+    """Return a connector-supplied ``unmapped.icuhub.fingerprint`` when it has the versioned ``fp_`` form."""
+    unmapped = document.get("unmapped")
+    if not isinstance(unmapped, dict):
+        return None
+    icuhub = unmapped.get("icuhub")
+    if not isinstance(icuhub, dict):
+        return None
+    value = icuhub.get("fingerprint")
+    if isinstance(value, str) and _FINGERPRINT_RE.fullmatch(value):
+        return value
+    return None
+
+
 def _identity(document: dict[str, Any], kind: str) -> tuple[str, str, int, str | None]:
     info = document.get("finding_info") or {}
     source_uid = str(info.get("uid") or "")
     if not source_uid:
         raise VendorContractError("finding_info.uid is required for identity")
+    severity_id = int(document.get("severity_id") or 0)
+    explicit = _explicit_fingerprint(document)
+    if explicit is not None:
+        return source_uid, explicit, severity_id, info.get("title")
     vulns = document.get("vulnerabilities") or []
     rule = None
     location = None
@@ -114,7 +139,6 @@ def _identity(document: dict[str, Any], kind: str) -> tuple[str, str, int, str |
     if location is None and resources:
         location = resources[0].get("uid") or resources[0].get("name")
     fingerprint = finding_fingerprint(kind, rule, location, component)
-    severity_id = int(document.get("severity_id") or 0)
     return source_uid, fingerprint, severity_id, info.get("title")
 
 
@@ -294,6 +318,30 @@ async def commit_batch(
         state.checkpoint_json = checkpoint.model_dump(mode="json")
         state.checkpoint_schema = f"{type(checkpoint).__module__}.{type(checkpoint).__name__}"
         state.version += 1
+    await append_audit(
+        session,
+        connection.tenant_id,
+        ts=datetime.now(UTC),
+        caller_id="sync-engine",
+        connection_id=connection.id,
+        operation="sync.page",
+        classification="read",
+        status="succeeded",
+        detail_json={
+            "raw_batch_id": str(raw.id),
+            "raw_digest": raw.digest,
+            "cursor": checkpoint.model_dump(mode="json") if checkpoint is not None else None,
+            "stream": stream,
+            "origin": origin,
+            "sync_run_id": str(sync_run_id) if sync_run_id else None,
+            "target_key": str(target.id) if target else "",
+            "record_count": len(records),
+            "findings": counts["findings"],
+            "records": counts["records"],
+            "quarantined": counts["quarantined"],
+            "unchanged": counts["unchanged"],
+        },
+    )
     counts["seen_uids"] = sorted(seen_uids)
     return counts
 
@@ -384,6 +432,36 @@ async def _enqueue_route(session: AsyncSession, case_id: uuid.UUID, tenant_id: u
         return
 
 
+_COMMIT_SHA = re.compile(r"[0-9a-f]{40}")
+
+
+def _commit_partition(commit_sha: str | None) -> str:
+    """Commit-scoped runs keep their own stream state so they never overwrite the target-wide checkpoint."""
+    return f"commit:{commit_sha}" if commit_sha else ""
+
+
+def _stream_spec(connection: Connection, stream: str) -> StreamSpec:
+    spec = get_services().runtime._class(connection).streams().get(stream)
+    if spec is None:
+        raise ValueError(f"{connection.kind} has no stream {stream!r}")
+    return spec
+
+
+def _require_declared_mode(spec: StreamSpec, stream: str, mode: str) -> None:
+    """A stream runs only in the modes it declares; ``full`` alone authorizes absence closure."""
+    if mode not in spec.modes:
+        raise ValueError(f"stream {stream!r} does not support mode {mode!r}; supported: {list(spec.modes)}")
+
+
+def _scheduled_mode(modes: tuple[str, ...], full_due: bool) -> str | None:
+    """Pick the scheduled mode from the declared modes; ``None`` means the stream is on-demand only."""
+    if "full" in modes and (full_due or "incremental" not in modes):
+        return "full"
+    if "incremental" in modes:
+        return "incremental"
+    return None
+
+
 async def trigger_sync(
     session: AsyncSession,
     caller: Any,
@@ -392,23 +470,43 @@ async def trigger_sync(
     *,
     target_id: uuid.UUID | None = None,
     mode: str = "incremental",
+    commit_sha: str | None = None,
 ) -> uuid.UUID:
-    if mode not in ("incremental", "full"):
-        raise ValueError("mode must be incremental or full")
+    if mode not in _SYNC_MODES:
+        raise ValueError("mode must be incremental, full, or targeted")
+    if mode == "targeted" and target_id is None:
+        raise ValueError("targeted mode requires a target_id")
+    if commit_sha is not None:
+        # Commit-scoped runs only read the named commit and never authorize absence closure.
+        if _COMMIT_SHA.fullmatch(commit_sha) is None:
+            raise ValueError("commit_sha must be a 40-character lowercase hex SHA")
+        if target_id is None:
+            raise ValueError("commit_sha requires a target_id")
+        if mode != "incremental":
+            raise ValueError("commit_sha is only valid for incremental mode")
+    connection = await session.get(Connection, connection_id)
+    if connection is None or connection.tenant_id != caller.tenant_id:
+        raise NotFound("connection not found")
+    _require_declared_mode(_stream_spec(connection, stream), stream, mode)
     target_key = str(target_id) if target_id else ""
+    partition = _commit_partition(commit_sha)
     state = (
         await session.execute(
             select(StreamState).where(
                 StreamState.connection_id == connection_id,
                 StreamState.target_key == target_key,
                 StreamState.stream == stream,
+                StreamState.partition == partition,
             )
         )
     ).scalar_one_or_none()
+    # Full and incremental triggers share one authoritative job per StreamState. Targeted
+    # reads use a separate key because they cannot satisfy an authoritative closure request.
+    mode_group = "targeted" if mode == "targeted" else "authoritative"
     dedupe_key = (
-        f"{caller.tenant_id}:sync:{state.id}"
+        f"{caller.tenant_id}:sync:{state.id}:{mode_group}"
         if state is not None
-        else f"{caller.tenant_id}:sync:{connection_id}:{stream}:{target_id}"
+        else (f"{caller.tenant_id}:sync:{connection_id}:{stream}:{target_id}:{mode_group}" + (f":{partition}" if partition else ""))
     )
     return await enqueue(
         session,
@@ -420,6 +518,7 @@ async def trigger_sync(
             "tenant_id": str(caller.tenant_id),
             "target_id": str(target_id) if target_id else None,
             "mode": mode,
+            "commit_sha": commit_sha,
         },
         tenant_id=caller.tenant_id,
         dedupe_key=dedupe_key,
@@ -497,17 +596,21 @@ async def _discover_targets(session: AsyncSession, connection: Connection, conne
     return rows
 
 
-def _stream_target(row: TargetRow | None) -> Any:
+def _stream_target(row: TargetRow | None, commit_sha: str | None = None) -> Any:
+    """Build the stream's target view; a commit override is per-run and never written back to the row."""
     if row is None:
         return None
     from icuhub.kit.types import Target  # noqa: PLC0415
 
+    attributes = dict(row.attributes_json or {})
+    if commit_sha is not None:
+        attributes["commit_sha"] = commit_sha
     return Target(
         id=str(row.id),
         source_uid=row.source_uid,
         kind=row.kind,
         display_name=row.display_name,
-        attributes=row.attributes_json or {},
+        attributes=attributes,
     )
 
 
@@ -519,17 +622,20 @@ async def _run_stream_target(
     stream: str,
     mode: str,
     target_row: TargetRow | None,
+    commit_sha: str | None = None,
 ) -> dict[str, Any]:
     """Run one stream for one target with its own stream state and sync run."""
     spec = connector.streams()[stream]
-    target = _stream_target(target_row)
+    target = _stream_target(target_row, commit_sha)
     target_key = str(target_row.id) if target_row else ""
+    partition = _commit_partition(commit_sha)
     state = (
         await session.execute(
             select(StreamState).where(
                 StreamState.connection_id == connection.id,
                 StreamState.target_key == target_key,
                 StreamState.stream == stream,
+                StreamState.partition == partition,
             )
         )
     ).scalar_one_or_none()
@@ -540,6 +646,7 @@ async def _run_stream_target(
             target_id=target_row.id if target_row else None,
             target_key=target_key,
             stream=stream,
+            partition=partition,
         )
         session.add(state)
         await session.flush()
@@ -613,6 +720,7 @@ async def run_sync_job(payload: dict[str, Any], lease: Any = None) -> dict[str, 
     stream = payload["stream"]
     mode = payload.get("mode", "incremental")
     target_id = uuid.UUID(payload["target_id"]) if payload.get("target_id") else None
+    commit_sha = payload.get("commit_sha")
     async with session_scope(tenant_id) as session:
         connection = await session.get(Connection, connection_id)
         if connection is None:
@@ -620,6 +728,19 @@ async def run_sync_job(payload: dict[str, Any], lease: Any = None) -> dict[str, 
         connector = await services.runtime.open(session, tenant_id, connection.id)
         spec = connector.streams()[stream]
         target = await session.get(TargetRow, target_id) if target_id else None
+        if commit_sha is not None:
+            # A commit SHA is meaningful only for its own repository; never fan it out to discovered targets.
+            if target is None:
+                return {"skipped": True}
+            return await _run_stream_target(
+                session,
+                connection=connection,
+                connector=connector,
+                stream=stream,
+                mode=mode,
+                target_row=target,
+                commit_sha=commit_sha,
+            )
         if spec.requires_target:
             if target:
                 targets = [target]
@@ -797,10 +918,19 @@ async def scheduler_once(now: datetime | None = None, limit: int = 100) -> int:
             state = await session.get(StreamState, due.id)
             if state is None:
                 continue
-            mode = "incremental"
-            if state.last_full_at is None or now - state.last_full_at > timedelta(seconds=state.full_interval_s):
-                mode = "full"
+            connection = await session.get(Connection, state.connection_id)
+            full_due = state.last_full_at is None or now - state.last_full_at > timedelta(seconds=state.full_interval_s)
             state.next_run_at = now + timedelta(seconds=state.interval_s)
+            try:
+                if connection is None:
+                    raise ConfigError("connection not found")
+                mode = _scheduled_mode(_stream_spec(connection, state.stream).modes, full_due)
+            except (ConfigError, ValueError):
+                # A stale state row (connection removed or stream retired) must not abort the scheduling pass.
+                continue
+            if mode is None:
+                # Event-only streams are fed by receivers, never by the poller; advancing next_run_at stops re-selection.
+                continue
             try:
                 await enqueue(
                     session,
@@ -814,7 +944,7 @@ async def scheduler_once(now: datetime | None = None, limit: int = 100) -> int:
                         "mode": mode,
                     },
                     tenant_id=state.tenant_id,
-                    dedupe_key=f"{state.tenant_id}:sync:{state.id}",
+                    dedupe_key=f"{state.tenant_id}:sync:{state.id}:authoritative",
                 )
             except DuplicateActiveJob:
                 # An active job already covers this state; skip it without aborting the other due states.

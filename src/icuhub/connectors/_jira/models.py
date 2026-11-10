@@ -222,9 +222,6 @@ class JiraConfig(ConnectorConfig):
     attachment_max_bytes: int = Field(default=16 * 1024 * 1024, ge=1, le=64 * 1024 * 1024)
     audit_max_bytes: int = Field(default=64 * 1024 * 1024, ge=1, le=256 * 1024 * 1024)
     destructive_enabled: bool = False
-    webhook_verifier_mode: Literal["hmac", "shared_token"] = "hmac"
-    webhook_shared_header: str = "x-icuhub-token"
-    webhook_secret: SecretRef | None = None
 
 
 class JiraCloudConfig(JiraConfig):
@@ -259,6 +256,7 @@ class JiraDataCenterConfig(JiraConfig):
     audit_collector_token: SecretRef | None = None
     audit_collector_client_cert: SecretRef | None = None
     audit_collector_client_key: SecretRef | None = None
+    audit_collector_ca_bundle: SecretRef | None = None
 
     @model_validator(mode="after")
     def _validate_audit_collector(self) -> JiraDataCenterConfig:

@@ -82,7 +82,6 @@ from icuhub.connectors.jira_dc.comments_links import (
     remote_link_payload,
 )
 from icuhub.connectors.jira_dc.webhook_registration import (
-    REGISTRATION_PATH,
     CreateDcWebhookInput,
     DcWebhookRegistration,
     DcWebhooksOutput,
@@ -96,6 +95,7 @@ from icuhub.connectors.jira_dc.webhook_registration import (
     parse_registrations,
     registration_health,
     registration_id,
+    registration_path,
     resolve_family,
     server_version_numbers,
 )
@@ -285,7 +285,7 @@ class JiraDataCenter(JiraBase):
         cursor = time_cursor(checkpoint)
         jql = self._search_jql(cursor.window_start() if mode == "incremental" else None)
         async for page, _result in self._search(jql, "*all"):
-            cursor = cursor.advance(page, ts_of=issue_updated, id_of=record_id)
+            cursor = self.advance_cursor(cursor, page, ts_of=issue_updated, id_of=record_id)
             yield RawBatch(records=page, checkpoint=cursor, complete=False)
         if mode == "full":
             yield RawBatch(records=[], checkpoint=cursor, complete=True)
@@ -321,7 +321,7 @@ class JiraDataCenter(JiraBase):
                 )
                 async for page, _page_result in pages:
                     records = [{**comment, "_jira_issue": parent} for comment in page]
-                    cursor = cursor.advance(records, ts_of=comment_ts, id_of=record_id)
+                    cursor = self.advance_cursor(cursor, records, ts_of=comment_ts, id_of=record_id)
                     yield RawBatch(records=records, checkpoint=cursor, complete=False)
         if mode == "full":
             yield RawBatch(records=[], checkpoint=cursor, complete=True)
@@ -353,7 +353,7 @@ class JiraDataCenter(JiraBase):
             for issue in issue_page:
                 parent = {"id": jira.required_str(issue, "id"), "key": jira.required_str(issue, "key")}
                 records.extend({**history, "_jira_issue": parent} for history in changelog_histories(issue))
-            cursor = cursor.advance(records, ts_of=history_ts, id_of=record_id)
+            cursor = self.advance_cursor(cursor, records, ts_of=history_ts, id_of=record_id)
             yield RawBatch(records=records, checkpoint=cursor, complete=False)
         if mode == "full":
             yield RawBatch(records=[], checkpoint=cursor, complete=True)
@@ -375,7 +375,7 @@ class JiraDataCenter(JiraBase):
         )
         async for page, _result in pages:
             fresh = [record for record in page if window is None or audit_ts(record) >= window]
-            cursor = cursor.advance(fresh, ts_of=audit_ts, id_of=audit_id)
+            cursor = self.advance_cursor(cursor, fresh, ts_of=audit_ts, id_of=audit_id)
             yield RawBatch(records=fresh, checkpoint=cursor, complete=False)
         if mode == "full":
             yield RawBatch(records=[], checkpoint=cursor, complete=True)
@@ -727,7 +727,11 @@ class JiraDataCenter(JiraBase):
             raise VendorContractError("Jira issue fields must be an object")
         if all(value_matches(value, fields.get(name)) for name, value in plan.diff["fields"].items()):
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
-        return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="requested fields are not present")
+        # A field omitted from the response may be hidden by field-level permissions, so absence does not
+        # prove the approved state is missing. A present field with the wrong value is a definitive mismatch.
+        if any(name not in fields for name in plan.diff["fields"]):
+            return ActionOutcome(status="unverified", vendor_ref=plan.target_ref, error="requested fields are not readable")
+        return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="requested field values do not match the plan")
 
     # ------------------------------------------------------------ actions: add_comment
 
@@ -1128,12 +1132,14 @@ class JiraDataCenter(JiraBase):
         body = await self._json("GET", self._api_path("/serverInfo"))
         return resolve_family(self.config.webhook_registration_family, server_version_numbers(body))
 
-    async def _registrations(self) -> list[DcWebhookRegistration]:
-        # [UNVERIFIED] DC webhook plugin registration list returning a bare array; confirm on a Data Center instance.
-        return parse_registrations(await self._json("GET", REGISTRATION_PATH))
+    async def _registrations(self, family: RegistrationFamily) -> list[DcWebhookRegistration]:
+        # [UNVERIFIED] DC webhook registration list returning a bare array; confirm on a Data Center instance.
+        return parse_registrations(await self._json("GET", registration_path(family)))
 
-    async def _checked_registration(self, webhook_id: str, expected_url: str) -> DcWebhookRegistration | None:
-        registration = find_by_id(await self._registrations(), webhook_id)
+    async def _checked_registration(
+        self, family: RegistrationFamily, webhook_id: str, expected_url: str
+    ) -> DcWebhookRegistration | None:
+        registration = find_by_id(await self._registrations(family), webhook_id)
         if registration is not None and registration.url != expected_url:
             raise StalePlan("Jira webhook URL changed since the plan was made")
         return registration
@@ -1146,9 +1152,10 @@ class JiraDataCenter(JiraBase):
         capability=_CAPABILITY,
     )
     async def list_webhooks(self, args: ListWebhooksArgs) -> DcWebhooksOutput:
-        registrations = await self._registrations()
+        family = await self._registration_family()
+        registrations = await self._registrations(family)
         return DcWebhooksOutput(
-            family=await self._registration_family(),
+            family=family,
             status=registration_health(registrations),
             registrations=registrations,
         )
@@ -1164,7 +1171,7 @@ class JiraDataCenter(JiraBase):
         family = await self._registration_family()
         key = digest("create_webhook", args.url, ",".join(args.events), args.jql_filter)
         preconditions = {"url": args.url, "events": ",".join(args.events), "jql_filter": args.jql_filter}
-        existing = find_registration(await self._registrations(), args.url, args.events, args.jql_filter)
+        existing = find_registration(await self._registrations(family), args.url, args.events, args.jql_filter)
         if existing is not None:
             return ActionPlan(
                 action="create_webhook",
@@ -1173,7 +1180,7 @@ class JiraDataCenter(JiraBase):
                 preconditions=preconditions,
                 idempotency_key=key,
                 changed=False,
-                request={"method": "GET", "path": REGISTRATION_PATH},
+                request={"method": "GET", "path": registration_path(family), "family": family},
             )
         return ActionPlan(
             action="create_webhook",
@@ -1182,7 +1189,12 @@ class JiraDataCenter(JiraBase):
             preconditions=preconditions,
             idempotency_key=key,
             changed=True,
-            request={"method": "POST", "path": REGISTRATION_PATH, "json": create_body(args), "family": family},
+            request={
+                "method": "POST",
+                "path": registration_path(family),
+                "json": create_body(args),
+                "family": family,
+            },
         )
 
     @plan_create_webhook.apply
@@ -1211,7 +1223,7 @@ class JiraDataCenter(JiraBase):
     @plan_create_webhook.reconcile
     async def reconcile_create_webhook(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
         found = find_registration(
-            await self._registrations(),
+            await self._registrations(plan.request["family"]),
             plan.preconditions["url"],
             plan.preconditions["events"].split(","),
             plan.preconditions["jql_filter"],
@@ -1232,7 +1244,8 @@ class JiraDataCenter(JiraBase):
         preconditions = {"webhook_id": args.webhook_id, "url": args.expected_url}
         key = digest("delete_webhook", args.webhook_id, args.expected_url)
         target_ref = f"jira_webhook:{args.webhook_id}"
-        if await self._checked_registration(args.webhook_id, args.expected_url) is None:
+        family = await self._registration_family()
+        if await self._checked_registration(family, args.webhook_id, args.expected_url) is None:
             return ActionPlan(
                 action="delete_webhook",
                 target_ref=target_ref,
@@ -1240,7 +1253,7 @@ class JiraDataCenter(JiraBase):
                 preconditions=preconditions,
                 idempotency_key=key,
                 changed=False,
-                request={"method": "GET", "path": REGISTRATION_PATH},
+                request={"method": "GET", "path": registration_path(family), "family": family},
             )
         return ActionPlan(
             action="delete_webhook",
@@ -1249,7 +1262,11 @@ class JiraDataCenter(JiraBase):
             preconditions=preconditions,
             idempotency_key=key,
             changed=True,
-            request={"method": "DELETE", "path": delete_path(args.webhook_id)},
+            request={
+                "method": "DELETE",
+                "path": delete_path(family, args.webhook_id),
+                "family": family,
+            },
         )
 
     @plan_delete_webhook.apply
@@ -1257,7 +1274,8 @@ class JiraDataCenter(JiraBase):
         self.require_destructive("delete_webhook")
         if not plan.changed:
             return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
-        if await self._checked_registration(plan.preconditions["webhook_id"], plan.preconditions["url"]) is None:
+        family: RegistrationFamily = plan.request["family"]
+        if await self._checked_registration(family, plan.preconditions["webhook_id"], plan.preconditions["url"]) is None:
             return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
         try:
             # [UNVERIFIED] DC webhook delete status codes; confirm on a Data Center instance.
@@ -1273,7 +1291,7 @@ class JiraDataCenter(JiraBase):
 
     @plan_delete_webhook.reconcile
     async def reconcile_delete_webhook(self, plan: ActionPlan, outcome: ActionOutcome) -> ActionOutcome:
-        if find_by_id(await self._registrations(), plan.preconditions["webhook_id"]) is None:
+        if find_by_id(await self._registrations(plan.request["family"]), plan.preconditions["webhook_id"]) is None:
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
         return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="webhook still registered")
 

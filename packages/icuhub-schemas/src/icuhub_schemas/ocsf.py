@@ -7,9 +7,9 @@ from ``class_uid`` and ``activity_id``. Vendor attributes without a typed field 
 ``unmapped``; unknown attributes are rejected.
 
 The schema's ``anyOf`` and ``oneOf`` constraints are enforced over the modeled attributes only.
-Alternatives the models do not represent (``vulnerability.advisory``, ``user.account``, and the
-other unmodeled ``actor`` and ``network_endpoint`` members) cannot be set, so a model never
-emits a document the schema would reject.
+Alternatives the models do not represent (``user.account`` and the other unmodeled ``actor`` and
+``network_endpoint`` members) cannot be set, so a model never emits a document the schema would
+reject.
 """
 
 from collections.abc import Mapping
@@ -23,6 +23,7 @@ __all__ = [
     "OCSF_VERSION",
     "Account",
     "Actor",
+    "Advisory",
     "AffectedCode",
     "AffectedPackage",
     "Api",
@@ -219,9 +220,20 @@ class AffectedPackage(_Model):
     path: str | None = None
 
 
+class Advisory(_Model):
+    """A vendor security advisory identified by a vendor-assigned, stable ``uid``."""
+
+    uid: str
+    title: str | None = None
+    desc: str | None = None
+    src_url: str | None = None
+    references: list[str] | None = None
+
+
 class Vulnerability(_Model):
     desc: str | None = None
     category: str | None = None
+    advisory: Advisory | None = None
     cve: Cve | None = None
     cwe: Cwe | None = None
     references: list[str] | None = None
@@ -230,8 +242,9 @@ class Vulnerability(_Model):
 
     @model_validator(mode="after")
     def _exactly_one_identifier(self) -> Self:
-        if (self.cve is None) == (self.cwe is None):
-            raise ValueError("exactly one of cve or cwe is required (advisory is not modeled)")
+        set_count = sum(value is not None for value in (self.advisory, self.cve, self.cwe))
+        if set_count != 1:
+            raise ValueError("exactly one of advisory, cve, or cwe is required")
         return self
 
 

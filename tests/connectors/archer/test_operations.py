@@ -13,6 +13,7 @@ from icuhub.connectors.archer.models import (
     ApplicationRef,
     AttachmentRef,
     ContentRef,
+    DataFeedHistoryInput,
     EmptyInput,
     LevelRef,
     SearchContentArgs,
@@ -37,20 +38,19 @@ def base_routes() -> dict[tuple[str, str], Any]:
 
 def test_get_version():
     routes = base_routes()
-    routes[("POST", "/platformapi/core/system/applicationinfo")] = {"json": fixture(CLIENT, "app_info.json")}
+    routes[("POST", "/platformapi/core/system/applicationinfo/version")] = {"json": fixture(CLIENT, "app_info.json")}
     connector = make_archer(RouteTransport(routes))
     out = asyncio.run(connector.get_version(EmptyInput()))
     assert out.version == "2025.10"
     assert out.raw["BuildNumber"] == "2025.10.0.123"
 
 
-def test_list_applications_omits_permission_filtered_entries():
+def test_list_applications_fails_closed_on_permission_filtered_entries():
     routes = base_routes()
     routes[("POST", "/platformapi/core/system/application")] = {"json": fixture(CLIENT, "applications.json")}
     connector = make_archer(RouteTransport(routes))
-    out = asyncio.run(connector.list_applications(EmptyInput()))
-    assert [i.id for i in out.items] == [301]
-    assert out.items[0].name == "Risk Register"
+    with pytest.raises(VendorContractError, match="refused"):
+        asyncio.run(connector.list_applications(EmptyInput()))
 
 
 def test_list_levels():
@@ -161,7 +161,7 @@ def test_get_data_feed_history():
         "json": fixture(OPS, "data_feed_history.json")
     }
     connector = make_archer(RouteTransport(routes))
-    out = asyncio.run(connector.get_data_feed_history(EmptyInput()))
+    out = asyncio.run(connector.get_data_feed_history(DataFeedHistoryInput(data_feed_guid="df-1")))
     assert out.runs[0]["Guid"] == "df-1"
 
 

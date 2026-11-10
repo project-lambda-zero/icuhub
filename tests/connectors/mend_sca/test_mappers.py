@@ -71,7 +71,7 @@ def test_security_finding_fingerprint_ignores_volatile_status_fields() -> None:
         **record,
         "findingInfo": {
             **record["findingInfo"],
-            "findingStatus": "IGNORED",
+            "findingStatus": "SUPPRESSED",
             "modifiedAt": "2026-02-01T00:00:00Z",
             "comment": "triaged",
         },
@@ -83,6 +83,88 @@ def test_security_finding_fingerprint_ignores_volatile_status_fields() -> None:
     assert before.finding_info.uid_alt is not None
     assert after.finding_info.uid_alt == before.finding_info.uid_alt
     assert after.status_id == 3
+    assert after.status == "SUPPRESSED"
+
+
+@pytest.mark.parametrize(
+    ("finding_status", "status_id"),
+    [
+        ("UNREVIEWED", 1),
+        ("IN_REVIEW", 2),
+        ("ISSUE_CREATED", 2),
+        ("SUPPRESSED", 3),
+        ("REMEDIATED", 4),
+    ],
+)
+def test_security_finding_status_enum_maps_to_ocsf(finding_status: str, status_id: int) -> None:
+    page = _fixture("v3", "security_findings_page1.json")
+    record = _first(page, "response")
+    record = {**record, "findingInfo": {**record["findingInfo"], "findingStatus": finding_status}}
+
+    [finding] = map_security_finding(record, _ctx())
+
+    assert finding.status == finding_status
+    assert finding.status_id == status_id
+
+
+@pytest.mark.parametrize("info_status", ["LIBRARY_IN_HOUSE", "LIBRARY_WHITELIST", "NOT_A_VENDOR_VALUE"])
+def test_unmapped_finding_status_is_unknown_not_terminal(info_status: str) -> None:
+    page = _fixture("v3", "security_findings_page1.json")
+    record = _first(page, "response")
+    record = {**record, "findingInfo": {**record["findingInfo"], "findingStatus": info_status}}
+
+    [finding] = map_security_finding(record, _ctx())
+
+    assert finding.status_id == 0
+
+
+@pytest.mark.parametrize(
+    ("reachability", "expected"),
+    [
+        ("REACHABLE", "REACHABLE"),
+        ("POTENTIALLY_REACHABLE", "POTENTIALLY_REACHABLE"),
+        ("UNREACHABLE", "UNREACHABLE"),
+        ("REACHABILITY_UNAVAILABLE", "REACHABILITY_UNAVAILABLE"),
+        ("SOMETHING_NEW", None),
+    ],
+)
+def test_security_finding_reachability_passes_enum_values_only(reachability: str, expected: str | None) -> None:
+    page = _fixture("v3", "security_findings_page1.json")
+    record = _first(page, "response")
+    record = {**record, "reachability": reachability, "exploitable": True, "malicious": False}
+
+    [finding] = map_security_finding(record, _ctx())
+
+    mend = finding.unmapped["mend_sca"]
+    assert mend.get("reachability") == expected
+    assert mend["exploitable"] is True
+    assert mend["malicious"] is False
+
+
+def test_security_finding_top_fix_is_read_from_finding_record() -> None:
+    page = _fixture("v3", "security_findings_page1.json")
+    record = _first(page, "response")
+    top_fix = {
+        "id": 49422,
+        "vulnerability": "CVE-2022-4245",
+        "type": "UPGRADE_VERSION",
+        "origin": "WHITESOURCE_EXPERT",
+        "url": "https://github.com/codehaus-plexus/plexus-utils/commit/f933e5e78dc2637e485447ed821fe14904f110de",
+        "fixResolution": "3.0.24",
+        "date": "2022-12-01T00:00:00Z",
+        "message": "Upgrade to version",
+    }
+    record = {**record, "topFix": top_fix}
+
+    [finding] = map_security_finding(record, _ctx())
+
+    preserved = finding.unmapped["mend_sca"]["top_fix"]
+    assert preserved["id"] == "49422"
+    assert preserved["type"] == "UPGRADE_VERSION"
+    assert preserved["origin"] == "WHITESOURCE_EXPERT"
+    assert preserved["fix_resolution"] == "3.0.24"
+    assert preserved["url"] == top_fix["url"]
+    assert preserved["message"] == "Upgrade to version"
 
 
 def test_security_finding_without_organization_is_rejected() -> None:

@@ -141,33 +141,6 @@ def test_incompatible_auth_method_and_principal_kind_rejected(auth_method: str, 
         GitLabConfig(access_token=_token(), auth_method=auth_method, principal_kind=principal_kind)  # type: ignore[arg-type]
 
 
-# Webhook secret rotation
-
-
-def test_previous_webhook_secret_requires_current_secret() -> None:
-    with pytest.raises(ValidationError):
-        GitLabConfig(access_token=_token(), previous_webhook_secret=SecretRef(ref="vault://old"))
-
-
-def test_webhook_rotation_rejects_identical_refs() -> None:
-    with pytest.raises(ValidationError):
-        GitLabConfig(
-            access_token=_token(),
-            webhook_secret=SecretRef(ref="vault://hook"),
-            previous_webhook_secret=SecretRef(ref="vault://hook"),
-        )
-
-
-def test_webhook_rotation_accepts_distinct_refs() -> None:
-    config = GitLabConfig(
-        access_token=_token(),
-        webhook_secret=SecretRef(ref="vault://hook-new"),
-        previous_webhook_secret=SecretRef(ref="vault://hook-old"),
-    )
-    assert config.webhook_secret is not None
-    assert config.previous_webhook_secret is not None
-
-
 # Configuration bounds and defaults
 
 

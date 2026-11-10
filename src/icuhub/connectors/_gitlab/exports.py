@@ -94,7 +94,14 @@ async def apply_create_vulnerability_export(connector: Any, plan: ActionPlan) ->
             expected=(200, 201, 202),
         )
     except _CREATE_AMBIGUOUS as exc:
-        return ActionOutcome(status="outcome_unknown", error=f"export request not confirmed ({exc}); not retried")
+        return ActionOutcome(
+            status="outcome_unknown",
+            error=(
+                f"export request not confirmed ({exc}); not retried. GitLab may have rejected the request because "
+                "an export for this user and scope is already in progress. Check the GitLab UI for an active export "
+                "and supply its export id, or retry after that export finishes."
+            ),
+        )
     except _CREATE_REJECTED as exc:
         return ActionOutcome(status="failed", error=str(exc))
     body = response.json()

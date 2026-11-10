@@ -402,6 +402,77 @@ def test_purge_artifact_reconciles_absence_without_second_write() -> None:
     assert len(posts) == 1
 
 
+def test_create_webhook_absent_on_readback_is_failed_not_unknown() -> None:
+    posts: list[Any] = []
+
+    def create(request: Any) -> dict[str, Any]:
+        posts.append(request)
+        return {"status": 201, "json": {"data": {"id": 77}}}
+
+    connector = _connector(
+        {
+            ("POST", f"{API}/webhooks"): create,
+            ("GET", f"{API}/webhooks/77"): lambda request: {"status": 404, "json": {"data": None}},
+        }
+    )
+    spec = _spec("create_webhook")
+    args = CreateWebhookArgs(url="https://hooks.example.test/ssc", object_version=0)
+    plan = asyncio.run(spec.plan(connector, args))
+    outcome = asyncio.run(spec.apply(connector, plan))
+
+    assert outcome.status == "failed"
+    assert outcome.error == "webhook absent after create"
+    assert len(posts) == 1
+
+
+def test_comment_absent_from_bounded_list_is_unverified_not_failed() -> None:
+    posts: list[dict[str, Any]] = []
+
+    def post(request: Any) -> dict[str, Any]:
+        posts.append(json.loads(request.content))
+        return _success()
+
+    connector = _connector(
+        {
+            ("GET", ISSUE_PATH): _details(_issue_state()),
+            ("POST", AUDIT_PATH): post,
+            ("GET", f"{API}/issues/1001/comments"): lambda request: {"status": 200, "json": {"data": []}},
+        }
+    )
+    spec = _spec("add_issue_comment")
+    args = AddIssueCommentArgs(project_version_id=42, issue_id=1001, revision=3, comment="triage complete")
+    plan = asyncio.run(spec.plan(connector, args))
+    outcome = asyncio.run(spec.apply(connector, plan))
+
+    assert outcome.status == "unverified"
+    assert len(posts) == 1
+
+
+def test_artifact_still_present_after_purge_is_failed() -> None:
+    artifact = {"id": 501, "versionNumber": 1, "status": "PROCESS_COMPLETE", "purged": False}
+    posts: list[Any] = []
+
+    def purge(request: Any) -> dict[str, Any]:
+        posts.append(request)
+        return {"status": 200, "json": {"data": None}}
+
+    connector = _connector(
+        {
+            ("GET", f"{API}/artifacts/501"): lambda request: {"status": 200, "json": {"data": dict(artifact)}},
+            ("POST", f"{API}/artifacts/action/purge"): purge,
+        },
+        destructive_enabled=True,
+    )
+    spec = _spec("purge_artifact")
+    args = PurgeArtifactArgs(artifact_id=501, version_number=1, approval_ref="CHG-1")
+    plan = asyncio.run(spec.plan(connector, args))
+    outcome = asyncio.run(spec.apply(connector, plan))
+
+    assert outcome.status == "failed"
+    assert outcome.error == "artifact still present after purge"
+    assert len(posts) == 1
+
+
 def test_purge_project_version_denied_without_destructive_flag() -> None:
     connector = _connector({})
     args = PurgeProjectVersionArgs(project_version_id=42, approval_ref="CHG-1")

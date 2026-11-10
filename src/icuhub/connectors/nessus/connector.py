@@ -42,6 +42,9 @@ from icuhub.kit.types import (
 __all__ = ["Nessus"]
 
 _EXPORT_CAPABLE = ("professional", "expert", "manager", "enterprise")
+# Page size and offset ceiling of the scan history listing (ListHistoryArgs bounds).
+_HISTORY_PAGE = 200
+_HISTORY_MAX_OFFSET = 1_000_000
 
 
 class Nessus(Connector):
@@ -219,27 +222,69 @@ class Nessus(Connector):
         data = await self.http.stream_download(
             "GET", f"/scans/{args.scan_id}/export/{args.file_id}/download", max_bytes=self._config().max_report_bytes
         )
-        return self._parse(data, scan_id=args.scan_id, history_id=None, source="live")
+        return await self._live_report(data, scan_id=args.scan_id, history_id=args.history_id)
 
-    def _parse(self, data: bytes, *, scan_id: str | None, history_id: str | None, source: str) -> NessusExportDownload:
+    async def _history_facts(self, scan_id: str, history_id: str) -> tuple[str | None, bool | None]:
+        """Return ``(status, archived)`` of one history run, or ``(None, None)`` when it is not listed.
+
+        Pages the history list newest first. Stops at the first matching run, at the end of the
+        listing, or at the history API's maximum offset.
+        """
+        for offset in range(0, _HISTORY_MAX_OFFSET, _HISTORY_PAGE):
+            page = await self.list_history(ListHistoryArgs(scan_id=scan_id, offset=offset, limit=_HISTORY_PAGE))
+            for run in page.history:
+                if str(run.history_id) == history_id:
+                    return run.status, run.archived
+            if len(page.history) < _HISTORY_PAGE:
+                break
+        return None, None
+
+    async def _live_report(self, data: bytes, *, scan_id: str, history_id: str | None) -> NessusExportDownload:
+        status, archived = (None, None)
+        if history_id is not None:
+            status, archived = await self._history_facts(scan_id, history_id)
+        return self._parse(
+            data,
+            scan_id=scan_id,
+            history_id=history_id,
+            history_status=status,
+            archived=archived,
+            source="live",
+        )
+
+    def _parse(
+        self,
+        data: bytes,
+        *,
+        scan_id: str | None,
+        history_id: str | None,
+        history_status: str | None,
+        archived: bool | None,
+        source: str,
+    ) -> NessusExportDownload:
         digest = file_sha256(data)
+        rows = list(iter_nessus(data, limits=self._limits()))
+        report_name = rows[0][0] if rows else None
         context = NessusReportContext(
             run_uid=f"nessus:{digest}",
             file_sha256=digest,
             source=source,
             scan_id=scan_id,
             history_id=history_id,
+            history_status=history_status,
+            archived=archived,
+            report_name=report_name,
         )
+        # Live exports carry the scan id; uploads are scoped by the Report name. Identity never
+        # depends on the file bytes, so repeated exports of one scan keep their finding identity.
+        scope = f"scan:{scan_id}" if scan_id else f"report:{report_name}"
         records: list[NessusFindingRecord] = []
         truncated = False
         bounded = False
-        for host, item in iter_nessus(data, limits=self._limits()):
-            raw_item = item.model_dump()
-            raw_host = host.model_dump()
-            raw_report = context.model_dump()
+        for _, host, item in rows:
             records.append(
                 NessusFindingRecord(
-                    event_uid=event_uid(raw_report, raw_host, raw_item),
+                    event_uid=event_uid(scope, host.model_dump(), item.model_dump()),
                     report=context,
                     host=host,
                     item=item,
@@ -303,7 +348,7 @@ class Nessus(Connector):
         data = await self.http.stream_download(
             "GET", f"/scans/{scan_id}/export/{export.file_id}/download", max_bytes=self._config().max_report_bytes
         )
-        report = self._parse(data, scan_id=scan_id, history_id=history_id, source="live")
+        report = await self._live_report(data, scan_id=scan_id, history_id=history_id)
         records = [
             record.model_dump()
             for record in report.records
@@ -336,7 +381,9 @@ class Nessus(Connector):
         return map_compliance(NessusFindingRecord.model_validate(raw), ctx)
 
     async def _import_records(self, imported: ImportedFile, compliance: bool) -> AsyncIterator[dict[str, Any]]:
-        report = self._parse(imported.data, scan_id=None, history_id=None, source="upload")
+        report = self._parse(
+            imported.data, scan_id=None, history_id=None, history_status=None, archived=None, source="upload"
+        )
         for record in report.records:
             if is_compliance(record.item.model_dump()) == compliance:
                 yield record.model_dump()

@@ -1,8 +1,10 @@
-{
-  "id": 9003,
-  "created_at": "2026-11-09T10:02:00Z",
-  "details": {
-    "author_name": "Synthetic Actor",
-    "custom_message": "Synthetic single event"
+[
+  {
+    "id": 9003,
+    "created_at": "2026-11-09T10:02:00Z",
+    "details": {
+      "author_name": "Synthetic Actor",
+      "custom_message": "Synthetic single event batch"
+    }
   }
-}
+]

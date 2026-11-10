@@ -137,10 +137,10 @@ def test_source_record_uids_for_snapshot_streams():
     out = map_all(connector(), "attachments", [attachment])
     assert isinstance(out[0], SourceRecord)
     assert out[0].uid == "archer:attachments:1001:77"
-    run = {"record_type": "data_feed_runs", "run": {"Guid": "df-1"}, "run_index": 0}
+    run = {"record_type": "data_feed_runs", "run": {"Guid": "df-1", "HistoryId": 71}, "run_index": 0}
     out = map_all(connector(), "data_feed_runs", [run])
     assert isinstance(out[0], SourceRecord)
-    assert out[0].uid == "archer:data_feed_runs:df-1"
+    assert out[0].uid == "archer:data_feed_runs:71"
 
 
 def test_exception_request_maps_configured_decision_fields():

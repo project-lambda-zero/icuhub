@@ -9,13 +9,13 @@ from pydantic import ValidationError
 
 from icuhub.connectors.archer import Archer
 from icuhub.connectors.archer.models import ArcherConfig
-from icuhub.kit import build_manifest, conformance_problems
+from icuhub.kit import VendorContractError, build_manifest, conformance_problems
 
 from .conftest import RouteTransport, make_archer
 
 FIXTURES = Path(__file__).parents[2] / "fixtures" / "archer" / "client"
 LOGIN = ("POST", "/platformapi/core/security/login")
-APP_INFO = ("POST", "/platformapi/core/system/applicationinfo")
+APP_INFO = ("POST", "/platformapi/core/system/applicationinfo/version")
 APPLICATIONS = ("POST", "/platformapi/core/system/application")
 CONTENT_API = ("GET", "/contentapi/")
 MANIFEST = Path(__file__).parents[3] / "src" / "icuhub" / "connectors" / "archer" / "manifest.json"
@@ -29,7 +29,7 @@ def healthy_routes():
     return {
         LOGIN: {"json": fixture("login.json")},
         APP_INFO: {"json": fixture("app_info.json")},
-        APPLICATIONS: {"json": fixture("applications.json")},
+        APPLICATIONS: {"json": [fixture("applications.json")[0]]},
         CONTENT_API: {"status": 404, "text": "not found"},
     }
 
@@ -93,17 +93,16 @@ def test_check_auth_failure_is_failing():
     assert report.capabilities["RiskRegister"].status == "failing"
 
 
-def test_discover_enumerates_applications():
-    connector = make_archer(RouteTransport(healthy_routes()))
+def test_discover_refuses_permission_filtered_applications():
+    routes = healthy_routes()
+    routes[APPLICATIONS] = {"json": fixture("applications.json")}
+    connector = make_archer(RouteTransport(routes))
 
     async def collect():
         return [record async for record in connector.discover()]
 
-    records = asyncio.run(collect())
-    assert len(records) == 1
-    assert records[0].source_uid == "301"
-    assert records[0].kind == "archer_application"
-    assert records[0].display_name == "Risk Register"
+    with pytest.raises(VendorContractError, match="refused"):
+        asyncio.run(collect())
 
 
 def test_no_webhook_verifier():

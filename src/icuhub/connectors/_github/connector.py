@@ -136,8 +136,8 @@ _STREAM_SPECS: dict[str, _StreamOptions] = {
     "workflow_artifacts": {"cursor": SnapshotCursor, "capability": "SourceControl"},
     "actions_caches": {"cursor": SnapshotCursor, "capability": "SourceControl"},
     "actions_runners": {"cursor": SnapshotCursor, "capability": "SourceControl", "requires_target": False},
-    "commit_statuses": {"cursor": SnapshotCursor, "capability": "SourceControl"},
-    "check_runs": {"cursor": SnapshotCursor, "capability": "SourceControl"},
+    "commit_statuses": {"cursor": SnapshotCursor, "capability": "SourceControl", "modes": ("incremental", "full")},
+    "check_runs": {"cursor": SnapshotCursor, "capability": "SourceControl", "modes": ("incremental", "full")},
 }
 
 if set(_STREAM_SPECS) != set(streams._STREAM_NAMES):  # noqa: SLF001 - same-family binding contract
@@ -157,6 +157,14 @@ _FINDING_OPERATIONS = frozenset(
     }
 )
 _SECURITY_SINK_OPERATIONS = frozenset({"get_sarif_status"})
+
+
+def _principal_id(body: Any, endpoint: str) -> int:
+    """Return the integer ``id`` of an App or user response; anything else is a contract break."""
+    value = body.get("id") if isinstance(body, dict) else None
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise VendorContractError(f"GitHub {endpoint} response has no integer id")
+    return value
 
 
 def _operation_capability(name: str) -> str:
@@ -334,6 +342,29 @@ class GitHubConnectorBase(GitHubBase):
     ]:
         return "degraded" if "degraded" in (current, probe) else "healthy"
 
+    async def _verify_identity(self) -> None:
+        """Prove the configured credential belongs to the configured identity.
+
+        App auth calls ``GET /app`` with an App JWT (installation tokens cannot read it) and
+        requires the returned App id to equal ``app_id``. PAT auth calls ``GET /user``.
+        """
+        config = self._config()
+        if config.app_id is not None:
+            auth = await self.build_auth()
+            if not isinstance(auth, GitHubAppAuth):
+                raise ConfigError("App configuration must resolve to GitHubAppAuth")
+            response = await self.http.request(
+                "GET",
+                self.rest_url("/app"),
+                headers={**self.api_headers(), "Authorization": f"Bearer {auth.app_jwt()}"},
+                authenticate=False,
+            )
+            value = _principal_id(response.json(), "/app")
+            if str(value) != str(config.app_id):
+                raise AuthFailed(f"GitHub App id {value} does not match configured app_id")
+            return
+        _principal_id((await self.request("GET", "/user")).json(), "/user")
+
     async def check(self) -> HealthReport:
         detail = {
             "edition": self.kind,
@@ -345,6 +376,7 @@ class GitHubConnectorBase(GitHubBase):
             body = (await self.request("GET", "/rate_limit")).json()
             if not isinstance(body, dict):
                 raise VendorContractError("GitHub /rate_limit response must be a JSON object")
+            await self._verify_identity()
         except AuthFailed as exc:
             capabilities = {
                 name: CapabilityHealth(status="failing", reason=type(exc).__name__)
@@ -400,7 +432,7 @@ class GitHubConnectorBase(GitHubBase):
     @webhook(event_types=GITHUB_WEBHOOK_EVENTS, header_event=GITHUB_EVENT_HEADER)
     def receive_event(self, delivery: WebhookDelivery) -> list[StreamRecord]:
         event = delivery.headers.get(GITHUB_EVENT_HEADER, "")
-        return hints_for_delivery(event, delivery)
+        return hints_for_delivery(event, delivery, app_id=self._config().app_id)
 
     # --- governed actions ---------------------------------------------------------------------
 

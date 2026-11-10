@@ -170,7 +170,9 @@ def _source_uid(stream_name: str, raw: dict[str, Any]) -> str:
         return f"archer:attachments:{raw.get('content_id')}:{raw.get('attachment_id')}"
     if stream_name == "data_feed_runs":
         run = raw.get("run") or {}
-        key = run.get("Guid") or run.get("Id") or raw.get("run_index")
+        key = run.get("Id") or run.get("HistoryId")
+        if key is None:
+            raise VendorContractError("Archer data-feed run has no history Id")
         return f"archer:data_feed_runs:{key}"
     return f"archer:{stream_name}:{raw.get('content_id')}"
 

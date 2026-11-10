@@ -24,6 +24,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Kubernetes and OpenShift editions with inventory, policy and posture assessments, LIST/WATCH checkpoints, snapshot reconciliation, managed audit ingress, and separately gated workload, RBAC, Route, SCC, and BuildConfig actions.
 - F1 real-scanner routing, F4 GitHub native publication, F5 GitLab native ingestion and feedback, and F6 OpenShift posture-to-approved-remediation flows with offline signed evidence and cross-tenant denial.
 - OpenShift runtime profile with restricted workloads, migration and RBAC separation, TLS Route, default-deny NetworkPolicies, secure worker relay, and optional narrow vendor and OIDC egress policies.
+- Prisma Cloud UVE `search_vulnerabilities` operation through `POST /uve/api/v1/vulnerabilities/search`, with query-token and response-completeness validation. This is CVE aggregate search, not the still-open complete per-asset export required by `GAP-PCSPM-03`.
 - Deduplicated action-plan, approval, and terminal-outcome evidence items whose digests verify offline in F7 bundles.
 - Event and deterministic artifact-replay stream declarations, with hint-only webhooks able to enqueue canonical full or incremental reconciliation.
 - Integration inventory of the existing consumer platforms with an ICUHUB disposition per integration (`docs/INTEGRATION_INVENTORY.md`).
@@ -57,6 +58,13 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Jira Cloud issue creation now reads the authoritative issue before success and persists the mapper-compatible `issue_id:fields.updated` revision, preventing ICUHUB echo actions and duplicate remediation. A failed post-create read-back is `outcome_unknown`, not a definitive failure.
+- Jira OAuth refresh-token rotation reaches durable credential storage before the replacement token is used; persistence failures retain the prior held token and never fall back to memory-only rotation.
+- Action leases now renew throughout re-planning and vendor execution. Crash recovery after a vendor write preserves `outcome_unknown`, avoids a duplicate create, and records a digest-verified terminal outcome evidence item.
+- Tenant-scoped natural-key action admission now has concurrent replay, conflicting-argument, tenant-isolation, and terminal-state reuse coverage backed by the database uniqueness contract.
+- Prisma Cloud alert, RQL, export, remediation, Compute partition, registry scan, incident acknowledgment, collection, runtime audit, and WAAS contracts now fail closed on incomplete or inconsistent evidence. Registry scans require post-send evidence, and source cloud providers and policy types are never invented during mapping.
+- Prisma alert count anomalies, failed pages, cross-partition mutation, duplicate-page cycles, and incomplete UVE responses no longer authorize checkpoint completion or absence closure.
+- Nessus compliance findings use check-specific identity and fingerprints, and identifier-free severity 1-4 results map to advisory-backed OCSF 2002 rather than detection-only findings.
 - Asynchronous actions now reconcile from the approved plan and persisted prior outcome without repeating the vendor write, including accepted-then-failed and bounded-poll paths.
 - The runtime license gate now accepts valid MIT-0 metadata and normalizes legacy PSF and PSFL fields to PSF-2.0 without relaxing rejection of unrecognized or restricted licenses.
 - OCSF `Resolved` status 4 now drives source resolution, and correlation cases reopen and resolve consistently as source members reappear or leave complete snapshots.

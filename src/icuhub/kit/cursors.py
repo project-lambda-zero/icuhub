@@ -15,6 +15,7 @@ __all__ = [
     "SequenceCursor",
     "SnapshotCursor",
     "TimeIdCursor",
+    "TimeIdSnapshotCursor",
 ]
 
 _Record = TypeVar("_Record")
@@ -66,6 +67,13 @@ class TimeIdCursor(BaseModel):
     def is_duplicate(self, ts: datetime, id: str) -> bool:
         """Report whether an ID was already committed at the cursor timestamp."""
         return ts == self.ts and id in self.last_ids_at_ts
+
+
+class TimeIdSnapshotCursor(TimeIdCursor):
+    """A time-ID checkpoint that also identifies a complete full-mode traversal."""
+
+    snapshot_id: str | None = None
+    snapshot_started_at: datetime | None = None
 
 
 class PageTokenCursor(BaseModel):

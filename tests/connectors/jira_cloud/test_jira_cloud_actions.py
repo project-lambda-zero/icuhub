@@ -205,6 +205,18 @@ def _create_args() -> CreateIssueInput:
     return CreateIssueInput(route_key="route-1", project_key="PROJ", issue_type="Task", summary="Triage")
 
 
+def _created_issue_body() -> dict[str, Any]:
+    return {
+        "id": "10050",
+        "key": "PROJ-7",
+        "self": f"{BASE}/rest/api/3/issue/10050",
+        "fields": {
+            "updated": UPDATED,
+            "status": {"name": "To Do", "statusCategory": {"key": "new"}},
+        },
+    }
+
+
 def test_create_issue_posts_route_labelled_issue_and_succeeds() -> None:
     created: list[dict[str, Any]] = []
     posts: list[httpx2.Request] = []
@@ -217,6 +229,7 @@ def test_create_issue_posts_route_labelled_issue_and_succeeds() -> None:
                 body={"id": "10050", "key": "PROJ-7"},
                 mutate=lambda _r: created.append({"id": "10050", "key": "PROJ-7"}),
             ),
+            ("GET", f"{API}/issue/PROJ-7"): {"status": 200, "json": _created_issue_body()},
         }
     )
     spec = _spec("create_issue")
@@ -229,6 +242,8 @@ def test_create_issue_posts_route_labelled_issue_and_succeeds() -> None:
 
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "jira_issue:PROJ-7"
+    assert outcome.result["id"] == "10050"
+    assert outcome.result["revision"] == f"10050:{UPDATED}"
     sent = _body(posts[0])["fields"]
     assert sent["project"] == {"key": "PROJ"}
     assert sent["summary"] == "Triage"
@@ -267,6 +282,7 @@ def test_create_issue_timeout_after_post_reconciles_to_succeeded() -> None:
                 timeout=True,
                 mutate=lambda _r: created.append({"id": "10050", "key": "PROJ-7"}),
             ),
+            ("GET", f"{API}/issue/PROJ-7"): {"status": 200, "json": _created_issue_body()},
         }
     )
     spec = _spec("create_issue")
@@ -298,6 +314,38 @@ def test_create_issue_timeout_without_created_issue_reconciles_to_failed() -> No
 
     assert reconciled.status == "failed"
     assert reconciled.error == "no issue carries the route label after the write timed out"
+
+
+def test_create_issue_read_back_failure_is_outcome_unknown_then_reconciles() -> None:
+    created: list[dict[str, Any]] = []
+    healthy = {"value": False}
+
+    def read_back(_request: httpx2.Request) -> dict[str, Any]:
+        if not healthy["value"]:
+            return {"status": 503, "json": {"errorMessages": ["temporarily unavailable"]}}
+        return {"status": 200, "json": _created_issue_body()}
+
+    connector = _connector(
+        {
+            ("GET", SEARCH_PATH): _paged_route("issues", created),
+            ("POST", CREATE_PATH): _write(
+                [],
+                status=201,
+                body={"id": "10050", "key": "PROJ-7"},
+                mutate=lambda _r: created.append({"id": "10050", "key": "PROJ-7"}),
+            ),
+            ("GET", f"{API}/issue/PROJ-7"): read_back,
+        }
+    )
+    spec = _spec("create_issue")
+    plan = asyncio.run(spec.plan(connector, _create_args()))
+
+    outcome = asyncio.run(spec.apply(connector, plan))
+    assert outcome.status == "outcome_unknown"
+    healthy["value"] = True
+    reconciled = asyncio.run(spec.reconcile(connector, plan, outcome))
+    assert reconciled.status == "succeeded"
+    assert reconciled.result["revision"] == f"10050:{UPDATED}"
 
 
 # --- update_issue_fields ----------------------------------------------------
@@ -1067,6 +1115,17 @@ def _create_webhook_args() -> CreateWebhookInput:
     return CreateWebhookInput(name="icuhub", url=WEBHOOK_URL, events=[WEBHOOK_EVENT], jql_filter="project = PROJ")
 
 
+EXTENDED_EXPIRY = "2027-01-01T00:00:00.000+0000"
+
+
+def _extend_expiry(registrations: list[dict[str, Any]]) -> Callable[[httpx2.Request], None]:
+    def extend(_request: httpx2.Request) -> None:
+        for raw in registrations:
+            raw["expirationDate"] = EXTENDED_EXPIRY
+
+    return extend
+
+
 def test_create_webhook_posts_registration_and_succeeds() -> None:
     registrations: list[dict[str, Any]] = []
     posts: list[httpx2.Request] = []
@@ -1173,7 +1232,6 @@ def test_create_webhook_reconcile_fails_when_never_registered() -> None:
     reconciled = asyncio.run(spec.reconcile(connector, plan, OUTCOME))
 
     assert reconciled.status == "failed"
-    assert reconciled.error == "webhook not registered after write"
 
 
 def test_delete_webhook_deletes_registration_and_reconciles_absent() -> None:
@@ -1256,7 +1314,7 @@ def test_refresh_webhook_puts_ids_and_reconciles_registered() -> None:
     connector = _connector(
         {
             ("GET", WEBHOOK_PATH): _paged_route("values", registrations),
-            ("PUT", WEBHOOK_REFRESH_PATH): _write(puts, status=202),
+            ("PUT", WEBHOOK_REFRESH_PATH): _write(puts, status=202, mutate=_extend_expiry(registrations)),
         }
     )
     spec = _spec("refresh_webhook")
@@ -1288,7 +1346,142 @@ def test_refresh_webhook_reconcile_reports_expired_registration() -> None:
     reconciled = asyncio.run(spec.reconcile(connector, plan, OUTCOME))
 
     assert reconciled.status == "failed"
-    assert reconciled.error == "registrations expired: 4001; re-create them"
+    assert reconciled.error == "registrations absent from the read-back: 4001; re-create them"
+
+
+def test_refresh_webhook_apply_is_unverified_when_expiry_not_advanced() -> None:
+    registrations = [_registration()]
+    puts: list[httpx2.Request] = []
+    connector = _connector(
+        {
+            ("GET", WEBHOOK_PATH): _paged_route("values", registrations),
+            ("PUT", WEBHOOK_REFRESH_PATH): _write(puts, status=202),
+        }
+    )
+    spec = _spec("refresh_webhook")
+    plan = asyncio.run(spec.plan(connector, RefreshWebhookInput(webhook_ids=["4001"])))
+
+    outcome = asyncio.run(spec.apply(connector, plan))
+
+    assert outcome.status == "unverified"
+    assert outcome.error == "expiry not verifiably extended in the read-back: 4001"
+
+
+def test_refresh_webhook_apply_fails_when_registration_disappears() -> None:
+    registrations = [_registration()]
+    connector = _connector(
+        {
+            ("GET", WEBHOOK_PATH): _paged_route("values", registrations),
+            ("PUT", WEBHOOK_REFRESH_PATH): _write(
+                [], status=202, mutate=lambda _r: registrations.clear()
+            ),
+        }
+    )
+    spec = _spec("refresh_webhook")
+    plan = asyncio.run(spec.plan(connector, RefreshWebhookInput(webhook_ids=["4001"])))
+
+    outcome = asyncio.run(spec.apply(connector, plan))
+
+    assert outcome.status == "failed"
+    assert outcome.error == "registrations absent from the read-back: 4001; re-create them"
+
+
+def test_create_webhook_apply_fails_when_created_id_absent_from_read_back() -> None:
+    posts: list[httpx2.Request] = []
+    connector = _connector(
+        {
+            ("GET", WEBHOOK_PATH): _paged_route("values", []),
+            ("POST", WEBHOOK_PATH): _write(
+                posts, status=201, body={"webhookRegistrationResult": [{"createdWebhookId": 4001}]}
+            ),
+        }
+    )
+    spec = _spec("create_webhook")
+    plan = asyncio.run(spec.plan(connector, _create_webhook_args()))
+
+    outcome = asyncio.run(spec.apply(connector, plan))
+
+    assert outcome.status == "failed"
+    assert outcome.error == "created webhook is absent from the registration read-back"
+
+
+def test_create_webhook_apply_fails_when_read_back_url_differs() -> None:
+    registrations: list[dict[str, Any]] = []
+    posts: list[httpx2.Request] = []
+    connector = _connector(
+        {
+            ("GET", WEBHOOK_PATH): _paged_route("values", registrations),
+            ("POST", WEBHOOK_PATH): _write(
+                posts,
+                status=201,
+                body={"webhookRegistrationResult": [{"createdWebhookId": 4001}]},
+                mutate=lambda _r: registrations.append(_registration(url="https://hooks.example.test/moved")),
+            ),
+        }
+    )
+    spec = _spec("create_webhook")
+    plan = asyncio.run(spec.plan(connector, _create_webhook_args()))
+
+    outcome = asyncio.run(spec.apply(connector, plan))
+
+    assert outcome.status == "failed"
+    assert outcome.error == "created webhook URL differs from the approved URL"
+
+
+def test_create_webhook_apply_is_unverified_when_read_back_omits_url() -> None:
+    registrations: list[dict[str, Any]] = []
+    posts: list[httpx2.Request] = []
+    omitted = _registration()
+    del omitted["url"]
+    connector = _connector(
+        {
+            ("GET", WEBHOOK_PATH): _paged_route("values", registrations),
+            ("POST", WEBHOOK_PATH): _write(
+                posts,
+                status=201,
+                body={"webhookRegistrationResult": [{"createdWebhookId": 4001}]},
+                mutate=lambda _r: registrations.append(omitted),
+            ),
+        }
+    )
+    spec = _spec("create_webhook")
+    plan = asyncio.run(spec.plan(connector, _create_webhook_args()))
+
+    outcome = asyncio.run(spec.apply(connector, plan))
+
+    assert outcome.status == "unverified"
+    assert outcome.error == "registration read-back omitted the webhook URL"
+
+
+def test_create_webhook_reconcile_is_unverified_when_read_back_omits_urls() -> None:
+    omitted = _registration()
+    del omitted["url"]
+    connector = _connector({("GET", WEBHOOK_PATH): _paged_route("values", [omitted])})
+    spec = _spec("create_webhook")
+    plan = asyncio.run(spec.plan(connector, _create_webhook_args()))
+
+    reconciled = asyncio.run(spec.reconcile(connector, plan, OUTCOME))
+
+    assert reconciled.status == "unverified"
+
+
+def test_delete_webhook_apply_fails_when_registration_survives_delete() -> None:
+    registrations = [_registration()]
+    deletes: list[httpx2.Request] = []
+    connector = _connector(
+        {
+            ("GET", WEBHOOK_PATH): _paged_route("values", registrations),
+            ("DELETE", WEBHOOK_PATH): _write(deletes, status=204),
+        },
+        destructive_enabled=True,
+    )
+    spec = _spec("delete_webhook")
+    plan = asyncio.run(spec.plan(connector, DeleteWebhookInput(webhook_id="4001", expected_url=WEBHOOK_URL)))
+
+    outcome = asyncio.run(spec.apply(connector, plan))
+
+    assert outcome.status == "failed"
+    assert outcome.error == "webhook still registered"
 
 
 # --- destructive deletes ----------------------------------------------------

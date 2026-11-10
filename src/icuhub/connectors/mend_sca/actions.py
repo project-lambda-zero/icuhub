@@ -204,11 +204,11 @@ async def _alert_state_outcome(conn: MendSca, plan: ActionPlan) -> ActionOutcome
     except _READ_FAILED as exc:
         return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
     if current is None:
-        return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error="alert not found on readback")
+        return ActionOutcome(status="unverified", vendor_ref=plan.target_ref, error="alert not found on readback")
     if status == desired:
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"status": status})
     return ActionOutcome(
-        status="outcome_unknown",
+        status="failed",
         vendor_ref=plan.target_ref,
         error=f"readback status {status!r} does not match desired {desired!r}",
     )
@@ -295,13 +295,11 @@ async def _root_state_outcome(conn: MendSca, plan: ActionPlan) -> ActionOutcome:
     except _READ_FAILED as exc:
         return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
     if current is None:
-        return ActionOutcome(
-            status="outcome_unknown", vendor_ref=plan.target_ref, error="root library not found on readback"
-        )
+        return ActionOutcome(status="unverified", vendor_ref=plan.target_ref, error="root library not found on readback")
     if status == desired:
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"status": status})
     return ActionOutcome(
-        status="outcome_unknown",
+        status="failed",
         vendor_ref=plan.target_ref,
         error=f"readback status {status!r} does not match desired {desired!r}",
     )

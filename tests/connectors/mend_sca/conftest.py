@@ -11,6 +11,7 @@ from icuhub.kit.types import Target
 ORG_UUID = "00000000-0000-4000-8000-000000000002"
 BASE_URL = "https://mend.example.test"
 LOGIN = ("POST", "/api/v3.0/login")
+REFRESH = ("POST", "/api/v3.0/login/accessToken")
 BASE_CONFIG: dict[str, Any] = {
     "base_url": BASE_URL,
     "api_version": "3.0",
@@ -19,8 +20,11 @@ BASE_CONFIG: dict[str, Any] = {
     "org_uuid": ORG_UUID,
 }
 SECRETS = {"vault:mend-user-key": b"test-user-key"}
+# Shapes per https://api-docs.mend.io/platform/3.0/access-management/login.md (refreshToken, jwtTTL)
+# and .../refreshaccesstoken.md (jwtToken, tokenTTL).
 LOGIN_ROUTE: dict[tuple[str, str], Any] = {
-    LOGIN: {"json": {"response": {"userUuid": ORG_UUID, "jwtToken": "example-jwt", "tokenTTL": 3600}}},
+    LOGIN: {"json": {"response": {"userUuid": ORG_UUID, "refreshToken": "example-refresh", "jwtTTL": 1800}}},
+    REFRESH: {"json": {"response": {"orgUuid": ORG_UUID, "jwtToken": "example-jwt", "tokenTTL": 1800}}},
 }
 
 

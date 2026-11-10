@@ -35,6 +35,9 @@ class _BrokerSecrets:
     async def resolve(self, ref: SecretRef) -> bytes:
         return await self._broker.resolve(self._tenant_id, ref, session=self._session)
 
+    async def rotate(self, ref: SecretRef, secret: bytes) -> None:
+        await self._broker.rotate(self._tenant_id, ref, secret)
+
 
 class ConnectorRuntime:
     """Opens connectors from stored connections; every vendor read passes policy and audit."""

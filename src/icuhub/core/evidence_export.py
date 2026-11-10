@@ -497,34 +497,107 @@ async def export_evidence_bundle(
     if case is None or tenant is None:
         raise EvidenceExportError("case evidence is unavailable")
 
-    members = await _rows(session, select(CaseMember).where(CaseMember.case_id == case_id).order_by(CaseMember.finding_id))
+    tenant_id = caller.tenant_id
+    # Every read carries an explicit tenant predicate so isolation holds even under a role that bypasses row security.
+    members = await _rows(
+        session,
+        select(CaseMember).where(CaseMember.tenant_id == tenant_id, CaseMember.case_id == case_id).order_by(CaseMember.finding_id),
+    )
     finding_ids = [row.finding_id for row in members]
-    findings = await _rows(session, select(Finding).where(Finding.id.in_(finding_ids)).order_by(Finding.id)) if finding_ids else []
-    lineage = await _lineage_case_ids(session, caller.tenant_id, case_id)
-    tickets = await _rows(session, select(TicketLink).where(TicketLink.case_id.in_(lineage)).order_by(TicketLink.id))
+    findings = (
+        await _rows(
+            session,
+            select(Finding).where(Finding.tenant_id == tenant_id, Finding.id.in_(finding_ids)).order_by(Finding.id),
+        )
+        if finding_ids
+        else []
+    )
+    lineage = await _lineage_case_ids(session, tenant_id, case_id)
+    tickets = await _rows(
+        session,
+        select(TicketLink).where(TicketLink.tenant_id == tenant_id, TicketLink.case_id.in_(lineage)).order_by(TicketLink.id),
+    )
     actions = await _rows(
         session,
         select(ActionRequest)
-        .where(ActionRequest.correlation_id.in_([str(item) for item in lineage]))
+        .where(
+            ActionRequest.tenant_id == tenant_id,
+            ActionRequest.correlation_id.in_([str(item) for item in lineage]),
+        )
         .order_by(ActionRequest.id),
     )
     action_ids = [row.id for row in actions]
-    plans = await _rows(session, select(ActionPlanRow).where(ActionPlanRow.action_request_id.in_(action_ids)).order_by(ActionPlanRow.action_request_id)) if action_ids else []
-    approvals = await _rows(session, select(Approval).where(Approval.action_request_id.in_(action_ids)).order_by(Approval.id)) if action_ids else []
+    plans = (
+        await _rows(
+            session,
+            select(ActionPlanRow)
+            .where(ActionPlanRow.tenant_id == tenant_id, ActionPlanRow.action_request_id.in_(action_ids))
+            .order_by(ActionPlanRow.action_request_id),
+        )
+        if action_ids
+        else []
+    )
+    approvals = (
+        await _rows(
+            session,
+            select(Approval)
+            .where(Approval.tenant_id == tenant_id, Approval.action_request_id.in_(action_ids))
+            .order_by(Approval.id),
+        )
+        if action_ids
+        else []
+    )
     evidence = _distinct_evidence(
-        await _rows(session, select(EvidenceItem).where(EvidenceItem.case_id.in_(lineage)).order_by(EvidenceItem.id))
+        await _rows(
+            session,
+            select(EvidenceItem)
+            .where(EvidenceItem.tenant_id == tenant_id, EvidenceItem.case_id.in_(lineage))
+            .order_by(EvidenceItem.id),
+        )
     )
 
     raw_ids = {row.raw_batch_id for row in findings if row.raw_batch_id is not None}
     raw_ids.update(row.ref_id for row in evidence if row.ref_table == "raw_batch")
     import_ids = {row.ref_id for row in evidence if row.ref_table == "file_import"}
-    raw_batches = await _rows(session, select(RawBatch).where(RawBatch.id.in_(raw_ids)).order_by(RawBatch.id)) if raw_ids else []
-    file_imports = await _rows(session, select(FileImport).where(FileImport.id.in_(import_ids)).order_by(FileImport.id)) if import_ids else []
+    raw_batches = (
+        await _rows(
+            session,
+            select(RawBatch).where(RawBatch.tenant_id == tenant_id, RawBatch.id.in_(raw_ids)).order_by(RawBatch.id),
+        )
+        if raw_ids
+        else []
+    )
+    file_imports = (
+        await _rows(
+            session,
+            select(FileImport)
+            .where(FileImport.tenant_id == tenant_id, FileImport.id.in_(import_ids))
+            .order_by(FileImport.id),
+        )
+        if import_ids
+        else []
+    )
 
     connection_ids = {row.connection_id for row in findings + raw_batches + file_imports + actions + tickets}
-    connections = await _rows(session, select(Connection).where(Connection.id.in_(connection_ids)).order_by(Connection.id)) if connection_ids else []
+    connections = (
+        await _rows(
+            session,
+            select(Connection)
+            .where(Connection.tenant_id == tenant_id, Connection.id.in_(connection_ids))
+            .order_by(Connection.id),
+        )
+        if connection_ids
+        else []
+    )
     rule_ids = {row.rule_id for row in actions if row.rule_id is not None}
-    rules = await _rows(session, select(PolicyRule).where(PolicyRule.id.in_(rule_ids)).order_by(PolicyRule.id)) if rule_ids else []
+    rules = (
+        await _rows(
+            session,
+            select(PolicyRule).where(PolicyRule.tenant_id == tenant_id, PolicyRule.id.in_(rule_ids)).order_by(PolicyRule.id),
+        )
+        if rule_ids
+        else []
+    )
     rule_by_id = {row.id: row for row in rules}
 
     await audit_chain.append(
@@ -538,7 +611,13 @@ async def export_evidence_bundle(
         correlation_id=str(case_id),
         detail_json={"case_id": str(case_id), "evidence_items": len(evidence)},
     )
-    audit_records = await _rows(session, select(AuditRecord).order_by(AuditRecord.seq).limit(_MAX_AUDIT_RECORDS + 1))
+    audit_records = await _rows(
+        session,
+        select(AuditRecord)
+        .where(AuditRecord.tenant_id == tenant_id)
+        .order_by(AuditRecord.seq)
+        .limit(_MAX_AUDIT_RECORDS + 1),
+    )
     if len(audit_records) > _MAX_AUDIT_RECORDS:
         raise EvidenceExportError("audit chain exceeds the evidence export record bound")
     chain_result = await audit_chain.verify_chain(session, caller.tenant_id)

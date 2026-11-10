@@ -97,7 +97,7 @@ async def run_notify_job(payload: dict[str, Any], lease: Any = None) -> dict[str
                     select(Approval).where(Approval.action_request_id == request.id, Approval.decision.is_(None))
                 )
             ).scalar_one()
-            auto = Caller(id="notifier-auto-approval", tenant_id=tenant_id, roles=frozenset({"system"}))
+            auto = Caller(id="notifier-auto-approval", tenant_id=tenant_id, roles=frozenset({"approver"}))
             request = await decide(session, auto, approval.id, "approved", reason="system notification send")
             state = request.state
     if state in ("approved", "accepted_async"):
@@ -109,7 +109,7 @@ async def run_notify_job(payload: dict[str, Any], lease: Any = None) -> dict[str
             if state in ("succeeded", "no_op"):
                 notification.state = "sent"
                 notification.sent_at = datetime.now(UTC)
-            elif state in ("failed", "denied", "rejected", "stale_plan"):
+            elif state in ("failed", "denied", "rejected", "stale_plan", "unverified"):
                 notification.state = "failed"
                 notification.error = state
         return {"state": state}

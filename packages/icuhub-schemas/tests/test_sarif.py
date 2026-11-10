@@ -88,6 +88,83 @@ def test_parse_rejects_schema_violation_with_path() -> None:
     assert raised.value.issues
 
 
+def test_parse_keeps_rule_index_rank_and_security_severity() -> None:
+    document = {
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "scanner",
+                        "rules": [
+                            {
+                                "id": "R1",
+                                "defaultConfiguration": {"level": "error", "rank": 80.0},
+                                "properties": {"security-severity": "9.1", "tags": ["security"]},
+                            }
+                        ],
+                    }
+                },
+                "results": [
+                    {
+                        "ruleId": "R1",
+                        "ruleIndex": 0,
+                        "rank": 42.5,
+                        "message": {"text": "m"},
+                        "properties": {"security-severity": "9.1"},
+                    }
+                ],
+            }
+        ],
+    }
+
+    log = parse_sarif(document)
+    rule = log.runs[0].tool.driver.rules[0]
+    result = log.runs[0].results[0]
+
+    assert rule.default_configuration is not None
+    assert rule.default_configuration.level == "error"
+    assert rule.default_configuration.rank == 80.0
+    assert rule.properties is not None
+    assert rule.properties.model_dump()["security-severity"] == "9.1"
+    assert result.rule_index == 0
+    assert result.rank == 42.5
+    assert result.properties is not None
+    assert result.properties.model_dump()["security-severity"] == "9.1"
+
+    dumped = dump_sarif(log)
+    assert dumped["runs"][0]["tool"]["driver"]["rules"][0]["properties"]["security-severity"] == "9.1"
+    assert dumped["runs"][0]["results"][0]["ruleIndex"] == 0
+    assert dumped["runs"][0]["results"][0]["properties"] == {"security-severity": "9.1"}
+
+
+def test_parse_accepts_schema_sentinel_rank_and_rule_index() -> None:
+    document = {
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {"driver": {"name": "scanner", "rules": [{"id": "R1"}]}},
+                "results": [{"ruleIndex": -1, "rank": -1, "message": {"text": "m"}}],
+            }
+        ],
+    }
+
+    result = parse_sarif(document).runs[0].results[0]
+
+    assert result.rule_index == -1
+    assert result.rank == -1
+
+
+def test_parse_rejects_rank_outside_schema_range() -> None:
+    document = {
+        "version": "2.1.0",
+        "runs": [{"tool": {"driver": {"name": "x"}}, "results": [{"rank": 101, "message": {"text": "m"}}]}],
+    }
+
+    with pytest.raises(SarifValidationError):
+        parse_sarif(document)
+
+
 def test_parse_rejects_invalid_json() -> None:
     with pytest.raises(SarifValidationError) as raised:
         parse_sarif("{not json")

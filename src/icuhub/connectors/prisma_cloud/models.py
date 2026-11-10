@@ -42,6 +42,7 @@ __all__ = [
     "StrictModel",
     "SuppressionArgs",
     "SuppressionPolicyConfig",
+    "VulnerabilitySearchInput",
 ]
 
 
@@ -80,12 +81,14 @@ class AlertExportInput(StrictModel):
 
 class ExportJobInput(StrictModel):
     job_id: str = Field(min_length=1, max_length=512)
+    format: Literal["json", "csv"] = "json"
     timeout_s: float = Field(default=900, gt=0, le=86400)
     poll_interval_s: float = Field(default=1, ge=0, le=60)
 
 
 class DownloadExportInput(StrictModel):
     job_id: str = Field(min_length=1, max_length=512)
+    format: Literal["json", "csv"] = "json"
     max_bytes: int = Field(default=64 * 1024 * 1024, ge=1, le=1024 * 1024 * 1024)
 
 
@@ -118,6 +121,11 @@ class RqlPageInput(StrictModel):
     expected_metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class VulnerabilitySearchInput(StrictModel):
+    query: str = Field(min_length=1, max_length=32768)
+    page_token: str | None = Field(default=None, min_length=1, max_length=8192)
+
+
 class InventoryInput(StrictModel):
     query: str | None = None
     account_ids: list[str] = Field(default_factory=list)
@@ -132,16 +140,9 @@ class ResourceInput(StrictModel):
     page_token: str | None = None
     expected_metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @model_validator(mode="after")
-    def _selector_present(self) -> ResourceInput:
-        if not (self.resource_id or self.rrn or self.query):
-            raise ValueError("resource_id, rrn, or query is required")
-        return self
-
 
 class AccountInput(StrictModel):
     account_id: str = Field(min_length=1, max_length=512)
-    cloud_type: str | None = None
 
 
 class AuditListInput(StrictModel):
@@ -160,8 +161,8 @@ class ComputeQueryInput(StrictModel):
     image: str | None = None
     hostname: str | None = None
     container_id: str | None = None
-    repository: str | None = None
-    digest: str | None = None
+    image_id: str | None = None
+    name: str | None = None
     audit_type: str | None = None
     start_time_ms: int | None = Field(default=None, ge=0)
     end_time_ms: int | None = Field(default=None, ge=0)
@@ -173,6 +174,7 @@ class ComputeIdInput(StrictModel):
 
 
 class RuntimeTimesliceInput(StrictModel):
+    audit_type: Literal["container", "host"]
     start_time_ms: int = Field(ge=0)
     end_time_ms: int = Field(ge=0)
     collections: list[str] = Field(default_factory=list)
@@ -241,8 +243,9 @@ class RemediateAlertInput(StrictModel):
 
 class StartRegistryScanInput(StrictModel):
     registry: str = Field(min_length=1, max_length=2048)
-    repository: str | None = Field(default=None, max_length=2048)
-    digest: str | None = Field(default=None, max_length=256)
+    repository: str = Field(min_length=1, max_length=2048)
+    digest: str = Field(min_length=1, max_length=256)
+    tag: str | None = Field(default=None, min_length=1, max_length=256)
     on_demand: bool = False
 
 
@@ -318,6 +321,7 @@ class PrismaCloudConfig(ConnectorConfig):
     page_size: int = Field(default=50, ge=1, le=1000)
     max_pages: int = Field(default=10000, ge=1, le=100000)
     alert_overlap_s: int = Field(default=300, ge=0, le=86400)
+    snooze_max_days: int = Field(default=30, ge=1, le=366)
     export_max_bytes: int = Field(default=64 * 1024 * 1024, ge=1, le=1024 * 1024 * 1024)
     destructive_enabled: bool = False
 

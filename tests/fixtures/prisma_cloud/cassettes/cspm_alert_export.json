@@ -1,0 +1,37 @@
+{
+  "interactions": [
+    {
+      "request": {"method": "POST", "path": "/login"},
+      "response": {"status": 200, "json": {"token": "cspm-jwt", "expires_in": 600}}
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/alert/jobs",
+        "headers": {"x-redlock-auth": "cspm-jwt"},
+        "json": {"detailed": true, "filters": []}
+      },
+      "response": {"status": 200, "json": {"jobId": "job-1"}}
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/alert/jobs/job-1/status",
+        "headers": {"x-redlock-auth": "cspm-jwt"}
+      },
+      "response": {"status": 200, "json": {"status": "completed"}}
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/alert/jobs/job-1/download",
+        "headers": {"x-redlock-auth": "cspm-jwt"}
+      },
+      "response": {
+        "status": 200,
+        "headers": {"content-type": "application/json"},
+        "text": "[{\"id\":\"alert-100\"}]"
+      }
+    }
+  ]
+}

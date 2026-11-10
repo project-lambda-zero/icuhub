@@ -423,9 +423,34 @@ class PolicyRule(Base):
     created_at: Mapped[datetime] = _created()
 
 
+ACTION_ACTIVE_STATES: tuple[str, ...] = (
+    "received",
+    "pending_approval",
+    "approved",
+    "executing",
+    "accepted_async",
+    "outcome_unknown",
+)
+
+
 class ActionRequest(Base):
     __tablename__ = "action_request"
-    __table_args__ = (UniqueConstraint("tenant_id", "caller_id", "idempotency_key"),)
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "caller_id", "idempotency_key"),
+        Index(
+            "uq_action_request_natural_key_active",
+            "tenant_id",
+            "connection_id",
+            "action",
+            "natural_key",
+            unique=True,
+            postgresql_where=text(
+                "natural_key IS NOT NULL AND state IN ("
+                + ", ".join(f"'{state}'" for state in ACTION_ACTIVE_STATES)
+                + ")"
+            ),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = _pk()
     tenant_id: Mapped[uuid.UUID] = _tenant()
@@ -437,6 +462,7 @@ class ActionRequest(Base):
     caller_id: Mapped[str] = mapped_column(String(200))
     correlation_id: Mapped[str | None] = mapped_column(String(200))
     idempotency_key: Mapped[str] = mapped_column(String(200))
+    natural_key: Mapped[str | None] = mapped_column(String(200))
     mode: Mapped[str] = mapped_column(String(16), server_default=text("'live'"))
     state: Mapped[str] = mapped_column(String(24))
     decision: Mapped[str | None] = mapped_column(String(24))

@@ -12,7 +12,7 @@ from .conftest import RouteTransport, make_archer
 
 FIXTURES = Path(__file__).parents[2] / "fixtures" / "archer" / "client"
 LOGIN = ("POST", "/platformapi/core/security/login")
-APP_INFO = ("POST", "/platformapi/core/system/applicationinfo")
+APP_INFO = ("POST", "/platformapi/core/system/applicationinfo/version")
 SEARCH = ("POST", "/ws/search.asmx")
 
 
@@ -88,14 +88,14 @@ def test_unsuccessful_envelope_raises_contract_error():
         asyncio.run(connector.api.version())
 
 
-def test_permission_filtered_list_items_are_omitted():
+def test_permission_filtered_list_items_fail_closed():
     routes = {
         LOGIN: {"json": fixture("login.json")},
         ("POST", "/platformapi/core/system/application"): {"json": fixture("applications.json")},
     }
     connector = make_archer(RouteTransport(routes))
-    apps = asyncio.run(connector.api.applications())
-    assert [a["Id"] for a in apps] == [301]
+    with pytest.raises(VendorContractError, match="refused"):
+        asyncio.run(connector.api.applications())
 
 
 def test_encode_fields_resolves_values_list_names():

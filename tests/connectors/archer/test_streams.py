@@ -73,7 +73,7 @@ def test_time_id_stream_records_and_checkpoint():
     assert isinstance(batch.checkpoint, TimeIdCursor)
     assert batch.checkpoint.ts is not None
     assert batch.checkpoint.ts.isoformat() == "2026-01-03T03:04:05+00:00"
-    assert sorted(batch.checkpoint.last_ids_at_ts) == ["1002"]
+    assert sorted(batch.checkpoint.last_ids_at_ts) == ["1002:unknown"]
 
 
 def test_empty_stream_yields_one_complete_empty_batch():
@@ -118,7 +118,7 @@ def test_incremental_overlap_dedupes_committed_ids():
     first = collect_stream(connector, "risks", mode="full")
     checkpoint = first[-1].checkpoint
     assert isinstance(checkpoint, TimeIdCursor)
-    assert sorted(checkpoint.last_ids_at_ts) == ["1001", "1002"]
+    assert sorted(checkpoint.last_ids_at_ts) == ["1001:unknown", "1002:unknown"]
     second = collect_stream(connector, "risks", checkpoint=checkpoint, mode="incremental")
     assert second[0].records == []
     assert "DateComparisonFilterCondition" in seen[-1]
@@ -165,7 +165,7 @@ def test_data_feed_runs_snapshot():
             "json": json.loads((OPS / "data_feed_history.json").read_text(encoding="utf-8"))
         },
     }
-    connector = risk_connector(routes)
+    connector = risk_connector(routes, data_feed_guids=["df-1"])
     batches = collect_stream(connector, "data_feed_runs", mode="full")
     assert len(batches) == 1
     assert batches[0].records[0]["run"]["Guid"] == "df-1"

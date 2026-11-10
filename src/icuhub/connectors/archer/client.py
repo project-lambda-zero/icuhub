@@ -35,7 +35,7 @@ _TOKEN_RE = re.compile(r'session-id="([^"]+)"')
 
 _LOGIN = "/platformapi/core/security/login"
 _APPLICATION = "/platformapi/core/system/application"
-_APP_INFO = "/platformapi/core/system/applicationinfo"
+_APP_INFO = "/platformapi/core/system/applicationinfo/version"
 _CONTENT = "/platformapi/core/content"
 _CONTENT_API = "/contentapi/"
 _GENERAL_ASMX = "/ws/general.asmx"
@@ -65,8 +65,9 @@ def _envelope(payload: Any) -> dict[str, Any]:
 def _envelope_list(payload: Any) -> list[dict[str, Any]]:
     """Unwrap a list-of-envelopes response.
 
-    Items with IsSuccessful=false are omitted: Archer filters entities the
-    session user cannot see, which maps to not_evaluated, never to failure.
+    An item with IsSuccessful=false is refused, never dropped: a silently
+    omitted row would look absent to the sync and close findings it never
+    evaluated. Permission-hidden rows therefore fail this read closed.
     """
     if isinstance(payload, dict):
         return [_envelope(payload)]
@@ -75,12 +76,15 @@ def _envelope_list(payload: Any) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for item in payload:
         if not isinstance(item, dict):
-            continue
+            raise VendorContractError("Archer list item expected an envelope object")
         if item.get("IsSuccessful") is False:
-            continue
+            raise VendorContractError(
+                f"Archer list item refused: {_validation_messages(item) or 'IsSuccessful=false'}"
+            )
         obj = item.get("RequestedObject")
-        if isinstance(obj, dict):
-            out.append(obj)
+        if not isinstance(obj, dict):
+            raise VendorContractError("Archer list item carried no RequestedObject")
+        out.append(obj)
     return out
 
 
@@ -325,16 +329,30 @@ class ArcherClient:
         modified_since: datetime | None = None,
         time_field_id: int | None = None,
         text_filter: tuple[int, str] | None = None,
+        sort_field_id: int | None = None,
     ) -> list[dict[str, Any]]:
-        """SOAP ExecuteSearch. Returns [{content_id, fields: {logical_name: value}}]."""
+        """SOAP ExecuteSearch.
+
+        Returns [{content_id, version, fields, omitted_fields}]. ``version`` comes
+        from the Record ``version`` attribute [UNVERIFIED] and is None when absent.
+        ``omitted_fields`` lists requested display fields the session cannot see.
+        """
         display = display_fields or {}
         display_xml = "".join(
             f'<DisplayField name="{xml_text(name)}">{fid}</DisplayField>' for name, fid in display.items()
         )
         criteria = ""
+        sort_xml = ""
+        if sort_field_id is not None:
+            sort_xml = (
+                "<SortFields><SortField>"
+                f"<Field>{sort_field_id}</Field><SortType>Ascending</SortType>"
+                "</SortField></SortFields>"
+            )
         if application_id is not None:
             criteria = (
-                f'<ModuleCriteria><Module name="{application_id}">{application_id}</Module></ModuleCriteria>'
+                f'<ModuleCriteria><Module name="{application_id}">{application_id}</Module>'
+                f"<IsKeywordModule>false</IsKeywordModule>{sort_xml}</ModuleCriteria>"
             )
         conditions = ""
         if modified_since is not None and time_field_id is not None:
@@ -374,7 +392,16 @@ class ArcherClient:
                 fid = field_el.get("id") or ""
                 name = names_by_id.get(fid, fid)
                 fields[name] = _soap_field_value(field_el)
-            records.append({"content_id": int(content_id), "level_id": level_id, "fields": fields})
+            version = record_el.get("version")
+            records.append(
+                {
+                    "content_id": int(content_id),
+                    "version": int(version) if version is not None else None,
+                    "level_id": level_id,
+                    "fields": fields,
+                    "omitted_fields": [name for name in display if name not in fields],
+                }
+            )
         return records
 
     async def record_soap(self, content_id: int) -> dict[str, Any]:
@@ -403,14 +430,28 @@ class ArcherClient:
             headers={"X-Http-Method-Override": "GET"},
         )
 
-    async def data_feed_history(self) -> list[dict[str, Any]]:
-        """Data-feed execution history. [UNVERIFIED] response shape."""
-        payload = await self.post_get("/platformapi/core/datafeed/history")
+    async def data_feed_history(self, feed_guid: str) -> list[dict[str, Any]]:
+        """Run history for one data feed: POST {Guid} with X-Http-Method-Override: GET.
+
+        [UNVERIFIED] response envelope key names; status codes are mapped by the caller.
+        """
+        payload = await self.post_get("/platformapi/core/datafeed/history", {"Guid": feed_guid})
         if isinstance(payload, list):
             return _envelope_list(payload)
         obj = _envelope(payload)
         runs = obj.get("Runs") or obj.get("History") or []
         return list(runs) if isinstance(runs, list) else []
+
+    async def data_feed_history_messages(self, history_id: int) -> list[dict[str, Any]]:
+        """Messages for one run: POST {HistoryId} with override GET. [UNVERIFIED] body key."""
+        payload = await self.post_get(
+            "/platformapi/core/datafeed/historymessage/historyId", {"HistoryId": history_id}
+        )
+        if isinstance(payload, list):
+            return _envelope_list(payload)
+        obj = _envelope(payload)
+        messages = obj.get("Messages") or []
+        return list(messages) if isinstance(messages, list) else []
 
     # -- writes -----------------------------------------------------------
 
@@ -418,7 +459,7 @@ class ArcherClient:
         payload = await self.json(
             "POST",
             _CONTENT,
-            body={"LevelId": level_id, "FieldContents": field_contents},
+            body={"Content": {"LevelId": level_id, "FieldContents": field_contents}},
             idempotency="non_idempotent",
             expected=(200, 201),
         )
@@ -435,10 +476,12 @@ class ArcherClient:
             "PUT",
             _CONTENT,
             body={
-                "Id": content_id,
-                "LevelId": level_id,
-                "Version": version,
-                "FieldContents": field_contents,
+                "Content": {
+                    "Id": content_id,
+                    "LevelId": level_id,
+                    "Version": str(version),
+                    "FieldContents": field_contents,
+                }
             },
             idempotency="idempotent_write",
         )
@@ -454,26 +497,30 @@ class ArcherClient:
             expected=(200, 204),
         )
 
-    async def upload_attachment(
-        self, content_id: int, field_id: int, filename: str, content_base64: str
-    ) -> dict[str, Any]:
-        # [UNVERIFIED] body shape: /content/attachment versus /content/multipartattachment.
+    async def upload_attachment(self, filename: str, content_base64: str, is_sensitive: bool) -> int:
+        """Upload attachment bytes unassociated with any content; return the new attachment id.
+
+        Body per the vendor content API: AttachmentName, AttachmentBytes (base64), IsSensitive.
+        Association to a content field happens in a separate versioned content write.
+        """
         payload = await self.json(
             "POST",
             f"{_CONTENT}/attachment",
             body={
-                "ContentId": content_id,
-                "FieldId": field_id,
-                "FileName": filename,
-                "FileContent": content_base64,
+                "AttachmentName": filename,
+                "AttachmentBytes": content_base64,
+                "IsSensitive": is_sensitive,
             },
             idempotency="non_idempotent",
             expected=(200, 201),
         )
-        return _envelope(payload)
+        # [UNVERIFIED] response envelope: assumed RequestedObject.Id like other content writes.
+        new_id = _envelope(payload).get("Id")
+        if new_id is None:
+            raise VendorContractError("Archer attachment upload response carried no Id")
+        return int(new_id)
 
     async def execute_data_feed(self, guid: str, include_reference_feeds: bool) -> dict[str, Any]:
-        # [UNVERIFIED] DataFeedGuid body key; endpoint and IsReferenceFeedsIncluded per spec.
         payload = await self.json(
             "POST",
             "/platformapi/core/datafeed/execution",
@@ -517,19 +564,30 @@ class ArcherClient:
                 else:
                     raise ConfigError(f"Archer values list has no entry named {item!r}")
             return "Value", {"ValuesListIds": ids}
-        if field_type == 7:  # External Links
-            links = [{"Name": i.get("value"), "URL": i.get("link")} for i in value]
+        if field_type == 7:  # External Links: {"Name", "Url"}
+            links = [{"Name": i.get("value"), "Url": i.get("link")} for i in value]
             return "Value", links
-        if field_type == 8:  # Users/Groups List
+        if field_type == 8:  # Users/Groups List: {"UserList": [{"Id"}], "GroupList": [{"Id"}]}
             users = value.get("users") or []
             groups = value.get("groups") or []
             return "Value", {
-                "UserList": [{"ID": u} for u in users],
-                "GroupList": [{"ID": g} for g in groups],
+                "UserList": [{"Id": u} for u in users],
+                "GroupList": [{"Id": g} for g in groups],
             }
-        if field_type == 9:  # Cross-Reference
+        if field_type == 9:  # Cross-Reference: [{"ContentId"}]
             refs = value if isinstance(value, list) else [value]
-            return "Value", [{"ContentID": r} for r in refs]
+            return "Value", [{"ContentId": r} for r in refs]
+        if field_type in (11, 12, 23, 24):  # Attachment, Image, Related Records, Sub-Form: list of ids
+            ids = value if isinstance(value, list) else [value]
+            if not all(isinstance(i, int) and not isinstance(i, bool) for i in ids):
+                raise ConfigError(f"Archer field type {field_type} expects a list of integer ids")
+            return "Value", ids
+        if field_type == 16:  # Matrix: [{"RowId", "ColumnId"}]
+            cells = value if isinstance(value, list) else [value]
+            for cell in cells:
+                if not (isinstance(cell, dict) and set(cell) == {"RowId", "ColumnId"}):
+                    raise ConfigError("Archer matrix field expects [{'RowId', 'ColumnId'}] cells")
+            return "Value", cells
         if field_type == 19:  # IP Address
             return "IpAddressBytes", value
         return "Value", value

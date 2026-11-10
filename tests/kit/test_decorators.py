@@ -204,8 +204,8 @@ def test_stream_cursor_must_be_a_pydantic_model() -> None:
                 yield RawBatch(records=[], checkpoint=None, complete=True)
 
 
-def test_stream_modes_must_be_a_subset_of_incremental_and_full() -> None:
-    with pytest.raises(TypeError, match="modes must be a non-empty subset"):
+def test_stream_modes_must_be_a_subset_of_the_registered_modes() -> None:
+    with pytest.raises(TypeError, match="modes must be a non-empty subset of incremental/full/event/replay/targeted"):
 
         class Bad(Connector):
             kind: ClassVar[str] = "bad_modes"
@@ -214,6 +214,18 @@ def test_stream_modes_must_be_a_subset_of_incremental_and_full() -> None:
             @stream("items", cursor=TimeIdCursor, capability="Tracker", modes=("snapshot",))
             async def items(self, target, checkpoint, mode):
                 yield RawBatch(records=[], checkpoint=None, complete=True)
+
+
+def test_stream_accepts_targeted_mode_alongside_full() -> None:
+    class Targeted(Connector):
+        kind: ClassVar[str] = "targeted_modes"
+        capabilities: ClassVar[tuple[str, ...]] = ("Tracker",)
+
+        @stream("items", cursor=TimeIdCursor, capability="Tracker", modes=("full", "targeted"))
+        async def items(self, target, checkpoint, mode):
+            yield RawBatch(records=[], checkpoint=None, complete=True)
+
+    assert Targeted.streams()["items"].modes == ("full", "targeted")
 
 
 def test_duplicate_stream_name_is_rejected() -> None:

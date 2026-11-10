@@ -534,7 +534,7 @@ def test_update_issue_fields_reconcile_fails_when_field_not_applied() -> None:
     reconciled = asyncio.run(spec.reconcile(connector, plan, prior))
 
     assert reconciled.status == "failed"
-    assert reconciled.error == "requested fields are not present"
+    assert reconciled.error == "requested field values do not match the plan"
 
 
 def test_update_issue_fields_plan_refuses_stale_expected_updated() -> None:

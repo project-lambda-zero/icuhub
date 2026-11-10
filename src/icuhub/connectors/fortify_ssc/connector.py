@@ -19,6 +19,7 @@ import hashlib
 from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Any, ClassVar
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -79,7 +80,7 @@ from icuhub.kit.errors import (
     TransientVendorError,
     VendorContractError,
 )
-from icuhub.kit.mapping import bounded_raw
+from icuhub.kit.mapping import EnumTable, bounded_raw, severity_id_from_label
 from icuhub.kit.paginate import offset_pages
 from icuhub.kit.types import (
     ActionOutcome,
@@ -111,7 +112,11 @@ __all__ = [
     "UploadFprArgs",
 ]
 
-_WEBHOOK_EVENTS = ("ISSUE_CHANGED", "ARTIFACT_PROCESSED", "PROJECT_VERSION_CHANGED")
+_WEBHOOK_EVENTS = (
+    "ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS",
+    "ANALYSIS_RESULT_UPLOAD_FAILURE",
+    "ANALYSIS_RESULT_INDEXING_COMPLETED",
+)
 _API = "/api/v1"
 _PAGE_LIMIT = 200
 _MAX_PAGES = 10_000
@@ -132,6 +137,7 @@ class FindingRecord(BaseModel):
     file_path: str | None
     line: int | None
     audit_state: str | None
+    friority: str | None = None
     suppressed: bool
     removed: bool
     updated_at: datetime
@@ -280,6 +286,26 @@ def _audit_state(raw: dict[str, Any]) -> str | None:
 _SSC_PRODUCT_NAME = "Fortify Software Security Center"
 _SSC_VENDOR_NAME = "OpenText"
 _SSC_CLOUD_PROVIDER = "fortify_ssc"
+# SSC friority labels map onto OCSF severity; an absent or unlisted label stays Unknown (0), never invented.
+_FRIORITY_SEVERITY = EnumTable(mapping={"Critical": 5, "High": 4, "Medium": 3, "Low": 2}, default=0)
+# OCSF FindingStatusId values used for SSC issues (see _status_of for the precedence rule).
+_STATUS_NEW = 1
+_STATUS_SUPPRESSED = 3
+_STATUS_RESOLVED = 4
+
+
+def _status_of(record: FindingRecord) -> tuple[int, str]:
+    """Return (OCSF status_id, status label) for an SSC issue.
+
+    ``removed`` takes precedence over ``suppressed``: removal is an observed fact (the defect is no
+    longer evident in the latest analysis), while suppression is an auditor judgment that can coexist
+    with it. The raw ``issueStatus`` label is preserved separately in ``status_detail``.
+    """
+    if record.removed:
+        return _STATUS_RESOLVED, "Resolved"
+    if record.suppressed:
+        return _STATUS_SUPPRESSED, "Suppressed"
+    return _STATUS_NEW, "New"
 
 
 def _finding_record(raw: dict[str, Any]) -> FindingRecord:
@@ -296,6 +322,7 @@ def _finding_record(raw: dict[str, Any]) -> FindingRecord:
         file_path=_str_or_none(raw, "fullFileName"),
         line=raw.get("lineNumber") if isinstance(raw.get("lineNumber"), int) else None,
         audit_state=_audit_state(raw),
+        friority=_str_or_none(raw, "friority"),
         suppressed=bool(raw.get("suppressed", False)),
         removed=bool(raw.get("removed", False)),
         updated_at=_issue_updated_at(raw),
@@ -312,6 +339,23 @@ def _finding_record(raw: dict[str, Any]) -> FindingRecord:
 
 def _as_path(path: str) -> str:
     return f"{_API}{path}"
+
+
+# The connector targets SSC 24.2 and later; the probe's webappVersion is the discovery source.
+_MIN_SSC_VERSION = (24, 2)
+
+
+def _ssc_version_tuple(text: str) -> tuple[int, ...] | None:
+    """Parse a dotted numeric SSC version such as ``25.4.0.0137``; None when it is not numeric."""
+    parts = text.split(".")
+    if not all(part.isdigit() for part in parts):
+        return None
+    return tuple(int(part) for part in parts)
+
+
+def _context_root_of(base_url: str) -> str:
+    """Return the operator-configured context root (the path of ``base_url``) without a trailing slash."""
+    return urlsplit(base_url).path.rstrip("/")
 
 
 def _upload_file_name(fpr_sha256: str) -> str:
@@ -379,9 +423,17 @@ class FortifySsc(Connector):
             raise ConfigError("api_token must be ASCII text") from exc
         return HeaderToken("Authorization", text, prefix="FortifyToken ")
 
+    async def _probe_session(self) -> TargetProbeOutput:
+        """[UNVERIFIED] Read version, context root, and permissions from ``userSession/info``.
+
+        The response field names are not confirmed against a live server or a primary source.
+        """
+        result = await self.http.request("POST", _as_path("/userSession/info"), json="")
+        return TargetProbeOutput.model_validate(_data_object(result.json()))
+
     async def check(self) -> HealthReport:
         try:
-            await self.http.request("GET", _as_path("/projectVersions"), params={"limit": 1, "withoutCount": "true"})
+            probe = await self._probe_session()
         except AuthFailed:
             return HealthReport(
                 status="failing",
@@ -397,9 +449,33 @@ class FortifySsc(Connector):
                 status="degraded",
                 capabilities={"FindingSource": CapabilityHealth(status="degraded", reason="vendor unavailable")},
             )
+        version = _ssc_version_tuple(probe.target_version)
+        if version is None or version < _MIN_SSC_VERSION:
+            return HealthReport(
+                status="failing",
+                capabilities={
+                    "FindingSource": CapabilityHealth(
+                        status="failing",
+                        reason=f"SSC {probe.target_version} is unsupported; 24.2 or later is required",
+                    )
+                },
+                vendor_version=probe.target_version,
+            )
+        if probe.effective_context_root.rstrip("/") != _context_root_of(self.config.base_url):
+            return HealthReport(
+                status="failing",
+                capabilities={
+                    "FindingSource": CapabilityHealth(
+                        status="failing",
+                        reason="base_url path does not match the server effective context root",
+                    )
+                },
+                vendor_version=probe.target_version,
+            )
         return HealthReport(
             status="healthy",
             capabilities={"FindingSource": CapabilityHealth(status="healthy")},
+            vendor_version=probe.target_version,
         )
 
     def webhook_verifier(self, secret: bytes) -> WebhookVerifier | None:
@@ -506,14 +582,16 @@ class FortifySsc(Connector):
     def map_issue(self, raw: dict[str, Any], ctx: MapContext) -> list[VulnerabilityFinding]:
         record = _finding_record(raw)
         product = Product(name=_SSC_PRODUCT_NAME, vendor_name=_SSC_VENDOR_NAME)
+        status_id, status = _status_of(record)
         return [
             VulnerabilityFinding(
                 time=int(record.updated_at.timestamp() * 1000),
-                severity_id=0,
+                severity_id=severity_id_from_label(record.friority, _FRIORITY_SEVERITY),
                 activity_id=1,
                 type_uid=200201,
-                status_id=3 if record.suppressed else None,
-                status="Suppressed" if record.suppressed else None,
+                status_id=status_id,
+                status=status,
+                status_detail=record.audit_state,
                 finding_info=FindingInfo(
                     uid=f"fortify_ssc:pv:{record.project_version_id}:instance:{record.issue_instance_id}",
                     uid_alt=str(record.issue_id),
@@ -616,7 +694,7 @@ class FortifySsc(Connector):
         for record in iter_fortify_xml(imported.data):
             yield record
 
-    @webhook(event_types=_WEBHOOK_EVENTS, header_event="x-ssc-event")
+    @webhook(event_types=_WEBHOOK_EVENTS)
     def parse_delivery(self, delivery: WebhookDelivery) -> list[StreamRecord]:
         return parse_delivery_payload(delivery)
 
@@ -650,8 +728,7 @@ class FortifySsc(Connector):
         capability="FindingSource",
     )
     async def probe_target(self, args: ProbeArgs) -> TargetProbeOutput:
-        result = await self.http.request("POST", _as_path("/userSession/info"), json="")
-        return TargetProbeOutput.model_validate(_data_object(result.json()))
+        return await self._probe_session()
 
     @operation(
         "list_project_versions",
@@ -1154,7 +1231,11 @@ class FortifySsc(Connector):
         for comment in comments.comments:
             if _digest(comment.comment) == wanted:
                 return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"reconciled": True})
-        return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="comment not found after write")
+        return ActionOutcome(
+            status="unverified",
+            vendor_ref=plan.target_ref,
+            error="comment not present in bounded comment list; absence cannot be confirmed",
+        )
 
     @action(
         "upload_fpr",
@@ -1360,6 +1441,12 @@ class FortifySsc(Connector):
                 vendor_ref=plan.target_ref,
                 result={"reconciled": True, "webhook_id": matches[0].webhook_id},
             )
+        if not matches:
+            return ActionOutcome(
+                status="failed",
+                vendor_ref=plan.target_ref,
+                error="webhook absent after create",
+            )
         return ActionOutcome(
             status="outcome_unknown",
             vendor_ref=plan.target_ref,
@@ -1439,9 +1526,9 @@ class FortifySsc(Connector):
         if status == "ERROR_PURGING":
             return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="artifact purge reported an error")
         return ActionOutcome(
-            status="outcome_unknown",
+            status="failed",
             vendor_ref=plan.target_ref,
-            error="artifact still present after purge request",
+            error="artifact still present after purge",
         )
 
     @action(

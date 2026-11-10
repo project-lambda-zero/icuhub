@@ -7,6 +7,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
+from icuhub.kit.errors import VendorContractError
 from icuhub.kit.types import MapContext, SourceRecord
 from icuhub_schemas import ocsf
 
@@ -83,21 +84,57 @@ def _resources(resource: dict[str, Any] | None, fallback_uid: str | None = None)
     ]
 
 
+_OCSF_STATUS: dict[str, tuple[int, str]] = {
+    "open": (1, "New"),
+    "new": (1, "New"),
+    "active": (1, "New"),
+    "in progress": (2, "In Progress"),
+    "dismissed": (3, "Suppressed"),
+    "snoozed": (3, "Suppressed"),
+    "resolved": (4, "Resolved"),
+}
+
+
+def _ocsf_status(raw_status: Any) -> tuple[int, str, str | None]:
+    """Return (status_id, caption, raw state); unrecognized or absent states map to 0 Unknown, never a terminal state."""
+    if raw_status is None:
+        return 0, "Unknown", None
+    raw_text = str(raw_status)
+    status_id, caption = _OCSF_STATUS.get(raw_text.strip().lower(), (0, "Unknown"))
+    return status_id, caption, raw_text
+
+
+def _cloud(cloud_type: Any) -> ocsf.Cloud:
+    """Build the required OCSF cloud object only from provider evidence in the source record."""
+    provider = str(cloud_type).strip().upper() if cloud_type else ""
+    if not provider:
+        raise VendorContractError("Prisma record has no cloud provider evidence")
+    return ocsf.Cloud(provider=provider)
+
+
 def _base(raw: dict[str, Any], ctx: MapContext, *, uid: str, title: str, time_value: Any) -> dict[str, Any]:
     severity_id, severity = _severity(raw.get("severity"))
-    status = str(raw.get("status") or "open").lower()
+    status_id, caption, raw_status = _ocsf_status(raw.get("status"))
+    resource = raw.get("resource") or {}
     return {
         "activity_id": 1,
         "time": parse_ms(time_value, ctx.received_at),
-        "cloud": ocsf.Cloud(provider="Prisma Cloud"),
+        "cloud": _cloud(
+            resource.get("cloudType")
+            or resource.get("provider")
+            or raw.get("cloudType")
+            or raw.get("cloudProvider")
+            or raw.get("provider")
+        ),
         "osint": [],
         "finding_info": ocsf.FindingInfo(uid=uid, title=title, desc=raw.get("description") or raw.get("message")),
         "severity_id": severity_id,
         "severity": severity,
-        "status_id": 1 if status in {"open", "active", "new"} else 2,
-        "status": status,
-        "resources": _resources(raw.get("resource"), str(raw.get("id")) if raw.get("id") is not None else None),
-        "metadata": ocsf.Metadata(product=_PRODUCT, uid=ctx.connection_id),
+        "status_id": status_id,
+        "status": caption,
+        "status_detail": raw_status,
+        "resources": _resources(resource, str(raw.get("id")) if raw.get("id") is not None else None),
+        "metadata": ocsf.Metadata(product=_PRODUCT, uid=uid),
         "unmapped": _unmapped(raw),
     }
 
@@ -105,14 +142,17 @@ def _base(raw: dict[str, Any], ctx: MapContext, *, uid: str, title: str, time_va
 def map_alert(raw: dict[str, Any], ctx: MapContext, finding_kind: str) -> list[Any]:
     policy = raw.get("policy") or {}
     policy_type = str(policy.get("policyType") or raw.get("policyType") or "config").lower()
+    # Policy-type routing is deliberate: a stream that does not own this policy type emits nothing for it.
     expected = {"compliance": "config", "vulnerability": "vulnerability"}.get(finding_kind)
     if expected is not None and policy_type != expected:
-        return []
+        raise VendorContractError(
+            f"policy_type_mismatch: {finding_kind} stream received policy type {policy_type!r}"
+        )
     if finding_kind == "detection" and policy_type not in DETECTION_POLICY_TYPES:
-        return []
+        raise VendorContractError(f"unclassified_policy_type: {policy_type!r}")
     uid = str(raw.get("id") or raw.get("alertId") or "")
     if not uid:
-        return []
+        raise VendorContractError("Prisma alert has no id")
     title = str(policy.get("name") or raw.get("title") or f"Prisma alert {uid}")
     base = _base(raw, ctx, uid=uid, title=title, time_value=raw.get("time") or raw.get("alertTime"))
     remediation = policy.get("remediation") or {}
@@ -130,7 +170,7 @@ def map_alert(raw: dict[str, Any], ctx: MapContext, finding_kind: str) -> list[A
             references=list(raw.get("references") or []) or None,
         )
         if not (cve or cwe):
-            return []
+            raise VendorContractError(f"Prisma vulnerability alert {uid} carries neither a CVE nor a CWE")
         return [ocsf.VulnerabilityFinding(**base, vulnerabilities=[vulnerability])]
     if finding_kind == "detection":
         return [ocsf.DetectionFinding(**base, message=raw.get("message") or title)]
@@ -155,9 +195,15 @@ def map_asset_finding(raw: dict[str, Any], ctx: MapContext, finding_kind: str) -
     asset = raw.get("_asset") or {}
     finding = raw.get("_finding")
     if not isinstance(finding, dict):
-        return []
-    asset_uid = str(asset.get("_id") or asset.get("id") or asset.get("digest") or asset.get("hostname") or "unknown")
-    finding_id = str(finding.get("id") or finding.get("cve") or finding.get("ruleName") or "unknown")
+        raise VendorContractError("Prisma asset record has no _finding object")
+    asset_value = asset.get("_id") or asset.get("id") or asset.get("digest") or asset.get("hostname")
+    finding_value = finding.get("id") or finding.get("cve") or finding.get("ruleName")
+    if asset_value in (None, ""):
+        raise VendorContractError("Prisma asset finding has no stable asset identity")
+    if finding_value in (None, ""):
+        raise VendorContractError("Prisma asset finding has no stable finding identity")
+    asset_uid = str(asset_value)
+    finding_id = str(finding_value)
     uid = f"{asset_uid}:{finding_id}"
     merged = {**finding, "resource": asset, "status": finding.get("status") or "open"}
     base = _base(merged, ctx, uid=uid, title=str(finding.get("title") or finding_id), time_value=finding.get("time") or asset.get("time"))
@@ -165,7 +211,7 @@ def map_asset_finding(raw: dict[str, Any], ctx: MapContext, finding_kind: str) -
     if finding_kind == "vulnerability":
         cve = finding.get("cve") or finding.get("id")
         if not cve or not str(cve).startswith("CVE-"):
-            return []
+            raise VendorContractError(f"Prisma vulnerability finding {uid} carries no CVE identifier")
         package_name = finding.get("packageName") or finding.get("package")
         package = None
         if package_name:
@@ -203,9 +249,9 @@ def map_asset_finding(raw: dict[str, Any], ctx: MapContext, finding_kind: str) -
 
 
 def map_runtime_detection(raw: dict[str, Any], ctx: MapContext) -> list[Any]:
-    uid = str(raw.get("id") or raw.get("auditId") or raw.get("_id") or "")
+    uid = str(raw.get("_audit_uid") or raw.get("_id") or raw.get("id") or raw.get("auditId") or "")
     if not uid:
-        return []
+        raise VendorContractError("Prisma Compute runtime record has no _id, id, or auditId")
     title = str(raw.get("ruleName") or raw.get("title") or raw.get("category") or f"Prisma runtime event {uid}")
     base = _base(raw, ctx, uid=uid, title=title, time_value=raw.get("time") or raw.get("timestamp"))
     return [ocsf.DetectionFinding(**base, message=raw.get("message") or title)]
@@ -214,7 +260,7 @@ def map_runtime_detection(raw: dict[str, Any], ctx: MapContext) -> list[Any]:
 def map_cspm_audit(raw: dict[str, Any], ctx: MapContext) -> list[Any]:
     uid = str(raw.get("id") or raw.get("eventId") or "")
     if not uid:
-        return []
+        raise VendorContractError("Prisma audit event has no id or eventId")
     action = str(raw.get("action") or "UNKNOWN").upper()
     activity = {"CREATE": 1, "READ": 2, "UPDATE": 3, "DELETE": 4}.get(action, 99)
     success = str(raw.get("status") or "success").lower() in {"success", "succeeded", "ok"}
@@ -226,7 +272,7 @@ def map_cspm_audit(raw: dict[str, Any], ctx: MapContext) -> list[Any]:
             type_uid=600300 + activity,
             time=parse_ms(raw.get("timestamp") or raw.get("time"), ctx.received_at),
             severity_id=1,
-            cloud=ocsf.Cloud(provider="Prisma Cloud"),
+            cloud=_cloud(raw.get("cloudType") or raw.get("cloudProvider") or raw.get("provider")),
             osint=[],
             metadata=ocsf.Metadata(product=_PRODUCT, uid=uid),
             actor=ocsf.Actor(user=ocsf.User(uid=str(user), name=str(user)) if user else None, app_name="Prisma Cloud"),
@@ -240,11 +286,20 @@ def map_cspm_audit(raw: dict[str, Any], ctx: MapContext) -> list[Any]:
     ]
 
 
-def map_nonfinding(raw: dict[str, Any], ctx: MapContext, record_type: str, class_uid: int) -> list[SourceRecord]:
-    uid = str(raw.get("id") or raw.get("_id") or raw.get("accountId") or raw.get("name") or hashlib.sha256(json.dumps(raw, sort_keys=True, default=str).encode()).hexdigest())
+def map_nonfinding(raw: dict[str, Any], ctx: MapContext, record_type: str, class_uid: int | None) -> list[SourceRecord]:
+    """Map a non-finding Prisma record to a source record.
+
+    class_uid is the OCSF class when one fits the record, or None for Prisma-native records with no OCSF class.
+    Identity falls back to a content hash only when the record carries no stable id; the chosen source is recorded.
+    """
+    stable_id = raw.get("id") or raw.get("_id") or raw.get("accountId") or raw.get("name")
+    uid = str(stable_id) if stable_id else hashlib.sha256(json.dumps(raw, sort_keys=True, default=str).encode()).hexdigest()
+    timestamp = raw.get("time") or raw.get("lastModifiedTs") or raw.get("timestamp")
     data = {
         "class_uid": class_uid,
-        "time": parse_ms(raw.get("time") or raw.get("lastModifiedTs") or raw.get("timestamp"), ctx.received_at),
+        "time": parse_ms(timestamp, ctx.received_at),
+        "time_source": "record" if timestamp else "received_at",
+        "identity_source": "record_id" if stable_id else "content_sha256",
         "metadata": {"product": {"name": "Prisma Cloud", "vendor_name": "Palo Alto Networks"}},
         "record_type": record_type,
         "source": raw,

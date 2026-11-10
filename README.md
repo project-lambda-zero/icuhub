@@ -5,12 +5,19 @@ Each vendor integration is built once, and every internal platform uses it throu
 governed, audited path. The first consumer is AILA; others include the posture management
 console and other enterprise hubs.
 
-**Status: MVP offline implementation complete; live acceptance pending.** Decisions D1-D22 are closed (`docs/adr/`).
+**Status: MVP offline implementation is not fully closed; live acceptance pending.** Decisions D1-D22 are closed (`docs/adr/`).
 The shared schema package [`packages/icuhub-schemas`](packages/icuhub-schemas) (OCSF 1.9.0, SARIF 2.1.0,
-CloudEvents envelope, finding fingerprint), durable core runtime, REST/MCP surfaces, all required connector
-editions, and F1-F7 flows are implemented with offline fixtures and PostgreSQL integration tests. The OpenShift
-runtime profile is included. Live vendor and cluster acceptance is opt-in; remaining target-system uncertainties
-are tracked in [`docs/IMPLEMENTATION_GAPS.md`](docs/IMPLEMENTATION_GAPS.md).
+CloudEvents envelope, finding fingerprint), durable core runtime, REST/MCP surfaces, connector editions, and F1-F7
+flows have offline implementations with fixtures and PostgreSQL integration tests. The OpenShift runtime profile is
+included. The binding Prisma Cloud CSPM complete per-asset vulnerability export remains open as `GAP-PCSPM-03`:
+UVE search is implemented, but its CVE aggregates do not establish a complete export. Native Invicti Standard XML
+also remains disabled until current real exports are available (`GAP-INVICTI-001`). Live vendor and cluster acceptance
+is opt-in; remaining target-system uncertainties are tracked in
+[`docs/IMPLEMENTATION_GAPS.md`](docs/IMPLEMENTATION_GAPS.md).
+
+Local process smoke covers real API health and readiness, authenticated MCP initialization and tool discovery, and a
+queued Invicti JSON import through the real worker on local PostgreSQL. It is not live vendor acceptance. Container
+image construction remains unexecuted until a Docker Linux engine is available.
 
 ## What it does
 

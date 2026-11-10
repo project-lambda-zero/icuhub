@@ -112,7 +112,6 @@ def attachment_args(**overrides: Any) -> UploadAttachmentInput:
 def feed_args(**overrides: Any) -> ExecuteDataFeedInput:
     values = {
         "data_feed_guid": "feed-guid-1",
-        "approved_plan_hash": "placeholder",
         "include_reference_feeds": True,
     }
     values.update(overrides)
@@ -124,7 +123,6 @@ def delete_args(**overrides: Any) -> DeleteContentInput:
         "content_id": 42,
         "level_id": 8,
         "expected_version": 3,
-        "approved_plan_hash": "placeholder",
     }
     values.update(overrides)
     return DeleteContentInput(**values)
@@ -198,19 +196,24 @@ def test_create_apply_sends_level_and_encoded_field_contents() -> None:
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "42"
     assert outcome.result == {"content_id": 42}
-    assert seen["LevelId"] == 8
-    assert seen["FieldContents"]["101"] == {
+    assert seen["Content"]["LevelId"] == 8
+    assert seen["Content"]["FieldContents"]["101"] == {
         "Type": 1,
         "Value": "case-1",
         "FieldId": 101,
     }
-    assert seen["FieldContents"]["102"]["Value"] == "Example finding"
+    assert seen["Content"]["FieldContents"]["102"]["Value"] == "Example finding"
 
 
 def test_create_reconcile_finds_natural_key() -> None:
     responses = iter(("search_empty.xml", "search_existing.xml"))
     connector = make_connector({
-        ("POST", "/ws/search.asmx"): lambda _request: {"status": 200, "text": load_text(next(responses))}
+        ("POST", "/ws/search.asmx"): lambda _request: {"status": 200, "text": load_text(next(responses))},
+        ("POST", "/platformapi/core/system/fielddefinition/level/8"): json_response("fields.json"),
+        ("POST", "/platformapi/core/content/contentid"): {
+            "status": 200,
+            "json": content_with(title="Example finding"),
+        },
     })
     args = create_args()
     plan = asyncio.run(plan_create(connector, args))
@@ -281,11 +284,11 @@ def test_update_apply_sends_expected_version_and_only_changed_fields() -> None:
     outcome = asyncio.run(apply_update(connector, first))
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "42"
-    assert seen["Id"] == 42
-    assert seen["LevelId"] == 8
-    assert seen["Version"] == 3
-    assert set(seen["FieldContents"]) == {"102"}
-    assert seen["FieldContents"]["102"]["Value"] == "After"
+    assert seen["Content"]["Id"] == 42
+    assert seen["Content"]["LevelId"] == 8
+    assert seen["Content"]["Version"] == "3"
+    assert set(seen["Content"]["FieldContents"]) == {"102"}
+    assert seen["Content"]["FieldContents"]["102"]["Value"] == "After"
 
 
 def test_update_reconcile_succeeds_when_requested_values_are_present() -> None:
@@ -304,7 +307,7 @@ def test_update_reconcile_succeeds_when_requested_values_are_present() -> None:
     assert outcome.vendor_ref == "42"
 
 
-def test_update_reconcile_without_requested_values_is_outcome_unknown() -> None:
+def test_update_reconcile_without_requested_values_fails() -> None:
     connector = make_connector({
         ("POST", "/platformapi/core/content/contentid"): {"status": 200, "json": content_with()},
         ("POST", "/platformapi/core/system/fielddefinition/level/8"): json_response("fields.json"),
@@ -312,7 +315,7 @@ def test_update_reconcile_without_requested_values_is_outcome_unknown() -> None:
     args = update_args()
     plan = asyncio.run(plan_update(connector, args))
     outcome = asyncio.run(reconcile_update(connector, plan, ActionOutcome(status="outcome_unknown")))
-    assert outcome.status == "outcome_unknown"
+    assert outcome.status == "failed"
 
 
 def content_with_attachments(attachments: list[dict[str, Any]], version: int) -> dict[str, Any]:
@@ -349,8 +352,14 @@ def attachment_routes(
     def put(request: Any) -> dict[str, Any]:
         body = json.loads(request.content)
         puts.append(body)
-        state["attachments"] = body["FieldContents"]["103"]["Value"]
-        state["version"] = body["Version"] + 1
+        values = body["Content"]["FieldContents"]["103"]["Value"]
+        state["attachments"] = [
+            value
+            if isinstance(value, dict)
+            else {"Id": value, "Name": {900: "old.txt", 901: "evidence.txt"}.get(value, str(value))}
+            for value in values
+        ]
+        state["version"] = int(body["Content"]["Version"]) + 1
         return json_response("update_response.json")
 
     routes: dict[tuple[str, str], Any] = {
@@ -384,13 +393,12 @@ def test_upload_attachment_plan_and_apply_use_decoded_digest_and_field_id() -> N
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "901"
     assert outcome.result == {"attachment_id": 901, "content_id": 42}
-    assert uploads[0]["ContentId"] == 42
-    assert uploads[0]["FieldId"] == 103
-    assert uploads[0]["FileName"] == "evidence.txt"
-    assert uploads[0]["FileContent"] == args.content_base64
-    assert puts[0]["FieldContents"]["103"] == {
+    assert uploads[0]["AttachmentName"] == "evidence.txt"
+    assert uploads[0]["AttachmentBytes"] == args.content_base64
+    assert uploads[0]["IsSensitive"] is False
+    assert puts[0]["Content"]["FieldContents"]["103"] == {
         "Type": 11,
-        "Value": [{"Id": 901, "Name": "evidence.txt"}],
+        "Value": [901],
         "FieldId": 103,
     }
 
@@ -426,10 +434,7 @@ def test_upload_attachment_preserves_existing_attachment_ids() -> None:
     assert plan.changed is True
     outcome = asyncio.run(apply_upload_attachment(connector, plan))
     assert outcome.status == "succeeded"
-    assert puts[0]["FieldContents"]["103"]["Value"] == [
-        {"Id": 900, "Name": "old.txt"},
-        {"Id": 901, "Name": "evidence.txt"},
-    ]
+    assert puts[0]["Content"]["FieldContents"]["103"]["Value"] == [900, 901]
 
 
 def test_upload_attachment_association_uses_version_current_after_upload() -> None:
@@ -445,7 +450,7 @@ def test_upload_attachment_association_uses_version_current_after_upload() -> No
     outcome = asyncio.run(apply_upload_attachment(connector, plan))
     assert outcome.status == "succeeded"
     # The upload advanced Version to 4 in this fixture, so the association must use 4.
-    assert puts[0]["Version"] == 4
+    assert puts[0]["Content"]["Version"] == "4"
 
 
 def test_upload_attachment_hash_mismatch_after_write_is_failed() -> None:
@@ -483,8 +488,8 @@ def test_upload_attachment_orphan_is_associated_and_not_reuploaded() -> None:
     assert outcome.status == "succeeded"
     assert outcome.vendor_ref == "901"
     assert uploads == []
-    assert puts[0]["Version"] == 3
-    assert puts[0]["FieldContents"]["103"]["Value"] == [{"Id": 901, "Name": "evidence.txt"}]
+    assert puts[0]["Content"]["Version"] == "3"
+    assert puts[0]["Content"]["FieldContents"]["103"]["Value"] == [901]
 
 
 def test_upload_attachment_reconcile_with_mismatched_bytes_is_outcome_unknown() -> None:
@@ -504,7 +509,7 @@ def test_upload_attachment_reconcile_with_mismatched_bytes_is_outcome_unknown() 
     assert puts == []
 
 
-def test_update_read_back_mismatch_is_outcome_unknown() -> None:
+def test_update_read_back_mismatch_is_failed() -> None:
     connector = make_connector({
         ("POST", "/platformapi/core/content/contentid"): {"status": 200, "json": content_with()},
         ("POST", "/platformapi/core/system/fielddefinition/level/8"): json_response("fields.json"),
@@ -513,10 +518,10 @@ def test_update_read_back_mismatch_is_outcome_unknown() -> None:
     args = update_args()
     plan = asyncio.run(plan_update(connector, args))
     outcome = asyncio.run(apply_update(connector, plan))
-    assert outcome.status == "outcome_unknown"
+    assert outcome.status == "failed"
 
 
-def test_delete_without_absence_proof_is_outcome_unknown() -> None:
+def test_delete_with_content_still_present_is_failed() -> None:
     connector = make_connector({
         ("POST", "/platformapi/core/content/contentid"): {"status": 200, "json": content_with()},
         ("DELETE", "/platformapi/core/content/42"): {"status": 204},
@@ -524,7 +529,7 @@ def test_delete_without_absence_proof_is_outcome_unknown() -> None:
     args = delete_args()
     plan = asyncio.run(plan_delete(connector, args))
     outcome = asyncio.run(apply_delete(connector, plan))
-    assert outcome.status == "outcome_unknown"
+    assert outcome.status == "failed"
     assert outcome.vendor_ref == "42"
 
 
@@ -587,7 +592,10 @@ def test_data_feed_apply_returns_accepted_async() -> None:
         seen.update(json.loads(request.content))
         return json_response("data_feed_execute_response.json", 202)
 
-    connector = make_connector({("POST", "/platformapi/core/datafeed/execution"): execute})
+    connector = make_connector({
+        ("POST", "/platformapi/core/datafeed/history"): json_response("data_feed_history_empty.json"),
+        ("POST", "/platformapi/core/datafeed/execution"): execute,
+    })
     args = feed_args()
     first = asyncio.run(plan_execute_data_feed(connector, args))
     second = asyncio.run(plan_execute_data_feed(connector, args))
@@ -620,7 +628,11 @@ def test_data_feed_reconciles_run_history(fixture: str, status: str) -> None:
     args = feed_args()
     plan = asyncio.run(plan_execute_data_feed(connector, args))
     outcome = asyncio.run(
-        reconcile_execute_data_feed(connector, plan, ActionOutcome(status="accepted_async"))
+        reconcile_execute_data_feed(
+            connector,
+            plan,
+            ActionOutcome(status="accepted_async", result={"pre_send_history_ids": []}),
+        )
     )
     assert outcome.status == status
     assert outcome.vendor_ref == "feed-guid-1"
@@ -665,14 +677,14 @@ def test_delete_apply_reconciles_not_found() -> None:
     assert reconciled.vendor_ref == "42"
 
 
-def test_delete_reconcile_with_content_present_is_outcome_unknown() -> None:
+def test_delete_reconcile_with_content_present_is_failed() -> None:
     connector = make_connector({
         ("POST", "/platformapi/core/content/contentid"): {"status": 200, "json": content_with()}
     })
     args = delete_args()
     plan = asyncio.run(plan_delete(connector, args))
     outcome = asyncio.run(reconcile_delete(connector, plan, ActionOutcome(status="outcome_unknown")))
-    assert outcome.status == "outcome_unknown"
+    assert outcome.status == "failed"
 
 
 def test_write_gate_blocks_create_apply() -> None:

@@ -122,9 +122,25 @@ def _jira_routes(state: dict[str, Any]) -> dict[tuple[str, str], Any]:
         issues = state["created"] if state.get("index_visible") else []
         return {"status": 200, "json": {"issues": issues, "isLast": True}}
 
+    def jira_issue(_request: Any) -> dict[str, Any]:
+        created = state["created"][0]
+        return {
+            "status": 200,
+            "json": {
+                "id": created["id"],
+                "key": created["key"],
+                "self": f"https://jira.example.test/rest/api/3/issue/{created['id']}",
+                "fields": {
+                    "updated": "2026-11-09T00:00:00.000+0000",
+                    "status": {"name": "To Do", "statusCategory": {"key": "new"}},
+                },
+            },
+        }
+
     return {
         ("GET", "/rest/api/3/myself"): {"status": 200, "json": {"accountId": "svc-automation"}},
         ("GET", "/rest/api/3/search/jql"): jira_search,
+        ("GET", "/rest/api/3/issue/ICU-1"): jira_issue,
         ("POST", "/rest/api/3/issue"): jira_create,
     }
 
@@ -261,9 +277,15 @@ def _mend_scanner() -> _Scanner:
         },
         secrets={"user_key": "synthetic-mend-user-key"},
         routes={
+            # Login returns the refresh token (https://api-docs.mend.io/platform/3.0/access-management/login.md);
+            # the JWT comes from the access-token exchange (.../refreshaccesstoken.md).
             ("POST", "/api/v3.0/login"): {
                 "status": 200,
-                "json": {"response": {"userUuid": MEND_ORG, "jwtToken": "jwt", "tokenTTL": 3600}},
+                "json": {"response": {"userUuid": MEND_ORG, "refreshToken": "refresh", "jwtTTL": 1800}},
+            },
+            ("POST", "/api/v3.0/login/accessToken"): {
+                "status": 200,
+                "json": {"response": {"orgUuid": MEND_ORG, "jwtToken": "jwt", "tokenTTL": 1800}},
             },
             ("GET", f"/api/v3.0/projects/{MEND_PROJECT}/dependencies/findings/security"): findings,
         },

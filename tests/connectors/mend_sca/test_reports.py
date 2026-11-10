@@ -109,6 +109,62 @@ def test_unknown_document_shape_is_rejected() -> None:
         parse_report(_load("direct_v2_retval.json"), config=_config(), project_snapshot=SNAPSHOT)
 
 
+def _platform_report(*findings: dict[str, Any]) -> bytes:
+    rows = [
+        {
+            "name": f"CVE-2099-000{index}",
+            "findingInfo": {"uuid": f"finding-{index}", **info},
+            "component": {"name": "example-library-2.4.1", "groupId": "com.example", "artifactId": "example-library", "version": "2.4.1", "path": "com.example:example-library:2.4.1"},
+            "vulnerability": {"name": f"CVE-2099-000{index}", "severity": "HIGH"},
+        }
+        for index, info in enumerate(findings, start=1)
+    ]
+    return json.dumps({"response": rows}).encode()
+
+
+@pytest.mark.parametrize(
+    ("finding_status", "status", "suppressed", "reason"),
+    [
+        ("UNREVIEWED", "ACTIVE", False, None),
+        ("IN_REVIEW", "ACTIVE", False, None),
+        ("ISSUE_CREATED", "ACTIVE", False, None),
+        ("REMEDIATED", "ACTIVE", False, None),
+        ("SUPPRESSED", "ACTIVE", True, "SUPPRESSED"),
+        ("UNREVIEWED", "IGNORED", True, "IGNORED"),
+    ],
+)
+def test_report_suppression_is_limited_to_suppressed_and_ignored(
+    finding_status: str, status: str, suppressed: bool, reason: str | None
+) -> None:
+    data = _platform_report({"findingStatus": finding_status, "status": status})
+
+    parsed = parse_report(data, config=_config(), project_snapshot=SNAPSHOT)
+
+    [record] = parsed.records
+    assert record["fields"]["suppressed"] is suppressed
+    assert record["fields"]["suppression_reason"] == reason
+
+
+def test_report_unreviewed_row_is_kept_and_not_suppressed() -> None:
+    data = _platform_report({"findingStatus": "UNREVIEWED", "status": "ACTIVE"})
+
+    parsed = parse_report(data, config=_config(), project_snapshot=SNAPSHOT)
+
+    assert len(parsed.records) == 1
+    assert parsed.records[0]["fields"]["suppressed"] is False
+
+
+def test_platform_3_fixture_suppressed_row_carries_vendor_reason() -> None:
+    parsed = parse_report(_load("platform_3_response.json"), config=_config(), project_snapshot=SNAPSHOT)
+
+    suppressed = [record for record in parsed.records if record["fields"]["suppressed"]]
+    assert len(suppressed) == 1
+    assert suppressed[0]["fields"]["suppression_reason"] == "SUPPRESSED"
+    others = [record for record in parsed.records if not record["fields"]["suppressed"]]
+    assert others
+    assert all(record["fields"]["suppression_reason"] is None for record in others)
+
+
 def test_non_json_report_is_rejected() -> None:
     with pytest.raises(VendorContractError, match="not UTF-8 JSON"):
         parse_report(b"\xff\xfe not json", config=_config(), project_snapshot=SNAPSHOT)

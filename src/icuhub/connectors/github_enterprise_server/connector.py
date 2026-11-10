@@ -15,11 +15,19 @@ __all__ = ["GitHubEnterpriseServer"]
 GHES_VERSION_HEADER = "x-github-enterprise-version"
 
 
-def _enterprise_version(response: HttpResult) -> str:
-    version = response.headers.get(GHES_VERSION_HEADER)
-    if not version:
-        raise VendorContractError(f"GHES /meta response has no {GHES_VERSION_HEADER} header")
+def _installed_version(response: HttpResult) -> str:
+    """The documented ``installed_version`` string from the ``GET /meta`` body."""
+    body = response.json()
+    version = body.get("installed_version") if isinstance(body, dict) else None
+    if not isinstance(version, str) or not version:
+        raise VendorContractError("GHES /meta response requires a non-empty installed_version string")
     return version
+
+
+def _header_version_matches(response: HttpResult, version: str) -> bool:
+    """Cross-check the undocumented header only when a server sends it; absence is not an error."""
+    header = response.headers.get(GHES_VERSION_HEADER)
+    return header is None or header == version
 
 
 class GitHubEnterpriseServer(GitHubConnectorBase):
@@ -33,7 +41,10 @@ class GitHubEnterpriseServer(GitHubConnectorBase):
     async def check(self) -> HealthReport:
         report = await super().check()
         try:
-            version = _enterprise_version(await self.request("GET", "/meta"))
+            meta = await self.request("GET", "/meta")
+            version = _installed_version(meta)
+            if not _header_version_matches(meta, version):
+                raise VendorContractError(f"GHES {GHES_VERSION_HEADER} header disagrees with installed_version")
         except ConnectorError as exc:
             status = "failing" if report.status == "failing" else "degraded"
             detail = {**report.detail, "ghes_version_error": type(exc).__name__}

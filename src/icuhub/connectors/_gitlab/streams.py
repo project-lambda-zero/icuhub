@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -272,6 +273,24 @@ async def group_audit_events(
 # Upper bound for one GitLab.com batched audit object, applied to the download itself.
 _AUDIT_OBJECT_MAX_BYTES = 8 * 1024 * 1024
 
+# GitLab.com batched S3 object keys: ``YYYY/MM/DD/<timestamp>_<id>.json`` where ``<timestamp>`` is the
+# write time in milliseconds since the Unix epoch and ``<id>`` is the id of the batch's first event.
+# Source: https://docs.gitlab.com/user/compliance/audit_event_streaming/ ("Batched AWS S3 objects").
+_AUDIT_OBJECT_KEY = re.compile(r"\d{4}/\d{2}/\d{2}/(\d+)_[^/]+\.json")
+
+
+def _audit_object_order(key: str) -> tuple[int, str]:
+    """Chronological sort position of one batched object key.
+
+    The docs do not state whether the millisecond timestamp is zero-padded, so keys are ordered on the
+    parsed integer rather than lexically; the key string breaks ties between objects written in the same
+    millisecond.
+    """
+    match = _AUDIT_OBJECT_KEY.fullmatch(key)
+    if match is None:
+        raise ConfigError(f"GitLab audit object key {key!r} does not match YYYY/MM/DD/<timestamp>_<id>.json")
+    return int(match.group(1)), key
+
 
 def _audit_objects(target: Target | None) -> tuple[list[dict[str, str]], bool]:
     """Read the batched object list the destination supplies: ``{"objects": [{"key", "url"}, ...]}``."""
@@ -290,15 +309,16 @@ def _audit_objects(target: Target | None) -> tuple[list[dict[str, str]], bool]:
         if not isinstance(key, str) or not key or not isinstance(url, str) or not url:
             raise ConfigError("Each GitLab audit destination object needs a key and URL")
         objects.append({"key": key, "url": url})
-    objects.sort(key=lambda item: item["key"])
+    objects.sort(key=lambda item: _audit_object_order(item["key"]))
     complete = attributes.get("complete", True) is not False and attributes.get("truncated", False) is not True
     return objects, complete
 
 
 def _audit_payload(content: bytes, key: str, max_bytes: int) -> list[dict[str, Any]]:
-    """Parse one batched object as a JSON document (array or object) or as JSON Lines.
+    """Parse one GitLab.com batched audit object: a JSON array with one audit event object per element.
 
-    [UNVERIFIED] GitLab.com's batched object payload format. Compressed or non-UTF-8 content fails closed.
+    Source: https://docs.gitlab.com/user/compliance/audit_event_streaming/ ("Batched AWS S3 objects").
+    Compressed, non-UTF-8, non-array, or non-object content fails closed.
     """
     if len(content) > max_bytes:
         raise BudgetExhausted(f"GitLab audit object exceeded {max_bytes} bytes")
@@ -306,24 +326,14 @@ def _audit_payload(content: bytes, key: str, max_bytes: int) -> list[dict[str, A
         text = content.decode("utf-8")
     except UnicodeDecodeError as exc:
         raise VendorContractError(f"GitLab audit object {key!r} is not UTF-8") from exc
-    values: list[Any]
     try:
         document: Any = json.loads(text)
-    except ValueError:
-        values = []
-        for line_number, line in enumerate(text.splitlines(), start=1):
-            if not line.strip():
-                continue
-            try:
-                values.append(json.loads(line))
-            except ValueError as exc:
-                raise VendorContractError(
-                    f"GitLab audit object {key!r} has invalid JSON on line {line_number}"
-                ) from exc
-    else:
-        values = document if isinstance(document, list) else [document]
+    except ValueError as exc:
+        raise VendorContractError(f"GitLab audit object {key!r} is not valid JSON") from exc
+    if not isinstance(document, list):
+        raise VendorContractError(f"GitLab audit object {key!r} is not a JSON array of events")
     events: list[dict[str, Any]] = []
-    for value in values:
+    for value in document:
         if not isinstance(value, dict):
             raise VendorContractError(f"GitLab audit object {key!r} contains a non-object event")
         events.append(value)
@@ -340,17 +350,19 @@ def _audit_payload(content: bytes, key: str, max_bytes: int) -> list[dict[str, A
 async def audit_stream_objects(
     connector: GitLabConnectorBase, target: Target | None, checkpoint: SequenceCursor | None, _mode: str
 ) -> AsyncIterator[RawBatch]:
-    """GitLab.com batched audit objects in key order; the checkpoint is the last fully read object key.
+    """GitLab.com batched audit objects in chronological order; the checkpoint is the last fully read key.
 
+    GitLab retries a whole batch on destination failure, so events are deduplicated by ``id`` across the run.
     Presigned download URLs are used for the fetch only and never reach the evidence record.
     """
     objects, complete = _audit_objects(target)
     current = checkpoint if isinstance(checkpoint, SequenceCursor) else SequenceCursor(seq="")
     previous = str(current.seq)
+    previous_order = _audit_object_order(previous) if previous else None
     seen_event_ids: set[str] = set()
     for item in objects:
         key = item["key"]
-        if previous and key <= previous:
+        if previous_order is not None and _audit_object_order(key) <= previous_order:
             continue
         try:
             content = await connector.http.stream_download("GET", item["url"], max_bytes=_AUDIT_OBJECT_MAX_BYTES)

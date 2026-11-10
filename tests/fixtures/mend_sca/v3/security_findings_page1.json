@@ -79,7 +79,7 @@
       "name": "CVE-2099-0001 in example-library",
       "type": "SECURITY_VULNERABILITY",
       "findingInfo": {
-        "findingStatus": "IGNORED",
+        "findingStatus": "SUPPRESSED",
         "detectedAt": "2026-01-15T10:05:00Z",
         "modifiedAt": "2026-01-16T09:30:00Z",
         "comment": "Synthetic suppression comment."

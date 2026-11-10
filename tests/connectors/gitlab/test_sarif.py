@@ -148,6 +148,20 @@ def test_result_without_rule_id_is_dropped_and_coverage_is_partial() -> None:
     assert [entry["ruleId"] for entry in results] == ["PARSER-OOB-READ"]
 
 
+def test_result_without_physical_location_is_dropped_and_coverage_is_partial() -> None:
+    result = _parse((FIXTURES / "sarif_result_without_physical_location.sarif.json").read_bytes())
+
+    assert result.coverage == "partial"
+    assert result.dropped == [
+        {
+            "reason": "missing physicalLocation",
+            "message": "Result with a rule identifier but no physical location.",
+            "uri": None,
+        }
+    ]
+    assert [item["ruleId"] for item in result.data["runs"][0]["results"]] == ["PARSER-OOB-READ"]
+
+
 def test_str_input_parses_like_bytes() -> None:
     result = _parse(VALID.read_text(encoding="utf-8"))
 

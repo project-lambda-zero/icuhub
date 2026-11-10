@@ -85,6 +85,10 @@ def _caller(tenant_id: uuid.UUID, name: str = "admin") -> Caller:
     return Caller(id=name, tenant_id=tenant_id, roles=frozenset({"admin"}), groups=frozenset({"secops"}))
 
 
+def _approver(tenant_id: uuid.UUID) -> Caller:
+    return Caller(id="approver", tenant_id=tenant_id, roles=frozenset({"approver"}), groups=frozenset({"secops"}))
+
+
 def _services(tmp_path: Path, transport: RouteTransport) -> Any:
     kek_path = tmp_path / "kek"
     kek_path.write_bytes(bytes(range(32)))
@@ -172,7 +176,7 @@ async def _approve(session: Any, tenant_id: uuid.UUID, request: ActionRequest) -
     approval = (
         await session.execute(select(Approval).where(Approval.action_request_id == request.id))
     ).scalar_one()
-    await decide(session, _caller(tenant_id, "approver"), approval.id, "approved", reason="F6 approved change")
+    await decide(session, _approver(tenant_id), approval.id, "approved", reason="F6 approved change")
     return approval
 
 
@@ -225,9 +229,25 @@ def _jira_routes(state: dict[str, Any]) -> dict[tuple[str, str], Any]:
         state["created"].append({"id": str(10000 + len(state["created"])), "key": key, "body": body})
         return {"status": 201, "json": {"id": state["created"][-1]["id"], "key": key}}
 
+    def issue(_request: Any) -> dict[str, Any]:
+        created = state["created"][0]
+        return {
+            "status": 200,
+            "json": {
+                "id": created["id"],
+                "key": created["key"],
+                "self": f"https://jira.example.test/rest/api/3/issue/{created['id']}",
+                "fields": {
+                    "updated": "2026-11-09T00:00:00.000+0000",
+                    "status": {"name": "To Do", "statusCategory": {"key": "new"}},
+                },
+            },
+        }
+
     return {
         ("GET", "/rest/api/3/myself"): {"status": 200, "json": {"accountId": "svc-automation"}},
         ("GET", "/rest/api/3/search/jql"): {"status": 200, "json": {"issues": [], "isLast": True}},
+        ("GET", "/rest/api/3/issue/ICU-1"): issue,
         ("POST", "/rest/api/3/issue"): create,
     }
 
@@ -250,7 +270,7 @@ def _archer_routes(state: dict[str, Any]) -> dict[tuple[str, str], Any]:
                     "Id": 42,
                     "LevelId": 8,
                     "Version": 1,
-                    "FieldContents": state["created"][-1]["FieldContents"],
+                    "FieldContents": state["created"][-1]["Content"]["FieldContents"],
                 },
             },
         }
@@ -515,7 +535,7 @@ def test_f6_archer_route_fields_and_source_independent_closure(tmp_path: Any, cl
                 applied.result_json,
             )
         assert len(state["created"]) == 1
-        posted = state["created"][0]["FieldContents"]
+        posted = state["created"][0]["Content"]["FieldContents"]
         assert posted["101"]["Value"] == f"route:{route.id}:case:{case_id}"
         assert posted["102"]["Value"]
         assert str(case_id) in posted["104"]["Value"]

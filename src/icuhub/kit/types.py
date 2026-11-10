@@ -188,7 +188,7 @@ class ActionPlan(BaseModel):
 class ActionOutcome(BaseModel):
     """Observable outcome of applying or reconciling an action plan."""
 
-    status: Literal["succeeded", "no_op", "accepted_async", "outcome_unknown", "failed"]
+    status: Literal["succeeded", "no_op", "accepted_async", "outcome_unknown", "unverified", "failed"]
     vendor_ref: str | None = None
     result: dict[str, Any] = Field(default_factory=dict)
     error: str | None = None

@@ -39,7 +39,7 @@
     {
       "uuid": "00000000-0000-4000-8000-000000000605",
       "name": "Example-License-2.0 on example-helper",
-      "findingStatus": "IGNORED",
+      "findingStatus": "SUPPRESSED",
       "severity": "LOW",
       "detectedAt": "2026-01-14T08:00:00Z",
       "modifiedAt": "2026-01-16T09:30:00Z",

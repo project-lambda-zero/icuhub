@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 from collections.abc import AsyncIterator
 from datetime import timedelta
 from typing import Any, ClassVar, Literal
@@ -67,14 +68,18 @@ from icuhub.connectors._jira.models import (
     UpdateCommentInput,
     UpdateIssueInput,
 )
-from icuhub.connectors._jira.webhooks import EVENT_TYPES, parse_jira_delivery
+from icuhub.connectors._jira.webhooks import EVENT_TYPES, JiraDeliveryVerifier, parse_jira_delivery
+from icuhub.connectors.jira_cloud.webhooks import OAuthBearerJwt
 from icuhub.kit.auth import AuthStrategy, BasicAuth, BearerToken, OAuth2RefreshToken
 from icuhub.kit.connector import action, mapper, operation, stream, webhook
 from icuhub.kit.cursors import SnapshotCursor, TimeIdCursor
 from icuhub.kit.errors import (
     AuthFailed,
+    BudgetExhausted,
     ConfigError,
+    ConnectorError,
     OutcomeUnknown,
+    PaginationLoop,
     PermissionDenied,
     RateLimited,
     StalePlan,
@@ -105,7 +110,48 @@ _ISSUE_STATE_FIELDS = "id,updated,status"
 _SEARCH_PATH = "/rest/api/3/search/jql"
 # Dynamic webhook registrations expire after 30 days; flag them for refresh a week early.
 _WEBHOOK_REFRESH_WINDOW = timedelta(days=7)
-_WEBHOOK_PATH = "/rest/api/3/webhook"  # [UNVERIFIED] dynamic registration paths; spec leaves them unsourced.
+_WEBHOOK_PATH = "/rest/api/3/webhook"  # Dynamic registration endpoints: developer.atlassian.com api-group-webhooks.
+# Read-back failures after a submitted write that leave the outcome reconcilable.
+_READ_BACK_AMBIGUOUS = (TransientVendorError, RateLimited)
+
+
+_RECONCILE_FIELDS = ["id", "key", "summary", "status", "updated"]
+_RECONCILE_CHUNK = 100
+
+
+def _jql_literal(value: str) -> str:
+    """Quote a user-supplied issue key or ID as a JQL string literal."""
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def _issue_in_jql(refs: list[str]) -> str:
+    # [UNVERIFIED] JQL ``issue`` accepting keys and IDs in one ``in (...)`` list is not confirmed against a primary source.
+    return "issue in (" + ", ".join(_jql_literal(ref) for ref in refs) + ")"
+
+
+def _failed_delivery(raw: dict[str, Any]) -> FailedWebhookDelivery:
+    """Parse one dead-letter entry; the affected issue ID comes from the original delivery body."""
+    raw = _with_string_id(raw)
+    failure_time = raw.get("failureTime")
+    if not isinstance(failure_time, int):
+        raise VendorContractError("Jira failed webhook must carry an integer failureTime")
+    issue_id: str | None = None
+    body_text = raw.get("body")
+    if isinstance(body_text, str):
+        try:
+            payload = json.loads(body_text)
+        except ValueError:
+            payload = None
+        issue = payload.get("issue") if isinstance(payload, dict) else None
+        candidate = issue.get("id") if isinstance(issue, dict) else None
+        if isinstance(candidate, str) and candidate.isdigit():
+            issue_id = candidate
+    return FailedWebhookDelivery(
+        id=jira.required_str(raw, "id"),
+        url=jira.required_str(raw, "url"),
+        failure_time_ms=failure_time,
+        issue_id=issue_id,
+    )
 
 
 def _with_string_id(raw: dict[str, Any]) -> dict[str, Any]:
@@ -209,13 +255,15 @@ class WebhooksOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     registrations: list[WebhookRegistration]
+    failed_deliveries: list[FailedWebhookDelivery]
+    reconciled_issues: list[TicketRecord]
 
 
 class ReconcileIssuesInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     issue_ids_or_keys: list[str] = Field(min_length=1, max_length=100)
-    fields: list[str] = Field(default_factory=lambda: ["id", "key", "summary", "status", "updated"])
+    fields: list[str] = Field(default_factory=lambda: list(_RECONCILE_FIELDS))
 
 
 class ReconcileIssuesOutput(BaseModel):
@@ -223,6 +271,15 @@ class ReconcileIssuesOutput(BaseModel):
 
     issues: list[TicketRecord]
     missing: list[str]
+
+
+class FailedWebhookDelivery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    url: str
+    failure_time_ms: int
+    issue_id: str | None
 
 
 class IssueRefArgs(BaseModel):
@@ -274,6 +331,40 @@ class JiraCloud(JiraBase):
         body = await self._get_object(_SEARCH_PATH, {"jql": jql, "fields": "id,key", "maxResults": 2})
         return list_field(body, "issues")
 
+    async def _reconcile_search(self, jql: str, reconcile_ids: list[int], fields: list[str]) -> list[dict[str, Any]]:
+        """Collect every page of a reconciling search; returns only once the response reports ``isLast``.
+
+        An empty page with a continuation token is not treated as the end, so absence can only be
+        derived from a fetch that the vendor declared complete.
+        """
+        cfg = self._cfg()
+        found: list[dict[str, Any]] = []
+        seen_tokens: set[str] = set()
+        token: str | None = None
+        for _ in range(cfg.max_pages):
+            payload: dict[str, Any] = {
+                "jql": jql,
+                "fields": fields,
+                "maxResults": cfg.page_size,
+                "reconcileIssues": reconcile_ids,
+            }
+            if token is not None:
+                payload["nextPageToken"] = token
+            body = await self._json("POST", _SEARCH_PATH, json=payload)
+            if not isinstance(body, dict):
+                raise VendorContractError("Jira search response must be an object")
+            found.extend(list_field(body, "issues"))
+            if body.get("isLast") is True:
+                return found
+            raw_next = body.get("nextPageToken")
+            if not isinstance(raw_next, str) or not raw_next:
+                raise VendorContractError("Jira search response is neither last nor paged")
+            if raw_next in seen_tokens:
+                raise PaginationLoop(f"pagination token repeated for {_SEARCH_PATH}")
+            seen_tokens.add(raw_next)
+            token = raw_next
+        raise BudgetExhausted(f"reconcile search of {_SEARCH_PATH} exceeded {cfg.max_pages} pages")
+
     # ------------------------------------------------------------ auth + health
 
     async def _secret_text(self, ref: Any, name: str) -> str:
@@ -302,7 +393,19 @@ class JiraCloud(JiraBase):
             client_id=cfg.client_id,
             client_secret=client_secret,
             refresh_token=refresh_token,
+            on_rotate=lambda rotated: self._persist_refresh_token(cfg.refresh_token, rotated),
         )
+
+    async def _persist_refresh_token(self, ref: Any, rotated: str) -> None:
+        # Atlassian rotates refresh tokens on every grant; the previous value is dead after this point.
+        await self.ctx.secrets.rotate(ref, rotated.encode("ascii"))
+
+    def webhook_verifier(self, secret: bytes) -> JiraDeliveryVerifier:
+        """OAuth 2.0 app deliveries carry a bearer JWT signed with the app client secret.
+
+        The shared-token and X-Hub-Signature schemes do not apply to this registration path.
+        """
+        return JiraDeliveryVerifier(OAuthBearerJwt(secret))
 
     async def check(self) -> HealthReport:
         try:
@@ -348,7 +451,7 @@ class JiraCloud(JiraBase):
         cursor = time_cursor(checkpoint)
         jql = self._search_jql(cursor.window_start() if mode == "incremental" else None)
         async for page, _result in self._search(jql, "*all"):
-            cursor = cursor.advance(page, ts_of=issue_updated, id_of=record_id)
+            cursor = self.advance_cursor(cursor, page, ts_of=issue_updated, id_of=record_id)
             yield RawBatch(records=page, checkpoint=cursor, complete=False)
         if mode == "full":
             yield RawBatch(records=[], checkpoint=cursor, complete=True)
@@ -385,7 +488,7 @@ class JiraCloud(JiraBase):
                 )
                 async for comment_page, _page_result in pages:
                     records = [{**comment, "_jira_issue": parent} for comment in comment_page]
-                    cursor = cursor.advance(records, ts_of=comment_ts, id_of=record_id)
+                    cursor = self.advance_cursor(cursor, records, ts_of=comment_ts, id_of=record_id)
                     yield RawBatch(records=records, checkpoint=cursor, complete=False)
         if mode == "full":
             yield RawBatch(records=[], checkpoint=cursor, complete=True)
@@ -406,7 +509,7 @@ class JiraCloud(JiraBase):
             for issue in issue_page:
                 parent = {"id": jira.required_str(issue, "id"), "key": jira.required_str(issue, "key")}
                 records.extend({**history, "_jira_issue": parent} for history in changelog_histories(issue))
-            cursor = cursor.advance(records, ts_of=history_ts, id_of=record_id)
+            cursor = self.advance_cursor(cursor, records, ts_of=history_ts, id_of=record_id)
             yield RawBatch(records=records, checkpoint=cursor, complete=False)
         if mode == "full":
             yield RawBatch(records=[], checkpoint=cursor, complete=True)
@@ -431,7 +534,7 @@ class JiraCloud(JiraBase):
                 if not isinstance(found, list):
                     raise VendorContractError("Jira issue attachment field must be a list")
                 records.extend({**item, "_jira_issue": parent} for item in found if isinstance(item, dict))
-            cursor = cursor.advance(records, ts_of=_attachment_ts, id_of=record_id)
+            cursor = self.advance_cursor(cursor, records, ts_of=_attachment_ts, id_of=record_id)
             yield RawBatch(records=records, checkpoint=cursor, complete=False)
         if mode == "full":
             yield RawBatch(records=[], checkpoint=cursor, complete=True)
@@ -453,7 +556,7 @@ class JiraCloud(JiraBase):
         pages = self._paged("/rest/api/3/auditing/record", None, "records", offset_param="offset", limit_param="limit")
         async for page, _result in pages:
             fresh = [record for record in page if window is None or audit_ts(record) >= window]
-            cursor = cursor.advance(fresh, ts_of=audit_ts, id_of=audit_id)
+            cursor = self.advance_cursor(cursor, fresh, ts_of=audit_ts, id_of=audit_id)
             yield RawBatch(records=fresh, checkpoint=cursor, complete=False)
         if mode == "full":
             yield RawBatch(records=[], checkpoint=cursor, complete=True)
@@ -637,8 +740,20 @@ class JiraCloud(JiraBase):
         capability=_CAPABILITY,
     )
     async def list_webhooks(self, args: EmptyInput) -> WebhooksOutput:
-        """Registration listing plus expiry health; dynamic registrations die after 30 days."""
+        """Registration listing, expiry health, and authoritative re-read of issues behind dead-lettered deliveries.
+
+        A dead-lettered delivery means its change never reached the event stream, so the affected issues are
+        re-read through the complete reconciling search rather than trusted from the webhook body.
+        """
         registrations = await self._webhook_registrations()
+        failed = await self._failed_webhook_deliveries()
+        affected = sorted({f.issue_id for f in failed if f.issue_id is not None})
+        reconciled: list[TicketRecord] = []
+        ctx = self._map_ctx()
+        for start in range(0, len(affected), _RECONCILE_CHUNK):
+            chunk = affected[start : start + _RECONCILE_CHUNK]
+            found = await self._reconcile_search(_issue_in_jql(chunk), [int(ref) for ref in chunk], _RECONCILE_FIELDS)
+            reconciled.extend(jira.map_issue(raw, ctx) for raw in found)
         now = self.ctx.clock()
         output: list[WebhookRegistration] = []
         for raw in registrations:
@@ -657,7 +772,7 @@ class JiraCloud(JiraBase):
                     needs_refresh=needs_refresh,
                 )
             )
-        return WebhooksOutput(registrations=output)
+        return WebhooksOutput(registrations=output, failed_deliveries=failed, reconciled_issues=reconciled)
 
     @operation(
         "reconcile_issues",
@@ -667,22 +782,41 @@ class JiraCloud(JiraBase):
         capability=_CAPABILITY,
     )
     async def reconcile_issues(self, args: ReconcileIssuesInput) -> ReconcileIssuesOutput:
-        """Authoritative read of named IDs; absence is only meaningful over this complete fetch."""
-        # [UNVERIFIED] bulk fetch path; spec names reconcileIssues but not its endpoint.
-        body = await self._json(
-            "POST",
-            "/rest/api/3/issue/bulkfetch",
-            json={"issueIdsOrKeys": args.issue_ids_or_keys, "fields": args.fields},
-            idempotency="idempotent_write",
-        )
-        if not isinstance(body, dict):
-            raise VendorContractError("Jira bulk fetch response must be an object")
+        """Authoritative read of named issues; absence is only meaningful over this complete fetch.
+
+        Enhanced JQL search with ``reconcileIssues`` (integer IDs) gives read-after-write
+        consistency for the named issues.
+        """
+        reconcile_ids = [int(ref) for ref in args.issue_ids_or_keys if ref.isdigit()]
+        found = await self._reconcile_search(_issue_in_jql(args.issue_ids_or_keys), reconcile_ids, args.fields)
         ctx = self._map_ctx()
-        found = list_field(body, "issues")
         issues = [jira.map_issue(raw, ctx) for raw in found]
         seen = {str(raw.get("id")) for raw in found} | {str(raw.get("key")) for raw in found}
         missing = [ref for ref in args.issue_ids_or_keys if ref not in seen]
         return ReconcileIssuesOutput(issues=issues, missing=missing)
+
+    async def _failed_webhook_deliveries(self) -> list[FailedWebhookDelivery]:
+        """Dead-lettered deliveries; paged by the vendor's ``failedAfter`` cursor URL, not ``startAt``."""
+        cfg = self._cfg()
+        failures: list[FailedWebhookDelivery] = []
+        path = f"{_WEBHOOK_PATH}/failed?maxResults={cfg.page_size}"
+        seen_next: set[str] = set()
+        for _ in range(cfg.max_pages):
+            body = await self._json("GET", path)
+            if not isinstance(body, dict):
+                raise VendorContractError("Jira failed-webhook response must be an object")
+            for raw in list_field(body, "values"):
+                failures.append(_failed_delivery(raw))
+            next_url = body.get("next")
+            if next_url is None:
+                return failures
+            if not isinstance(next_url, str) or not next_url:
+                raise VendorContractError("Jira failed-webhook next must be a non-empty string")
+            if next_url in seen_next:
+                raise PaginationLoop(f"pagination URL repeated for {_WEBHOOK_PATH}/failed")
+            seen_next.add(next_url)
+            path = next_url
+        raise BudgetExhausted(f"failed-webhook listing exceeded {cfg.max_pages} pages")
 
     async def _webhook_registrations(self) -> list[dict[str, Any]]:
         registrations: list[dict[str, Any]] = []
@@ -737,6 +871,29 @@ class JiraCloud(JiraBase):
             request={"method": "POST", "path": self._api_path("/issue"), "json": {"fields": fields}},
         )
 
+    async def _created_issue_result(self, key: str) -> ActionOutcome:
+        vendor_ref = f"jira_issue:{key}"
+        try:
+            raw = await self._get_issue(key, fields="id,updated,status")
+            ticket = jira.map_issue(raw, self._map_ctx())
+        except ConnectorError as exc:
+            return ActionOutcome(
+                status="outcome_unknown",
+                vendor_ref=vendor_ref,
+                result={"key": key},
+                error=type(exc).__name__,
+            )
+        return ActionOutcome(
+            status="succeeded",
+            vendor_ref=vendor_ref,
+            result={
+                "id": raw["id"],
+                "key": key,
+                "revision": ticket.revision,
+                "url": ticket.url,
+            },
+        )
+
     @plan_create_issue.apply
     async def apply_create_issue(self, plan: ActionPlan) -> ActionOutcome:
         if not plan.changed:
@@ -754,7 +911,7 @@ class JiraCloud(JiraBase):
         if not isinstance(body, dict):
             raise VendorContractError("Jira create response must be an object")
         key = jira.required_str(body, "key")
-        return ActionOutcome(status="succeeded", vendor_ref=f"jira_issue:{key}", result={"key": key})
+        return await self._created_issue_result(key)
 
     @plan_create_issue.reconcile
     async def reconcile_create_issue(self, plan: ActionPlan, _outcome: ActionOutcome) -> ActionOutcome:
@@ -766,7 +923,7 @@ class JiraCloud(JiraBase):
                 error="no issue carries the route label after the write timed out",
             )
         key = jira.required_str(matches[0], "key")
-        return ActionOutcome(status="succeeded", vendor_ref=f"jira_issue:{key}", result={"key": key})
+        return await self._created_issue_result(key)
 
     # ------------------------------------------------------------ actions: update_issue_fields
 
@@ -817,6 +974,13 @@ class JiraCloud(JiraBase):
             raise VendorContractError("Jira issue fields must be an object")
         if all(value_matches(value, fields.get(name)) for name, value in plan.diff["fields"].items()):
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+        omitted = [name for name in plan.diff["fields"] if name not in fields]
+        if omitted:
+            return ActionOutcome(
+                status="unverified",
+                vendor_ref=plan.target_ref,
+                error=f"read-back omitted requested fields: {', '.join(sorted(omitted))}",
+            )
         return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="requested fields are not present")
 
     # ------------------------------------------------------------ actions: add_comment / update_comment
@@ -1290,6 +1454,33 @@ class JiraCloud(JiraBase):
                 error=f"Jira webhook registration failed: {result.get('errors', result)}",
             )
         webhook_id = str(result["createdWebhookId"])
+        try:
+            registrations = await self._webhook_registrations()
+        except _READ_BACK_AMBIGUOUS as exc:
+            return ActionOutcome(
+                status="outcome_unknown",
+                vendor_ref=plan.target_ref,
+                error=f"registration read-back after create failed: {exc}",
+            )
+        entry = next((raw for raw in registrations if str(raw.get("id")) == webhook_id), None)
+        if entry is None:
+            return ActionOutcome(
+                status="failed",
+                vendor_ref=plan.target_ref,
+                error="created webhook is absent from the registration read-back",
+            )
+        if "url" not in entry:
+            return ActionOutcome(
+                status="unverified",
+                vendor_ref=plan.target_ref,
+                error="registration read-back omitted the webhook URL",
+            )
+        if entry["url"] != plan.preconditions["url"]:
+            return ActionOutcome(
+                status="failed",
+                vendor_ref=plan.target_ref,
+                error="created webhook URL differs from the approved URL",
+            )
         return ActionOutcome(
             status="succeeded",
             vendor_ref=f"jira_webhook:{webhook_id}",
@@ -1306,7 +1497,18 @@ class JiraCloud(JiraBase):
                     vendor_ref=f"jira_webhook:{webhook_id}",
                     result={"id": webhook_id, "expiration_date": raw.get("expirationDate")},
                 )
-        return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="webhook not registered after write")
+        registrations = await self._webhook_registrations()
+        if any("url" not in raw for raw in registrations):
+            return ActionOutcome(
+                status="unverified",
+                vendor_ref=plan.target_ref,
+                error="registration read-back omitted webhook URLs; the approved registration cannot be established",
+            )
+        return ActionOutcome(
+            status="failed",
+            vendor_ref=plan.target_ref,
+            error="webhook not registered in the authoritative read-back after write",
+        )
 
     @action(
         "delete_webhook",
@@ -1355,14 +1557,27 @@ class JiraCloud(JiraBase):
             )
         except OutcomeUnknown as exc:
             return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
+        try:
+            registrations = await self._webhook_registrations()
+        except _READ_BACK_AMBIGUOUS as exc:
+            return ActionOutcome(
+                status="outcome_unknown",
+                vendor_ref=plan.target_ref,
+                error=f"registration read-back after delete failed: {exc}",
+            )
+        if self._still_registered(plan.preconditions["webhook_id"], registrations):
+            return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="webhook still registered")
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
 
     @plan_delete_webhook.reconcile
     async def reconcile_delete_webhook(self, plan: ActionPlan, _outcome: ActionOutcome) -> ActionOutcome:
-        for raw in await self._webhook_registrations():
-            if jira.required_str(raw, "id") == plan.preconditions["webhook_id"]:
-                return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="webhook still registered")
+        if self._still_registered(plan.preconditions["webhook_id"], await self._webhook_registrations()):
+            return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="webhook still registered")
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+
+    @staticmethod
+    def _still_registered(webhook_id: str, registrations: list[dict[str, Any]]) -> bool:
+        return any(jira.required_str(raw, "id") == webhook_id for raw in registrations)
 
     @action(
         "refresh_webhook",
@@ -1373,8 +1588,8 @@ class JiraCloud(JiraBase):
     )
     async def plan_refresh_webhook(self, args: RefreshWebhookInput) -> ActionPlan:
         """Extend dynamic registrations before the 30-day expiry; no-op when nothing is registered."""
-        registered = {jira.required_str(raw, "id") for raw in await self._webhook_registrations()}
-        missing = [webhook_id for webhook_id in args.webhook_ids if webhook_id not in registered]
+        by_id = {jira.required_str(raw, "id"): raw for raw in await self._webhook_registrations()}
+        missing = [webhook_id for webhook_id in args.webhook_ids if webhook_id not in by_id]
         if missing:
             raise StalePlan(f"Jira webhook registrations no longer exist: {','.join(missing)}")
         key = digest("refresh_webhook", ",".join(sorted(args.webhook_ids)))
@@ -1382,7 +1597,10 @@ class JiraCloud(JiraBase):
             action="refresh_webhook",
             target_ref=f"jira_webhook:{','.join(sorted(args.webhook_ids))}",
             diff={"webhook_ids": sorted(args.webhook_ids)},
-            preconditions={"webhook_ids": sorted(args.webhook_ids)},
+            preconditions={
+                "webhook_ids": sorted(args.webhook_ids),
+                "expiration_before": {value: by_id[value].get("expirationDate") for value in sorted(args.webhook_ids)},
+            },
             idempotency_key=key,
             changed=True,
             request={
@@ -1404,17 +1622,52 @@ class JiraCloud(JiraBase):
             )
         except OutcomeUnknown as exc:
             return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
-        return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+        try:
+            registrations = await self._webhook_registrations()
+        except _READ_BACK_AMBIGUOUS as exc:
+            return ActionOutcome(
+                status="outcome_unknown",
+                vendor_ref=plan.target_ref,
+                error=f"registration read-back after refresh failed: {exc}",
+            )
+        return self._refresh_outcome(plan, registrations)
 
     @plan_refresh_webhook.reconcile
     async def reconcile_refresh_webhook(self, plan: ActionPlan, _outcome: ActionOutcome) -> ActionOutcome:
-        registered = {jira.required_str(raw, "id") for raw in await self._webhook_registrations()}
-        missing = [value for value in plan.preconditions["webhook_ids"] if value not in registered]
+        return self._refresh_outcome(plan, await self._webhook_registrations())
+
+    @staticmethod
+    def _refresh_outcome(plan: ActionPlan, registrations: list[dict[str, Any]]) -> ActionOutcome:
+        """Judge a refresh against the authoritative registration list.
+
+        A requested registration absent from the list is a definitive failure. A present registration whose
+        expiry is missing or has not advanced past the pre-refresh value is unverified: the refresh endpoint
+        answers 202, so the extension may still be pending and the read-back cannot establish it.
+        """
+        by_id = {jira.required_str(raw, "id"): raw for raw in registrations}
+        webhook_ids: list[str] = plan.preconditions["webhook_ids"]
+        missing = [value for value in webhook_ids if value not in by_id]
         if missing:
             return ActionOutcome(
                 status="failed",
                 vendor_ref=plan.target_ref,
-                error=f"registrations expired: {','.join(missing)}; re-create them",
+                error=f"registrations absent from the read-back: {','.join(missing)}; re-create them",
+            )
+        before_map: dict[str, Any] = plan.preconditions["expiration_before"]
+        pending: list[str] = []
+        for value in webhook_ids:
+            after = by_id[value].get("expirationDate")
+            before = before_map.get(value)
+            if not isinstance(after, str) or not isinstance(before, str):
+                pending.append(value)
+                continue
+            if jira.parse_time(after, "webhook.expirationDate") <= jira.parse_time(before, "webhook.expirationDate"):
+                pending.append(value)
+        if pending:
+            return ActionOutcome(
+                status="unverified",
+                vendor_ref=plan.target_ref,
+                error=f"expiry not verifiably extended in the read-back: {','.join(pending)}",
             )
         return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
 

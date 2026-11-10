@@ -45,16 +45,16 @@ def test_sample_scan_yields_every_host_and_item_with_all_severities() -> None:
     records = _records((FIXTURES / "sample_scan.nessus").read_bytes())
 
     assert len(records) >= 3
-    hosts = {host.name for host, _ in records}
+    hosts = {host.name for _, host, _ in records}
     assert len(hosts) >= 3
-    severities = {item.severity for _, item in records}
+    severities = {item.severity for _, _, item in records}
     assert {0, 1, 2, 3, 4} <= severities
 
 
 def test_severity_is_preserved_from_source_not_recomputed_from_cvss() -> None:
     data = _report(_host("h1", _item("1", severity="0", extra="<cvss_base_score>9.8</cvss_base_score>")))
 
-    ((_, item),) = _records(data)
+    ((_, _, item),) = _records(data)
 
     assert item.severity == 0
 
@@ -68,7 +68,7 @@ def test_cve_and_cwe_are_extracted_and_absent_when_missing() -> None:
         )
     )
 
-    with_refs, without_refs = [item for _, item in _records(data)]
+    with_refs, without_refs = [item for _, _, item in _records(data)]
 
     assert with_refs.cves == ["CVE-2024-0001"]
     assert with_refs.cwes == ["79"]
@@ -79,7 +79,7 @@ def test_cve_and_cwe_are_extracted_and_absent_when_missing() -> None:
 def test_port_protocol_and_service_are_captured() -> None:
     data = _report(_host("h1", _item("1")))
 
-    ((_, item),) = _records(data)
+    ((_, _, item),) = _records(data)
 
     assert item.port == 443
     assert item.protocol == "tcp"
@@ -89,7 +89,7 @@ def test_port_protocol_and_service_are_captured() -> None:
 def test_risk_factor_is_kept_as_reported() -> None:
     data = _report(_host("h1", _item("1", extra="<risk_factor>High</risk_factor>")))
 
-    ((_, item),) = _records(data)
+    ((_, _, item),) = _records(data)
 
     assert item.risk_factor == "High"
 
@@ -102,7 +102,7 @@ def test_host_properties_fqdn_ip_and_os_are_mapped() -> None:
     )
     data = _report(_host("192.0.2.10", _item("1"), properties=props))
 
-    ((host, _),) = _records(data)
+    ((_, host, _),) = _records(data)
 
     assert host.fqdn == "web.example.test"
     assert host.ip == "192.0.2.10"
@@ -114,7 +114,7 @@ def test_plugin_output_is_bounded_and_digest_covers_full_text() -> None:
     data = _report(_host("h1", _item("1", extra=f"<plugin_output>{long_output}</plugin_output>")))
     limits = NessusImportLimits(max_plugin_output_chars=256)
 
-    ((_, item),) = _records(data, limits)
+    ((_, _, item),) = _records(data, limits)
 
     assert len(item.plugin_output) == 256
     assert item.output_bounded is True
@@ -125,7 +125,7 @@ def test_plugin_output_is_bounded_and_digest_covers_full_text() -> None:
 def test_truncated_marker_in_plugin_output_is_detected() -> None:
     data = (FIXTURES / "truncated_scan.nessus").read_bytes()
 
-    ((_, item),) = [r for r in _records(data) if r[1].truncated]
+    ((_, _, item),) = [r for r in _records(data) if r[2].truncated]
 
     assert item.truncated is True
     assert item.plugin_output.endswith("TRUNCATED")
@@ -134,7 +134,7 @@ def test_truncated_marker_in_plugin_output_is_detected() -> None:
 def test_compliance_tags_populate_compliance_mapping() -> None:
     data = (FIXTURES / "compliance_scan.nessus").read_bytes()
 
-    compliance = [item for _, item in _records(data) if item.compliance]
+    compliance = [item for _, _, item in _records(data) if item.compliance]
 
     assert len(compliance) >= 2
     for item in compliance:
@@ -211,7 +211,36 @@ def test_depth_over_budget_exhausts_budget() -> None:
 def test_replaying_the_same_bytes_yields_identical_records() -> None:
     data = (FIXTURES / "sample_scan.nessus").read_bytes()
 
-    first = [(h.key, i.ordinal, i.plugin_id) for h, i in _records(data)]
-    second = [(h.key, i.ordinal, i.plugin_id) for h, i in _records(data)]
+    first = [(h.key, i.ordinal, i.plugin_id) for _, h, i in _records(data)]
+    second = [(h.key, i.ordinal, i.plugin_id) for _, h, i in _records(data)]
 
     assert first == second
+
+
+def test_every_record_carries_the_report_name() -> None:
+    names = {name for name, _, _ in _records((FIXTURES / "sample_scan.nessus").read_bytes())}
+
+    assert names == {"scan"}
+
+
+def test_missing_report_name_is_a_vendor_contract_error() -> None:
+    data = _report(_host("h1", _item("1"))).replace(b'<Report name="t">', b"<Report>")
+
+    with pytest.raises(VendorContractError):
+        _records(data)
+
+
+def test_multiple_report_elements_are_a_vendor_contract_error() -> None:
+    report = _report(_host("h1", _item("1")))
+    data = report.replace(b"</NessusClientData_v2>", b'<Report name="u"></Report></NessusClientData_v2>')
+
+    with pytest.raises(VendorContractError):
+        _records(data)
+
+
+def test_item_with_cve_and_cwe_keeps_both_identifiers() -> None:
+    extra = "<cve>CVE-2026-9999</cve><cwe>89</cwe>"
+    ((_, _, item),) = _records(_report(_host("h1", _item("77", extra=extra))))
+
+    assert item.cves == ["CVE-2026-9999"]
+    assert item.cwes == ["89"]

@@ -1,5 +1,6 @@
 {
   "id": "audit-1",
+  "cloudType": "aws",
   "time": 1794150100000,
   "type": "runtime",
   "category": "exec",

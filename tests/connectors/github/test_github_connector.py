@@ -154,8 +154,11 @@ def test_config_requires_exactly_one_auth_mode() -> None:
 # --- health -----------------------------------------------------------------
 
 
-def test_health_is_healthy_when_rate_limit_probe_succeeds() -> None:
-    connector = _connector({("GET", "/rate_limit"): {"status": 200, "json": _load("rate_limit.json")}})
+def test_health_is_healthy_when_rate_limit_and_identity_probes_succeed() -> None:
+    connector = _connector({
+        ("GET", "/rate_limit"): {"status": 200, "json": _load("rate_limit.json")},
+        ("GET", "/user"): {"status": 200, "json": {"id": 4242, "login": "example-user"}},
+    })
 
     report = asyncio.run(connector.check())
 
@@ -176,6 +179,80 @@ def test_health_is_degraded_when_permission_is_denied() -> None:
     report = asyncio.run(connector.check())
 
     assert report.status == "degraded"
+
+
+def test_pat_identity_without_integer_id_degrades_health() -> None:
+    # Failing-before: check() never read /user, so a PAT whose identity lacked an integer id passed.
+    connector = _connector({
+        ("GET", "/rate_limit"): {"status": 200, "json": _load("rate_limit.json")},
+        ("GET", "/user"): {"status": 200, "json": {"login": "example-user"}},
+    })
+
+    report = asyncio.run(connector.check())
+
+    assert report.status == "degraded"
+    assert report.capabilities["SourceControl"].reason == "VendorContractError"
+
+
+def _app_connector(routes: dict[tuple[str, str], Any], app_id: str = "12345") -> GitHub:
+    routes = {
+        ("POST", "/app/installations/67890/access_tokens"): {
+            "status": 201,
+            "json": {"token": "synthetic-installation-token", "expires_at": "2999-01-01T00:00:00+00:00"},
+        },
+        ("GET", "/installation/repositories"): {
+            "status": 200,
+            "json": {"total_count": 0, "repositories": []},
+        },
+        **routes,
+    }
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    )
+    config = {
+        "base_url": BASE,
+        "app_id": app_id,
+        "app_private_key": {"ref": "github-app-key"},
+        "installation_id": "67890",
+    }
+    return cast(GitHub, make_connector(GitHub, config, RouteTransport(routes), {"github-app-key": pem}))
+
+
+def test_app_identity_mismatch_fails_health() -> None:
+    connector = _app_connector({
+        ("GET", "/rate_limit"): {"status": 200, "json": _load("rate_limit.json")},
+        ("GET", "/app"): {"status": 200, "json": {"id": 99999, "slug": "other-app"}},
+    })
+
+    report = asyncio.run(connector.check())
+
+    assert report.status == "failing"
+
+
+def test_app_identity_match_keeps_health_healthy() -> None:
+    connector = _app_connector({
+        ("GET", "/rate_limit"): {"status": 200, "json": _load("rate_limit.json")},
+        ("GET", "/app"): {"status": 200, "json": {"id": 12345, "slug": "icuhub-app"}},
+    })
+
+    report = asyncio.run(connector.check())
+
+    assert report.status == "healthy"
+
+
+def test_app_identity_without_integer_id_degrades_health() -> None:
+    connector = _app_connector({
+        ("GET", "/rate_limit"): {"status": 200, "json": _load("rate_limit.json")},
+        ("GET", "/app"): {"status": 200, "json": {"slug": "icuhub-app"}},
+    })
+
+    report = asyncio.run(connector.check())
+
+    assert report.status == "degraded"
+    assert report.capabilities["SourceControl"].reason == "VendorContractError"
 
 
 # --- code_scanning_alerts stream --------------------------------------------
@@ -881,3 +958,106 @@ def test_repository_scoped_events_produce_incremental_hints(event: str, streams:
 
     assert [hint.stream for hint in hints] == streams
     assert all(hint.reconcile == "incremental" for hint in hints)
+
+
+_HEAD_SHA = "a" * 40
+
+
+def _commit_event_delivery(event: str, value: dict[str, Any]) -> WebhookDelivery:
+    return _delivery(json.dumps(value).encode(), {"x-github-event": event, "x-github-delivery": f"delivery-{event}"})
+
+
+def test_check_run_hint_carries_commit_sha_and_stream() -> None:
+    # Failing-before: check_run deliveries produced no hint, so a changed check was never re-read.
+    delivery = _commit_event_delivery(
+        "check_run",
+        {"repository": {"id": 1001}, "check_run": {"head_sha": _HEAD_SHA, "app": {"id": 777}}},
+    )
+
+    (record,) = hints_for_delivery("check_run", delivery, app_id="12345")
+
+    assert record.stream == "check_runs"
+    assert record.raw["commit_sha"] == _HEAD_SHA
+    assert record.target_uid == "1001"
+
+
+def test_check_suite_hint_carries_commit_sha_and_stream() -> None:
+    delivery = _commit_event_delivery(
+        "check_suite",
+        {"repository": {"id": 1001}, "check_suite": {"head_sha": _HEAD_SHA, "app": {"id": 777}}},
+    )
+
+    (record,) = hints_for_delivery("check_suite", delivery, app_id="12345")
+
+    assert record.stream == "check_runs"
+    assert record.raw["commit_sha"] == _HEAD_SHA
+
+
+def test_status_hint_carries_commit_sha_and_stream() -> None:
+    delivery = _commit_event_delivery(
+        "status",
+        {"repository": {"id": 1001}, "sha": _HEAD_SHA, "context": "ci/build"},
+    )
+
+    (record,) = hints_for_delivery("status", delivery)
+
+    assert record.stream == "commit_statuses"
+    assert record.raw["commit_sha"] == _HEAD_SHA
+
+
+def test_check_run_from_own_app_is_echo_suppressed() -> None:
+    delivery = _commit_event_delivery(
+        "check_run",
+        {"repository": {"id": 1001}, "check_run": {"head_sha": _HEAD_SHA, "app": {"id": 12345}}},
+    )
+
+    assert hints_for_delivery("check_run", delivery, app_id="12345") == []
+
+
+def test_check_suite_from_own_app_is_echo_suppressed() -> None:
+    delivery = _commit_event_delivery(
+        "check_suite",
+        {"repository": {"id": 1001}, "check_suite": {"head_sha": _HEAD_SHA, "app": {"id": 12345}}},
+    )
+
+    assert hints_for_delivery("check_suite", delivery, app_id="12345") == []
+
+
+def test_check_run_from_other_app_is_not_suppressed() -> None:
+    delivery = _commit_event_delivery(
+        "check_run",
+        {"repository": {"id": 1001}, "check_run": {"head_sha": _HEAD_SHA, "app": {"id": 777}}},
+    )
+
+    (record,) = hints_for_delivery("check_run", delivery, app_id="12345")
+
+    assert record.raw["commit_sha"] == _HEAD_SHA
+
+
+def test_status_with_icuhub_context_is_echo_suppressed() -> None:
+    delivery = _commit_event_delivery(
+        "status",
+        {"repository": {"id": 1001}, "sha": _HEAD_SHA, "context": "icuhub/ci"},
+    )
+
+    assert hints_for_delivery("status", delivery) == []
+
+
+@pytest.mark.parametrize("bad_sha", ["", "abc123", "G" * 40, "A" * 40, "a" * 41])
+def test_commit_event_with_non_full_sha_is_rejected(bad_sha: str) -> None:
+    delivery = _commit_event_delivery(
+        "status",
+        {"repository": {"id": 1001}, "sha": bad_sha, "context": "ci/build"},
+    )
+
+    with pytest.raises(VendorContractError, match="full commit SHA"):
+        hints_for_delivery("status", delivery)
+
+
+def test_code_scanning_alert_raw_stays_exact_without_commit_sha() -> None:
+    body = (FIXTURES / "webhook_code_scanning_alert.json").read_bytes()
+    delivery = _delivery(body, {"x-github-event": "code_scanning_alert", "x-github-delivery": "delivery-9"})
+
+    (record,) = hints_for_delivery("code_scanning_alert", delivery)
+
+    assert set(record.raw) == {"event", "delivery_id", "repository_id"}

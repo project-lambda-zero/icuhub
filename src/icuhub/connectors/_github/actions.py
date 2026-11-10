@@ -15,7 +15,6 @@ from typing import Any
 from urllib.parse import quote
 
 from icuhub.kit.errors import (
-    BudgetExhausted,
     ConfigError,
     Conflict,
     OutcomeUnknown,
@@ -81,7 +80,11 @@ __all__ = [
     "reconcile_upload_code_scanning_sarif",
 ]
 
-_MAX_SARIF_RESULTS = 25_000
+_SARIF_MAX_RUNS = 20
+_SARIF_MAX_RESULTS_PER_FILE = 25_000
+_SARIF_DISPLAYED_RESULTS = 5_000
+_SARIF_MAX_GZIP_BYTES = 10_000_000
+_SARIF_LEVEL_RANK = {"error": 3, "warning": 2, "note": 1, "none": 0}
 _COMMENT_MARKER = "<!-- icuhub-action-key:{} -->"
 _REVIEW_STATES = {
     "APPROVE": "APPROVED",
@@ -283,15 +286,27 @@ def _result_has_location(result: Mapping[str, Any]) -> bool:
     return False
 
 
+def _severity_key(result: Mapping[str, Any]) -> tuple[float, int]:
+    """Order results the way GitHub displays them: security severity, then level."""
+    properties = result.get("properties")
+    raw_severity = properties.get("security-severity") if isinstance(properties, Mapping) else None
+    try:
+        security_severity = float(raw_severity) if raw_severity is not None else 0.0
+    except (TypeError, ValueError):
+        security_severity = 0.0
+    level = result.get("level")
+    return (-security_severity, -_SARIF_LEVEL_RANK.get(level if isinstance(level, str) else "none", 0))
+
+
 def _canonical_sarif(connector: Any, source: SarifLog | Mapping[str, Any]) -> _CanonicalSarif:
     log = source if isinstance(source, SarifLog) else parse_sarif(source)
     parsed = dump_sarif(log)
     runs = parsed.get("runs")
     if not isinstance(runs, list):
         raise VendorContractError("SARIF runs must be a list")
+    if len(runs) > _SARIF_MAX_RUNS:
+        raise VendorContractError(f"GitHub accepts at most {_SARIF_MAX_RUNS} SARIF runs per file")
 
-    limit = min(int(connector.config.max_sarif_results), _MAX_SARIF_RESULTS)
-    retained_by_run: list[list[dict[str, Any]]] = [[] for _run in runs]
     entries: list[tuple[int, int, dict[str, Any]]] = []
     skipped: list[dict[str, Any]] = []
     for run_index, run in enumerate(runs):
@@ -307,43 +322,55 @@ def _canonical_sarif(connector: Any, source: SarifLog | Mapping[str, Any]) -> _C
             if not _result_has_location(result):
                 skipped.append({**identity, "reason": "missing_location", "ruleId": rule_id})
                 continue
-            if len(entries) >= limit:
-                skipped.append({**identity, "reason": "result_limit_exceeded", "ruleId": rule_id})
-                continue
-            copied = deepcopy(dict(result))
-            retained_by_run[run_index].append(copied)
-            entries.append((run_index, result_index, copied))
+            entries.append((run_index, result_index, deepcopy(dict(result))))
+    if len(entries) > _SARIF_MAX_RESULTS_PER_FILE:
+        raise VendorContractError(f"GitHub rejects more than {_SARIF_MAX_RESULTS_PER_FILE} SARIF results per file")
+
+    # Stable sort keeps document order within equal severity, so the cut is deterministic.
+    ranked = sorted(entries, key=lambda entry: _severity_key(entry[2]))
+    for run_index, result_index, result in ranked[_SARIF_DISPLAYED_RESULTS:]:
+        skipped.append(
+            {
+                "run_index": run_index,
+                "result_index": result_index,
+                "reason": "not_displayed",
+                "ruleId": result.get("ruleId"),
+            }
+        )
+    ordered = ranked[:_SARIF_DISPLAYED_RESULTS]
 
     def with_prefix(count: int) -> dict[str, Any]:
-        remaining = count
+        kept: dict[int, set[int]] = {}
+        for run_index, result_index, _result in ordered[:count]:
+            kept.setdefault(run_index, set()).add(result_index)
         output_runs: list[dict[str, Any]] = []
-        for run, retained in zip(runs, retained_by_run, strict=True):
-            take = min(len(retained), remaining)
-            remaining -= take
+        for run_index, run in enumerate(runs):
             copied_run = {key: deepcopy(value) for key, value in run.items() if key != "results"}
-            copied_run["results"] = deepcopy(retained[:take])
+            copied_run["results"] = [
+                deepcopy(result)
+                for result_index, result in enumerate(run.get("results") or [])
+                if result_index in kept.get(run_index, ())
+            ]
             output_runs.append(copied_run)
         return {"version": "2.1.0", **({"$schema": parsed["$schema"]} if "$schema" in parsed else {}), "runs": output_runs}
 
-    max_bytes = int(connector.config.max_sarif_bytes)
-    full_document = with_prefix(len(entries))
-    content = _canonical_bytes(full_document)
-    retained_count = len(entries)
-    if len(content) > max_bytes:
+    def gzip_size(count: int) -> int:
+        return len(_gzip_bytes(_canonical_bytes(with_prefix(count))))
+
+    retained_count = len(ordered)
+    if gzip_size(retained_count) > _SARIF_MAX_GZIP_BYTES:
         low = 0
-        high = len(entries)
+        high = retained_count
         while low < high:
             middle = (low + high + 1) // 2
-            if len(_canonical_bytes(with_prefix(middle))) <= max_bytes:
+            if gzip_size(middle) <= _SARIF_MAX_GZIP_BYTES:
                 low = middle
             else:
                 high = middle - 1
         retained_count = low
-        document = with_prefix(retained_count)
-        content = _canonical_bytes(document)
-        if len(content) > max_bytes:
-            raise BudgetExhausted("SARIF tool metadata alone exceeds max_sarif_bytes")
-        for run_index, result_index, result in entries[retained_count:]:
+        if gzip_size(retained_count) > _SARIF_MAX_GZIP_BYTES:
+            raise VendorContractError("SARIF tool metadata alone exceeds the 10 MB gzip limit")
+        for run_index, result_index, result in ordered[retained_count:]:
             skipped.append(
                 {
                     "run_index": run_index,
@@ -352,10 +379,11 @@ def _canonical_sarif(connector: Any, source: SarifLog | Mapping[str, Any]) -> _C
                     "ruleId": result.get("ruleId"),
                 }
             )
-        full_document = document
+    document = with_prefix(retained_count)
+    content = _canonical_bytes(document)
     skipped.sort(key=lambda item: (item.get("run_index", -1), item.get("result_index", -1)))
     return _CanonicalSarif(
-        document=full_document,
+        document=document,
         content=content,
         skipped=skipped,
         result_count=retained_count,
@@ -1225,6 +1253,20 @@ def _check_signature(check: Mapping[str, Any] | None) -> dict[str, Any] | None:
     }
 
 
+async def _with_annotations(connector: Any, plan: ActionPlan, check: dict[str, Any]) -> dict[str, Any]:
+    """Attach the annotations list when the plan requests annotations.
+
+    A check run object returns only ``annotations_count`` and ``annotations_url``; the annotations
+    themselves come from the documented ``/check-runs/{id}/annotations`` endpoint.
+    """
+    desired = plan.request["json"].get("output")
+    output = check.get("output")
+    if not isinstance(desired, Mapping) or "annotations" not in desired or not isinstance(output, Mapping):
+        return check
+    annotations = await _all_pages(connector, f"{_plan_repo_path(plan)}/check-runs/{_required_id(check)}/annotations")
+    return {**check, "output": {**output, "annotations": annotations}}
+
+
 async def _find_check(connector: Any, plan: ActionPlan) -> dict[str, Any] | None:
     checks = await _all_pages(
         connector,
@@ -1236,7 +1278,7 @@ async def _find_check(connector: Any, plan: ActionPlan) -> dict[str, Any] | None
     if not matches:
         return None
     matches.sort(key=lambda item: int(item.get("id") or 0))
-    return matches[0]
+    return await _with_annotations(connector, plan, matches[0])
 
 
 async def plan_create_or_update_check_run(connector: Any, args: CheckRunArgs) -> ActionPlan:
@@ -1326,7 +1368,7 @@ async def apply_create_or_update_check_run(connector: Any, plan: ActionPlan) -> 
     if planned_id is not None and check_id != int(planned_id):
         raise VendorContractError("GitHub check update returned a different check id")
     plan.request["check_id"] = check_id
-    current = await _get_object(connector, f"{_plan_repo_path(plan)}/check-runs/{check_id}")
+    current = await _with_annotations(connector, plan, await _get_object(connector, f"{_plan_repo_path(plan)}/check-runs/{check_id}"))
     if _required_id(current) != check_id or not _check_converged(current, plan):
         return ActionOutcome(status="failed", vendor_ref=str(check_id), error="GitHub check run read-back does not match head, name, external_id, or output")
     return ActionOutcome(
@@ -1350,7 +1392,7 @@ async def reconcile_create_or_update_check_run(
         return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error=str(exc))
     check_id = plan.request.get("check_id")
     if check_id is not None:
-        current = await _get_object(connector, f"{_plan_repo_path(plan)}/check-runs/{int(check_id)}")
+        current = await _with_annotations(connector, plan, await _get_object(connector, f"{_plan_repo_path(plan)}/check-runs/{int(check_id)}"))
     else:
         current = await _find_check(connector, plan)
     if current is not None and _check_converged(current, plan):

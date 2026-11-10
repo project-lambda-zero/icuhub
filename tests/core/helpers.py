@@ -7,6 +7,7 @@ import uuid
 from typing import Any
 
 from icuhub.connectors.github import GitHub
+from icuhub.connectors.jira_cloud import JiraCloud
 from icuhub.connectors.smtp import Smtp
 from icuhub.core.auth_types import Caller
 from icuhub.core.connections import create_connection
@@ -21,6 +22,7 @@ REGISTRY = {
     "sample_tracker_core": SampleTracker,
     "smtp": Smtp,
     "github": GitHub,
+    "jira_cloud": JiraCloud,
 }
 
 

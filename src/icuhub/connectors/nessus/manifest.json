@@ -368,6 +368,21 @@
             "title": "File Id",
             "type": "string"
           },
+          "history_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "History Id"
+          },
           "scan_id": {
             "maxLength": 128,
             "minLength": 1,
@@ -1057,18 +1072,6 @@
             "additionalProperties": true,
             "description": "One immutable history run. ``id`` is accepted for editions using that response spelling.",
             "properties": {
-              "archived": {
-                "anyOf": [
-                  {
-                    "type": "boolean"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "default": null,
-                "title": "Archived"
-              },
               "history_id": {
                 "anyOf": [
                   {
@@ -1083,6 +1086,18 @@
               "incomplete_targets": {
                 "default": null,
                 "title": "Incomplete Targets"
+              },
+              "is_archived": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Is Archived"
               },
               "status": {
                 "anyOf": [
@@ -1160,10 +1175,12 @@
             "type": "array"
           },
           "limit": {
+            "default": 50,
             "title": "Limit",
             "type": "integer"
           },
           "offset": {
+            "default": 0,
             "title": "Offset",
             "type": "integer"
           },
@@ -1180,10 +1197,6 @@
             "title": "Total"
           }
         },
-        "required": [
-          "limit",
-          "offset"
-        ],
         "title": "NessusHistoryList",
         "type": "object"
       }

@@ -45,7 +45,7 @@ def test_compute_session_token_is_applied_to_version_and_images() -> None:
 
     asyncio.run(connector.get_compute_version(EmptyInput()))
     collect_stream(connector, "compute_image_vulnerabilities", mode="full")
-    assert seen == ["Bearer compute-jwt", "Bearer compute-jwt"]
+    assert seen == ["Bearer compute-jwt", "Bearer compute-jwt", "Bearer compute-jwt"]
 
 
 def test_image_snapshot_emits_asset_then_terminal_batch() -> None:

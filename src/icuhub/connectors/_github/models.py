@@ -26,15 +26,11 @@ class GitHubConfig(ConnectorConfig):
     organization: str | None = None
     enterprise: str | None = None
     probe_repository: str | None = None
-    webhook_secret: SecretRef | None = None
-    previous_webhook_secret: SecretRef | None = None
     write_enabled: bool = False
     destructive_enabled: bool = False
     max_file_bytes: int = Field(default=256 * 1024, ge=1, le=4 * 1024 * 1024)
     max_repository_files: int = Field(default=1000, ge=1, le=10000)
     max_download_bytes: int = Field(default=8 * 1024 * 1024, ge=1, le=64 * 1024 * 1024)
-    max_sarif_bytes: int = Field(default=16 * 1024 * 1024, ge=1, le=64 * 1024 * 1024)
-    max_sarif_results: int = Field(default=25000, ge=1, le=25000)
     max_skipped_items: int = Field(default=1000, ge=1, le=10000)
 
     @field_validator("api_version")
@@ -59,11 +55,6 @@ class GitHubConfig(ConnectorConfig):
             raise ValueError("app_id, app_private_key, and installation_id must be configured together")
         if app_complete == (self.personal_access_token is not None):
             raise ValueError("configure exactly one of GitHub App authentication or personal_access_token")
-        if self.previous_webhook_secret is not None:
-            if self.webhook_secret is None:
-                raise ValueError("webhook_secret is required when previous_webhook_secret is configured")
-            if self.webhook_secret.ref == self.previous_webhook_secret.ref:
-                raise ValueError("webhook secret rotation requires distinct current and previous references")
         return self
 
 

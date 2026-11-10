@@ -12,6 +12,7 @@ from .models import (
     AttachmentRef,
     ContentOutput,
     ContentRef,
+    DataFeedHistoryInput,
     DataFeedHistoryOutput,
     DiscoverOutput,
     EmptyInput,
@@ -164,5 +165,5 @@ async def get_attachment(connector, args: AttachmentRef) -> AttachmentOutput:
     )
 
 
-async def get_data_feed_history(connector, args: EmptyInput) -> DataFeedHistoryOutput:
-    return DataFeedHistoryOutput(runs=await connector.api.data_feed_history())
+async def get_data_feed_history(connector, args: DataFeedHistoryInput) -> DataFeedHistoryOutput:
+    return DataFeedHistoryOutput(runs=await connector.api.data_feed_history(args.data_feed_guid))

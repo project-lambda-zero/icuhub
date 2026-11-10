@@ -21,7 +21,7 @@ from icuhub.kit.auth import (
     TokenHttp,
     bind_token_transport,
 )
-from icuhub.kit.errors import AuthFailed, ConfigError
+from icuhub.kit.errors import AuthFailed, ConfigError, RefreshTokenNotPersisted
 from icuhub.kit.http import build_http
 from icuhub.kit.testing import RouteTransport
 from icuhub.kit.types import ConnectorConfig
@@ -162,6 +162,24 @@ def test_rotated_refresh_token_is_used_for_next_fetch() -> None:
     assert first == {"Authorization": "Bearer at-1"}
     assert second == {"Authorization": "Bearer at-2"}
     assert [post["refresh_token"] for post in posts] == ["rt-1", "rt-2"]
+
+
+def test_rotation_persistence_failure_never_falls_back_to_memory() -> None:
+    auth = _auth()
+
+    async def fail_persistence(_rotated: str) -> None:
+        raise OSError("credential store unavailable")
+
+    auth.on_rotate = fail_persistence
+    bind_token_transport(auth, _tls(RouteTransport({("POST", "/oauth/token"): _ok("at-1", rotated="rt-2")})))
+    headers: dict[str, str] = {}
+
+    with pytest.raises(RefreshTokenNotPersisted):
+        asyncio.run(auth.apply(headers, "GET", f"{API}/x"))
+
+    assert headers == {}
+    assert auth.refresh_token == "rt-1"
+    assert auth._token is None
 
 
 def test_concurrent_apply_shares_one_token_fetch() -> None:

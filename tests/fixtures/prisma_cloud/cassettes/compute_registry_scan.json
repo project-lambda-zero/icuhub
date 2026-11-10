@@ -1,0 +1,66 @@
+{
+  "interactions": [
+    {
+      "request": {"method": "POST", "path": "/api/v1/authenticate"},
+      "response": {"status": 200, "json": {"token": "compute-jwt", "expires_in": 1800}}
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/registry",
+        "query": {"imageID": "sha256:aaaaaaaa", "compact": "false", "limit": "50", "offset": "0"},
+        "headers": {"authorization": "Bearer compute-jwt"}
+      },
+      "response": {
+        "status": 200,
+        "json": [
+          {
+            "_id": "sha256:aaaaaaaa",
+            "cloudType": "aws",
+            "repoTag": {"registry": "registry.example", "repo": "team/service", "tag": "1.2.3"},
+            "scanTime": "2026-11-08T23:00:00Z"
+          }
+        ]
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/registry/scan",
+        "headers": {
+          "authorization": "Bearer compute-jwt",
+          "x-prisma-cloud-target-env": "{\"permission\": \"monitorImages\"}"
+        },
+        "json": {
+          "tag": {
+            "registry": "registry.example",
+            "repo": "team/service",
+            "digest": "sha256:aaaaaaaa",
+            "tag": "1.2.3"
+          },
+          "onDemandScan": true
+        }
+      },
+      "response": {"status": 202, "json": {}}
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/registry",
+        "query": {"imageID": "sha256:aaaaaaaa", "compact": "false", "limit": "50", "offset": "0"},
+        "headers": {"authorization": "Bearer compute-jwt"}
+      },
+      "response": {
+        "status": 200,
+        "json": [
+          {
+            "_id": "sha256:aaaaaaaa",
+            "cloudType": "aws",
+            "repoTag": {"registry": "registry.example", "repo": "team/service", "tag": "1.2.3"},
+            "scanTime": "2026-11-09T00:01:00Z"
+          }
+        ]
+      }
+    }
+  ]
+}

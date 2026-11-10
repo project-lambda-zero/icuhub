@@ -997,20 +997,6 @@
         "title": "Max Repository Files",
         "type": "integer"
       },
-      "max_sarif_bytes": {
-        "default": 16777216,
-        "maximum": 67108864,
-        "minimum": 1,
-        "title": "Max Sarif Bytes",
-        "type": "integer"
-      },
-      "max_sarif_results": {
-        "default": 25000,
-        "maximum": 25000,
-        "minimum": 1,
-        "title": "Max Sarif Results",
-        "type": "integer"
-      },
       "max_skipped_items": {
         "default": 1000,
         "maximum": 10000,
@@ -1031,18 +1017,6 @@
         "title": "Organization"
       },
       "personal_access_token": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/SecretRef"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "writeOnly": true
-      },
-      "previous_webhook_secret": {
         "anyOf": [
           {
             "$ref": "#/$defs/SecretRef"
@@ -1083,18 +1057,6 @@
         "exclusiveMinimum": 0,
         "title": "Timeout S",
         "type": "number"
-      },
-      "webhook_secret": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/SecretRef"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "writeOnly": true
       },
       "write_enabled": {
         "default": false,
@@ -3587,6 +3549,7 @@
       "cursor": "snapshot",
       "mapper_version": 1,
       "modes": [
+        "incremental",
         "full"
       ],
       "name": "check_runs",
@@ -3627,6 +3590,7 @@
       "cursor": "snapshot",
       "mapper_version": 1,
       "modes": [
+        "incremental",
         "full"
       ],
       "name": "commit_statuses",
@@ -3898,6 +3862,8 @@
     {
       "event_types": [
         "branch_protection_rule",
+        "check_run",
+        "check_suite",
         "code_scanning_alert",
         "dependabot_alert",
         "member",
@@ -3908,6 +3874,7 @@
         "push",
         "repository",
         "secret_scanning_alert",
+        "status",
         "team",
         "workflow_job",
         "workflow_run"

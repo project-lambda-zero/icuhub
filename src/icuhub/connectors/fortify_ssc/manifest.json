@@ -773,6 +773,18 @@
                 "title": "Fingerprint Inputs",
                 "type": "object"
               },
+              "friority": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Friority"
+              },
               "issue_id": {
                 "title": "Issue Id",
                 "type": "integer"
@@ -2241,11 +2253,11 @@
   "webhooks": [
     {
       "event_types": [
-        "ISSUE_CHANGED",
-        "ARTIFACT_PROCESSED",
-        "PROJECT_VERSION_CHANGED"
+        "ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS",
+        "ANALYSIS_RESULT_UPLOAD_FAILURE",
+        "ANALYSIS_RESULT_INDEXING_COMPLETED"
       ],
-      "header_event": "x-ssc-event",
+      "header_event": null,
       "name": "parse_delivery"
     }
   ]

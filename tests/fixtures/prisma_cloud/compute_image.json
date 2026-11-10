@@ -1,5 +1,6 @@
 {
   "_id": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "cloudType": "aws",
   "hostname": "registry.example/team/service",
   "repoTag": {"registry": "registry.example", "repo": "team/service", "tag": "1.2.3"},
   "time": "2026-11-08T12:00:00Z",

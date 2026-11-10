@@ -20,7 +20,7 @@ def test_dismiss_plan_is_read_only_and_hashes_current_state() -> None:
     routes = {
         ("POST", "/login"): CSPM_LOGIN,
         ("GET", "/alert/alert-100"): {"status": 200, "json": alert},
-        ("PATCH", "/alert/dismiss"): {"status": 200, "json": {"dismissed": True}},
+        ("POST", "/alert/dismiss"): {"status": 200, "json": {"dismissed": True}},
     }
     connector = make_connector(
         PrismaCloud,
@@ -30,7 +30,7 @@ def test_dismiss_plan_is_read_only_and_hashes_current_state() -> None:
     )
     plan = asyncio.run(connector.plan_dismiss_alert(DismissAlertInput(alert_id="alert-100", note="approved")))
     assert plan.changed is True
-    assert plan.request["method"] == "PATCH"
+    assert plan.request["method"] == "POST"
     assert plan.preconditions["expected_status"] == "open"
 
 
@@ -63,7 +63,7 @@ def test_dismiss_transport_ambiguity_is_outcome_unknown() -> None:
 
     connector = cspm_connector({
         ("GET", "/alert/alert-100"): {"status": 200, "json": alert},
-        ("PATCH", "/alert/dismiss"): ambiguous,
+        ("POST", "/alert/dismiss"): ambiguous,
     })
     plan = asyncio.run(connector.plan_dismiss_alert(DismissAlertInput(alert_id="alert-100", note="approved")))
     outcome = asyncio.run(connector.apply_dismiss_alert(plan))

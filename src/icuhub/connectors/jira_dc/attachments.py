@@ -104,7 +104,7 @@ async def stream_attachments(
                 {"fields": "attachment"},
             )
             records = attachment_records(detail, parent)
-            cursor = cursor.advance(records, ts_of=attachment_ts, id_of=record_id)
+            cursor = connector.advance_cursor(cursor, records, ts_of=attachment_ts, id_of=record_id)
             yield RawBatch(records=records, checkpoint=cursor, complete=False)
     if mode == "full":
         yield RawBatch(records=[], checkpoint=cursor, complete=True)

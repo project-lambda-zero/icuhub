@@ -1,5 +1,5 @@
 {
-  "event": "ISSUE_CHANGED",
+  "event": "ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS",
   "webhookId": 77,
   "triggeredAt": "2026-03-01T10:06:00.000+0000",
   "projectVersionId": 42,

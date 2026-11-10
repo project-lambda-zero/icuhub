@@ -63,6 +63,9 @@ class _FixtureSecrets:
         except KeyError:
             raise ConfigError(f"test secret ref {ref.ref!r} was not provided to make_connector") from None
 
+    async def rotate(self, ref: SecretRef, secret: bytes) -> None:
+        raise ConfigError(f"test secret ref {ref.ref!r} is read-only; rotation is not supported by fixtures")
+
 
 async def amake_connector(
     cls: type[Connector],

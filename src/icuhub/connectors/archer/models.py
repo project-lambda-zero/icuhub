@@ -17,6 +17,7 @@ __all__ = [
     "ContentOutput",
     "ContentRef",
     "CreateFindingOrExceptionInput",
+    "DataFeedHistoryInput",
     "DataFeedHistoryOutput",
     "DeleteContentInput",
     "DiscoverOutput",
@@ -62,6 +63,7 @@ class ArcherConfig(ConnectorConfig):
     page_size: int = Field(100, ge=1, le=1000)
     max_pages: int = Field(10_000, ge=1, le=100_000)
     attachment_max_bytes: int = Field(16 * 1024 * 1024, ge=1, le=64 * 1024 * 1024)
+    data_feed_guids: list[str] = Field(default_factory=list)
     write_enabled: bool = False
     destructive_enabled: bool = False
 
@@ -144,6 +146,12 @@ class AttachmentOutput(BaseModel):
     content_base64: str
 
 
+class DataFeedHistoryInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    data_feed_guid: str = Field(min_length=1)
+
+
 class DataFeedHistoryOutput(BaseModel):
     runs: list[dict[str, Any]]
 
@@ -183,13 +191,13 @@ class UploadAttachmentInput(BaseModel):
     filename: str = Field(min_length=1)
     content_base64: str = Field(min_length=1)
     expected_version: int = Field(ge=0)
+    is_sensitive: bool = False
 
 
 class ExecuteDataFeedInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     data_feed_guid: str = Field(min_length=1)
-    approved_plan_hash: str = Field(min_length=1)
     include_reference_feeds: bool = False
 
 
@@ -199,4 +207,3 @@ class DeleteContentInput(BaseModel):
     content_id: int = Field(ge=1)
     level_id: int = Field(ge=1)
     expected_version: int = Field(ge=0)
-    approved_plan_hash: str = Field(min_length=1)

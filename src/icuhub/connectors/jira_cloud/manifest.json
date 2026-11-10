@@ -832,32 +832,6 @@
         "exclusiveMinimum": 0,
         "title": "Timeout S",
         "type": "number"
-      },
-      "webhook_secret": {
-        "anyOf": [
-          {
-            "$ref": "#/$defs/SecretRef"
-          },
-          {
-            "type": "null"
-          }
-        ],
-        "default": null,
-        "writeOnly": true
-      },
-      "webhook_shared_header": {
-        "default": "x-icuhub-token",
-        "title": "Webhook Shared Header",
-        "type": "string"
-      },
-      "webhook_verifier_mode": {
-        "default": "hmac",
-        "enum": [
-          "hmac",
-          "shared_token"
-        ],
-        "title": "Webhook Verifier Mode",
-        "type": "string"
       }
     },
     "required": [
@@ -1418,6 +1392,158 @@
       "name": "list_webhooks",
       "output_schema": {
         "$defs": {
+          "FailedWebhookDelivery": {
+            "additionalProperties": false,
+            "properties": {
+              "failure_time_ms": {
+                "title": "Failure Time Ms",
+                "type": "integer"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "issue_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Issue Id"
+              },
+              "url": {
+                "title": "Url",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "url",
+              "failure_time_ms",
+              "issue_id"
+            ],
+            "title": "FailedWebhookDelivery",
+            "type": "object"
+          },
+          "TicketRecord": {
+            "description": "Normalized tracker issue used for outbound ticket synchronization.",
+            "properties": {
+              "data": {
+                "additionalProperties": true,
+                "title": "Data",
+                "type": "object"
+              },
+              "fingerprint_links": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Fingerprint Links",
+                "type": "array"
+              },
+              "key": {
+                "title": "Key",
+                "type": "string"
+              },
+              "labels": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Labels",
+                "type": "array"
+              },
+              "links": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "title": "Links",
+                "type": "object"
+              },
+              "record_type": {
+                "default": "ticket",
+                "title": "Record Type",
+                "type": "string"
+              },
+              "resolution": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Resolution"
+              },
+              "revision": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Revision"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "status_category": {
+                "enum": [
+                  "open",
+                  "in_progress",
+                  "done",
+                  "unknown"
+                ],
+                "title": "Status Category",
+                "type": "string"
+              },
+              "uid": {
+                "title": "Uid",
+                "type": "string"
+              },
+              "updated_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Updated At"
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Url"
+              }
+            },
+            "required": [
+              "uid",
+              "data",
+              "key",
+              "status",
+              "status_category"
+            ],
+            "title": "TicketRecord",
+            "type": "object"
+          },
           "WebhookRegistration": {
             "additionalProperties": false,
             "properties": {
@@ -1465,6 +1591,20 @@
         },
         "additionalProperties": false,
         "properties": {
+          "failed_deliveries": {
+            "items": {
+              "$ref": "#/$defs/FailedWebhookDelivery"
+            },
+            "title": "Failed Deliveries",
+            "type": "array"
+          },
+          "reconciled_issues": {
+            "items": {
+              "$ref": "#/$defs/TicketRecord"
+            },
+            "title": "Reconciled Issues",
+            "type": "array"
+          },
           "registrations": {
             "items": {
               "$ref": "#/$defs/WebhookRegistration"
@@ -1474,7 +1614,9 @@
           }
         },
         "required": [
-          "registrations"
+          "registrations",
+          "failed_deliveries",
+          "reconciled_issues"
         ],
         "title": "WebhooksOutput",
         "type": "object"

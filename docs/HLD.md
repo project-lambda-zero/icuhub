@@ -829,7 +829,7 @@ flowchart TB
 | Vendor 429 | Respect `Retry-After`; per-connection token bucket |
 | Token refresh failure | Connection `degraded`; event `icuhub.connection.degraded`; calls return 503 with problem details |
 | Event backbone down | Outbox accumulates in Postgres; relay resumes; no event loss |
-| Worker crash mid-action | Action stays `executing` with lease; lease expiry re-queues only if operation is idempotent, otherwise marks `failed` with `interrupted` and requires human review |
+| Worker crash mid-action | Recovered apply does not repeat the vendor write. Persisted `executing` work becomes `outcome_unknown` and enters reconciliation by natural/key lookup and authoritative read-back; lease renewal covers both planning and vendor execution |
 | Approval never decided | Expires at TTL with `expired` outcome and event |
 | Duplicate webhook | Unique constraint dedupes; 200 returned |
 | Duplicate operation call | `Idempotency-Key` returns original result |

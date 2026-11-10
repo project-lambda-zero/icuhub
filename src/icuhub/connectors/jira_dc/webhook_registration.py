@@ -1,14 +1,16 @@
 """Jira Data Center webhook catalog and registration lifecycle.
 
 Typed event declarations, registration family resolution from the server version, request bodies,
-registration parsing, and health for the DC webhook region of ``connector.py``. The registration
-endpoint, body shape, and response fields are [UNVERIFIED] until a live Data Center instance
-confirms them. DC registrations persist until deleted, so health is structural only.
+registration parsing, and health for the DC webhook region of ``connector.py``. Registration
+collection paths and create body follow the official Jira Server webhooks page. The list response
+shape, the registration id field, the Jira 10 element path, and the Jira 10 create status are
+[UNVERIFIED] until a live Data Center instance confirms them. DC registrations persist until
+deleted, so health is structural only.
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Final, Literal
 from urllib.parse import quote
 
 from pydantic import Field, field_validator
@@ -18,7 +20,6 @@ from icuhub.connectors._jira.webhooks import EVENT_TYPES
 from icuhub.kit.errors import ConfigError, VendorContractError
 
 __all__ = [
-    "REGISTRATION_PATH",
     "CreateDcWebhookInput",
     "DcWebhookRegistration",
     "DcWebhooksOutput",
@@ -32,12 +33,17 @@ __all__ = [
     "parse_registrations",
     "registration_health",
     "registration_id",
+    "registration_path",
     "resolve_family",
     "server_version_numbers",
 ]
 
-# [UNVERIFIED] Jira DC webhook plugin registration collection; not sourced in docs/VENDOR_CONNECTORS.md.
-REGISTRATION_PATH = "/rest/webhooks/1.0/webhook"
+# Official Jira Server webhooks page: legacy plugin collection before Jira 10, and the jira-webhook
+# collection from Jira 10. The Jira 10 element path is [UNVERIFIED].
+_REGISTRATION_COLLECTION: Final[dict[str, str]] = {
+    "pre_10": "/rest/webhooks/1.0/webhook",
+    "jira_10": "/rest/jira-webhook/1.0/webhooks",
+}
 
 RegistrationFamily = Literal["pre_10", "jira_10"]
 RegistrationStatus = Literal["healthy", "degraded"]
@@ -117,8 +123,13 @@ def create_statuses(family: RegistrationFamily) -> tuple[int, ...]:
     return (200, 201)
 
 
+def registration_path(family: RegistrationFamily) -> str:
+    """Registration collection path for a family, from the official Jira Server webhooks page."""
+    return _REGISTRATION_COLLECTION[family]
+
+
 def create_body(args: CreateDcWebhookInput) -> dict[str, Any]:
-    """Create request body. [UNVERIFIED] field names, including the ``filters`` key for the JQL filter."""
+    """Create request body, matching the Jira Server webhooks page REST example (``filters``, ``excludeBody``)."""
     return {
         "name": args.name,
         "url": args.url,
@@ -128,9 +139,13 @@ def create_body(args: CreateDcWebhookInput) -> dict[str, Any]:
     }
 
 
-def delete_path(webhook_id: str) -> str:
-    """Delete path for one registration. [UNVERIFIED] path shape; the id is percent-encoded."""
-    return f"{REGISTRATION_PATH}/{quote(webhook_id, safe='')}"
+def delete_path(family: RegistrationFamily, webhook_id: str) -> str:
+    """Delete path for one registration: the family collection plus the percent-encoded id.
+
+    The pre-10 form ``/rest/webhooks/1.0/webhook/{id}`` is documented. The Jira 10 element path
+    is [UNVERIFIED]: the page documents only the Jira 10 collection.
+    """
+    return f"{registration_path(family)}/{quote(webhook_id, safe='')}"
 
 
 def parse_registrations(body: Any) -> list[DcWebhookRegistration]:

@@ -224,17 +224,10 @@
         "additionalProperties": false,
         "properties": {
           "digest": {
-            "anyOf": [
-              {
-                "maxLength": 256,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Digest"
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Digest",
+            "type": "string"
           },
           "on_demand": {
             "default": false,
@@ -248,9 +241,16 @@
             "type": "string"
           },
           "repository": {
+            "maxLength": 2048,
+            "minLength": 1,
+            "title": "Repository",
+            "type": "string"
+          },
+          "tag": {
             "anyOf": [
               {
-                "maxLength": 2048,
+                "maxLength": 256,
+                "minLength": 1,
                 "type": "string"
               },
               {
@@ -258,11 +258,13 @@
               }
             ],
             "default": null,
-            "title": "Repository"
+            "title": "Tag"
           }
         },
         "required": [
-          "registry"
+          "registry",
+          "repository",
+          "digest"
         ],
         "title": "StartRegistryScanInput",
         "type": "object"
@@ -635,6 +637,13 @@
         "default": null,
         "title": "Proxy Url"
       },
+      "snooze_max_days": {
+        "default": 30,
+        "maximum": 366,
+        "minimum": 1,
+        "title": "Snooze Max Days",
+        "type": "integer"
+      },
       "suppression": {
         "anyOf": [
           {
@@ -676,6 +685,15 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "format": {
+            "default": "json",
+            "enum": [
+              "json",
+              "csv"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
           "job_id": {
             "maxLength": 512,
             "minLength": 1,
@@ -752,99 +770,11 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
-          "job_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Job Id",
-            "type": "string"
-          },
-          "max_bytes": {
-            "default": 67108864,
-            "maximum": 1073741824,
-            "minimum": 1,
-            "title": "Max Bytes",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "job_id"
-        ],
-        "title": "DownloadExportInput",
-        "type": "object"
-      },
-      "name": "download_vulnerability_export",
-      "output_schema": {
-        "additionalProperties": false,
-        "properties": {
-          "complete": {
-            "default": true,
-            "title": "Complete",
-            "type": "boolean"
-          },
-          "content_base64": {
-            "title": "Content Base64",
-            "type": "string"
-          },
-          "job_id": {
-            "title": "Job Id",
-            "type": "string"
-          },
-          "media_type": {
-            "title": "Media Type",
-            "type": "string"
-          },
-          "records": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Records",
-            "type": "array"
-          },
-          "sha256": {
-            "title": "Sha256",
-            "type": "string"
-          },
-          "size_bytes": {
-            "title": "Size Bytes",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "job_id",
-          "sha256",
-          "size_bytes",
-          "media_type",
-          "content_base64"
-        ],
-        "title": "ExportDownloadResult",
-        "type": "object"
-      }
-    },
-    {
-      "capability": "FindingSource",
-      "classification": "read",
-      "egress_class": "vendor_tenant",
-      "input_schema": {
-        "additionalProperties": false,
-        "properties": {
           "account_id": {
             "maxLength": 512,
             "minLength": 1,
             "title": "Account Id",
             "type": "string"
-          },
-          "cloud_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Cloud Type"
           }
         },
         "required": [
@@ -990,6 +920,15 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "format": {
+            "default": "json",
+            "enum": [
+              "json",
+              "csv"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
           "job_id": {
             "maxLength": 512,
             "minLength": 1,
@@ -1319,18 +1258,6 @@
             "default": null,
             "title": "Container Id"
           },
-          "digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Digest"
-          },
           "end_time_ms": {
             "anyOf": [
               {
@@ -1368,20 +1295,7 @@
             "default": null,
             "title": "Image"
           },
-          "limit": {
-            "default": 50,
-            "maximum": 50,
-            "minimum": 1,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Offset",
-            "type": "integer"
-          },
-          "repository": {
+          "image_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -1391,7 +1305,32 @@
               }
             ],
             "default": null,
-            "title": "Repository"
+            "title": "Image Id"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "start_time_ms": {
             "anyOf": [
@@ -1515,18 +1454,6 @@
             "default": null,
             "title": "Container Id"
           },
-          "digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Digest"
-          },
           "end_time_ms": {
             "anyOf": [
               {
@@ -1564,20 +1491,7 @@
             "default": null,
             "title": "Image"
           },
-          "limit": {
-            "default": 50,
-            "maximum": 50,
-            "minimum": 1,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Offset",
-            "type": "integer"
-          },
-          "repository": {
+          "image_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -1587,7 +1501,32 @@
               }
             ],
             "default": null,
-            "title": "Repository"
+            "title": "Image Id"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "start_time_ms": {
             "anyOf": [
@@ -1711,18 +1650,6 @@
             "default": null,
             "title": "Container Id"
           },
-          "digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Digest"
-          },
           "end_time_ms": {
             "anyOf": [
               {
@@ -1760,20 +1687,7 @@
             "default": null,
             "title": "Image"
           },
-          "limit": {
-            "default": 50,
-            "maximum": 50,
-            "minimum": 1,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Offset",
-            "type": "integer"
-          },
-          "repository": {
+          "image_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -1783,7 +1697,32 @@
               }
             ],
             "default": null,
-            "title": "Repository"
+            "title": "Image Id"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "start_time_ms": {
             "anyOf": [
@@ -1907,18 +1846,6 @@
             "default": null,
             "title": "Container Id"
           },
-          "digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Digest"
-          },
           "end_time_ms": {
             "anyOf": [
               {
@@ -1956,20 +1883,7 @@
             "default": null,
             "title": "Image"
           },
-          "limit": {
-            "default": 50,
-            "maximum": 50,
-            "minimum": 1,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Offset",
-            "type": "integer"
-          },
-          "repository": {
+          "image_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -1979,7 +1893,32 @@
               }
             ],
             "default": null,
-            "title": "Repository"
+            "title": "Image Id"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "start_time_ms": {
             "anyOf": [
@@ -2392,18 +2331,6 @@
             "default": null,
             "title": "Container Id"
           },
-          "digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Digest"
-          },
           "end_time_ms": {
             "anyOf": [
               {
@@ -2441,20 +2368,7 @@
             "default": null,
             "title": "Image"
           },
-          "limit": {
-            "default": 50,
-            "maximum": 50,
-            "minimum": 1,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Offset",
-            "type": "integer"
-          },
-          "repository": {
+          "image_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -2464,7 +2378,32 @@
               }
             ],
             "default": null,
-            "title": "Repository"
+            "title": "Image Id"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "start_time_ms": {
             "anyOf": [
@@ -2588,18 +2527,6 @@
             "default": null,
             "title": "Container Id"
           },
-          "digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Digest"
-          },
           "end_time_ms": {
             "anyOf": [
               {
@@ -2637,20 +2564,7 @@
             "default": null,
             "title": "Image"
           },
-          "limit": {
-            "default": 50,
-            "maximum": 50,
-            "minimum": 1,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Offset",
-            "type": "integer"
-          },
-          "repository": {
+          "image_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -2660,7 +2574,32 @@
               }
             ],
             "default": null,
-            "title": "Repository"
+            "title": "Image Id"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "start_time_ms": {
             "anyOf": [
@@ -2784,18 +2723,6 @@
             "default": null,
             "title": "Container Id"
           },
-          "digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Digest"
-          },
           "end_time_ms": {
             "anyOf": [
               {
@@ -2833,20 +2760,7 @@
             "default": null,
             "title": "Image"
           },
-          "limit": {
-            "default": 50,
-            "maximum": 50,
-            "minimum": 1,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Offset",
-            "type": "integer"
-          },
-          "repository": {
+          "image_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -2856,7 +2770,32 @@
               }
             ],
             "default": null,
-            "title": "Repository"
+            "title": "Image Id"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "start_time_ms": {
             "anyOf": [
@@ -2937,6 +2876,14 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "audit_type": {
+            "enum": [
+              "container",
+              "host"
+            ],
+            "title": "Audit Type",
+            "type": "string"
+          },
           "collections": {
             "items": {
               "type": "string"
@@ -2956,6 +2903,7 @@
           }
         },
         "required": [
+          "audit_type",
           "start_time_ms",
           "end_time_ms"
         ],
@@ -2963,95 +2911,6 @@
         "type": "object"
       },
       "name": "get_runtime_timeslice",
-      "output_schema": {
-        "additionalProperties": false,
-        "properties": {
-          "complete": {
-            "default": true,
-            "title": "Complete",
-            "type": "boolean"
-          },
-          "data": {
-            "default": null,
-            "title": "Data"
-          },
-          "items": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "next_page_token": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Next Page Token"
-          },
-          "pages": {
-            "default": 0,
-            "title": "Pages",
-            "type": "integer"
-          },
-          "total": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Total"
-          }
-        },
-        "title": "ReadResult",
-        "type": "object"
-      }
-    },
-    {
-      "capability": "FindingSource",
-      "classification": "read",
-      "egress_class": "vendor_tenant",
-      "input_schema": {
-        "additionalProperties": false,
-        "properties": {
-          "job_id": {
-            "maxLength": 512,
-            "minLength": 1,
-            "title": "Job Id",
-            "type": "string"
-          },
-          "poll_interval_s": {
-            "default": 1,
-            "maximum": 60,
-            "minimum": 0,
-            "title": "Poll Interval S",
-            "type": "number"
-          },
-          "timeout_s": {
-            "default": 900,
-            "exclusiveMinimum": 0,
-            "maximum": 86400,
-            "title": "Timeout S",
-            "type": "number"
-          }
-        },
-        "required": [
-          "job_id"
-        ],
-        "title": "ExportJobInput",
-        "type": "object"
-      },
-      "name": "get_vulnerability_export_status",
       "output_schema": {
         "additionalProperties": false,
         "properties": {
@@ -3156,18 +3015,6 @@
             "default": null,
             "title": "Container Id"
           },
-          "digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Digest"
-          },
           "end_time_ms": {
             "anyOf": [
               {
@@ -3205,20 +3052,7 @@
             "default": null,
             "title": "Image"
           },
-          "limit": {
-            "default": 50,
-            "maximum": 50,
-            "minimum": 1,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Offset",
-            "type": "integer"
-          },
-          "repository": {
+          "image_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -3228,7 +3062,32 @@
               }
             ],
             "default": null,
-            "title": "Repository"
+            "title": "Image Id"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "start_time_ms": {
             "anyOf": [
@@ -3314,18 +3173,6 @@
             "minLength": 1,
             "title": "Account Id",
             "type": "string"
-          },
-          "cloud_type": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Cloud Type"
           }
         },
         "required": [
@@ -3764,18 +3611,6 @@
             "default": null,
             "title": "Container Id"
           },
-          "digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Digest"
-          },
           "end_time_ms": {
             "anyOf": [
               {
@@ -3813,20 +3648,7 @@
             "default": null,
             "title": "Image"
           },
-          "limit": {
-            "default": 50,
-            "maximum": 50,
-            "minimum": 1,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Offset",
-            "type": "integer"
-          },
-          "repository": {
+          "image_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -3836,7 +3658,32 @@
               }
             ],
             "default": null,
-            "title": "Repository"
+            "title": "Image Id"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "start_time_ms": {
             "anyOf": [
@@ -3960,18 +3807,6 @@
             "default": null,
             "title": "Container Id"
           },
-          "digest": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Digest"
-          },
           "end_time_ms": {
             "anyOf": [
               {
@@ -4009,20 +3844,7 @@
             "default": null,
             "title": "Image"
           },
-          "limit": {
-            "default": 50,
-            "maximum": 50,
-            "minimum": 1,
-            "title": "Limit",
-            "type": "integer"
-          },
-          "offset": {
-            "default": 0,
-            "minimum": 0,
-            "title": "Offset",
-            "type": "integer"
-          },
-          "repository": {
+          "image_id": {
             "anyOf": [
               {
                 "type": "string"
@@ -4032,7 +3854,32 @@
               }
             ],
             "default": null,
-            "title": "Repository"
+            "title": "Image Id"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 50,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
           },
           "start_time_ms": {
             "anyOf": [
@@ -4538,6 +4385,95 @@
       "input_schema": {
         "additionalProperties": false,
         "properties": {
+          "page_token": {
+            "anyOf": [
+              {
+                "maxLength": 8192,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Page Token"
+          },
+          "query": {
+            "maxLength": 32768,
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "VulnerabilitySearchInput",
+        "type": "object"
+      },
+      "name": "search_vulnerabilities",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "default": true,
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "data": {
+            "default": null,
+            "title": "Data"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_page_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Page Token"
+          },
+          "pages": {
+            "default": 0,
+            "title": "Pages",
+            "type": "integer"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Total"
+          }
+        },
+        "title": "ReadResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
           "account_ids": {
             "items": {
               "type": "string"
@@ -4599,71 +4535,6 @@
         "type": "object"
       },
       "name": "submit_alert_export",
-      "output_schema": {
-        "additionalProperties": false,
-        "properties": {
-          "complete": {
-            "default": true,
-            "title": "Complete",
-            "type": "boolean"
-          },
-          "data": {
-            "default": null,
-            "title": "Data"
-          },
-          "items": {
-            "items": {
-              "additionalProperties": true,
-              "type": "object"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "next_page_token": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Next Page Token"
-          },
-          "pages": {
-            "default": 0,
-            "title": "Pages",
-            "type": "integer"
-          },
-          "total": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Total"
-          }
-        },
-        "title": "ReadResult",
-        "type": "object"
-      }
-    },
-    {
-      "capability": "FindingSource",
-      "classification": "read",
-      "egress_class": "vendor_tenant",
-      "input_schema": {
-        "additionalProperties": false,
-        "properties": {},
-        "title": "EmptyInput",
-        "type": "object"
-      },
-      "name": "submit_vulnerability_export",
       "output_schema": {
         "additionalProperties": false,
         "properties": {
@@ -5129,19 +5000,6 @@
         "full"
       ],
       "name": "cspm_vulnerability_alerts",
-      "ocsf_class": 2002,
-      "record_type": null,
-      "requires_target": false,
-      "stability": "beta"
-    },
-    {
-      "capability": "FindingSource",
-      "cursor": "snapshot",
-      "mapper_version": 1,
-      "modes": [
-        "full"
-      ],
-      "name": "cspm_vulnerability_export",
       "ocsf_class": 2002,
       "record_type": null,
       "requires_target": false,

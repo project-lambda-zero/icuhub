@@ -78,8 +78,6 @@ class GitLabConfig(ConnectorConfig):
     auth_method: Literal["private_token", "oauth_bearer", "job_token"] = "private_token"
     access_token: SecretRef
     principal_kind: Literal["personal", "project", "group", "oauth", "ci_job"] = "personal"
-    webhook_secret: SecretRef | None = None
-    previous_webhook_secret: SecretRef | None = None
     webhook_tolerance_s: int = Field(default=300, ge=0)
     page_size: int = Field(default=100, ge=1, le=100)
     max_pages: int = Field(default=1000, ge=1, le=100_000)
@@ -114,12 +112,6 @@ class GitLabConfig(ConnectorConfig):
             raise ValueError(
                 f"principal_kind {self.principal_kind!r} is incompatible with auth_method {self.auth_method!r}"
             )
-
-        if self.previous_webhook_secret is not None:
-            if self.webhook_secret is None:
-                raise ValueError("webhook_secret is required when previous_webhook_secret is configured")
-            if self.webhook_secret.ref == self.previous_webhook_secret.ref:
-                raise ValueError("webhook secret rotation requires distinct current and previous references")
         return self
 
 

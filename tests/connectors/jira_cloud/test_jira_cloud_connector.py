@@ -35,13 +35,11 @@ from icuhub.connectors._jira.models import (
     EmptyInput,
     SearchInput,
 )
-from icuhub.connectors._jira.webhooks import JiraDeliveryVerifier
 from icuhub.connectors.jira_cloud.connector import JiraCloud
 from icuhub.kit.auth import BasicAuth, BearerToken, OAuth2RefreshToken
-from icuhub.kit.errors import ConfigError, PermissionDenied, VendorContractError, WebhookRejected
+from icuhub.kit.errors import ConfigError, ConnectorError, PermissionDenied, VendorContractError, WebhookRejected
 from icuhub.kit.testing import RouteTransport, collect_stream, make_connector, map_all
 from icuhub.kit.types import SourceRecord, WebhookDelivery
-from icuhub.kit.webhook import SharedToken
 from icuhub_schemas.ocsf import ApiActivity
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "jira_cloud"
@@ -58,7 +56,7 @@ SECRETS = {
     CLIENT_SECRET_REF: b"synthetic-client-secret",
     REFRESH_REF: b"synthetic-refresh-token",
 }
-HMAC_SECRET = b"synthetic-webhook-secret"
+JWT_SECRET = b"synthetic-client-secret"
 NOW = datetime(2026, 11, 9, 12, 0, 0, tzinfo=UTC)
 CONNECTION_ID = "test-connection"
 ATTACHMENT_CONTENT = "Synthetic evidence\n"
@@ -112,9 +110,19 @@ def _delivery(body: bytes, headers: dict[str, str] | None = None) -> WebhookDeli
     return WebhookDelivery(headers=headers or {}, body=body, received_at=NOW)
 
 
-def _hmac_headers(body: bytes, secret: bytes = HMAC_SECRET) -> dict[str, str]:
-    digest = hmac.new(secret, body, hashlib.sha256).hexdigest()
-    return {"x-hub-signature": f"sha256={digest}"}
+def _b64url(raw: bytes) -> str:
+    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+
+
+def _bearer_token(payload: dict[str, Any], secret: bytes, alg: str = "HS256") -> str:
+    header = _b64url(json.dumps({"alg": alg, "typ": "JWT"}).encode())
+    body = _b64url(json.dumps(payload).encode())
+    signature = _b64url(hmac.new(secret, f"{header}.{body}".encode("ascii"), hashlib.sha256).digest())
+    return f"{header}.{body}.{signature}"
+
+
+def _bearer_headers(secret: bytes = JWT_SECRET) -> dict[str, str]:
+    return {"authorization": f"Bearer {_bearer_token({'sub': 'synthetic'}, secret)}"}
 
 
 def _issue_updated_body() -> bytes:
@@ -299,6 +307,21 @@ def test_projects_stream_rejects_incremental_mode() -> None:
 # --- comments stream --------------------------------------------------------
 
 
+def test_issues_stream_raises_when_timestamp_ties_exceed_max_tie_ids() -> None:
+    issues = [
+        {"id": str(10000 + index), "key": f"PROJ-{index}", "fields": {"updated": "2026-11-01T10:00:00.000+0000"}}
+        for index in range(101)
+    ]
+    connector = _connector(
+        {("GET", "/rest/api/3/search/jql"): {"status": 200, "json": {"issues": issues}}},
+        jql="project = PROJ",
+        max_tie_ids=100,
+    )
+
+    with pytest.raises(ConnectorError, match="max_tie_ids"):
+        collect_stream(connector, "issues", mode="full")
+
+
 def test_comments_stream_fetches_each_issue_comments_with_parent() -> None:
     search_seen: list[httpx2.Request] = []
     comment_seen: list[httpx2.Request] = []
@@ -441,75 +464,59 @@ def test_download_attachment_rejects_declared_size_over_configured_limit() -> No
         asyncio.run(connector.download_attachment(DownloadAttachmentInput(attachment_id="50001")))
 
 
-# --- webhooks: HMAC ---------------------------------------------------------
+# --- webhooks: OAuth bearer JWT ----------------------------------------------
 
 
-def test_hmac_webhook_verifies_signed_body() -> None:
+def test_oauth_bearer_jwt_webhook_verifies_signed_token() -> None:
     connector = _connector({})
     body = _issue_updated_body()
-    verifier = connector.webhook_verifier(HMAC_SECRET)
+    verifier = connector.webhook_verifier(JWT_SECRET)
     assert verifier is not None
 
-    result = verifier.verify(_delivery(body, _hmac_headers(body)), now=NOW)
+    result = verifier.verify(_delivery(body, _bearer_headers()), now=NOW)
 
     assert result.occurred_at == NOW
 
 
-def test_hmac_webhook_rejects_wrong_signature() -> None:
+def test_oauth_bearer_jwt_webhook_rejects_wrong_signature() -> None:
     connector = _connector({})
-    body = _issue_updated_body()
-    verifier = connector.webhook_verifier(HMAC_SECRET)
-    assert verifier is not None
+    verifier = connector.webhook_verifier(JWT_SECRET)
 
-    with pytest.raises(WebhookRejected, match="invalid webhook signature"):
-        verifier.verify(_delivery(body, _hmac_headers(body, b"other-secret")), now=NOW)
+    with pytest.raises(WebhookRejected, match="invalid bearer token signature"):
+        verifier.verify(_delivery(_issue_updated_body(), _bearer_headers(b"other-secret")), now=NOW)
 
 
-def test_hmac_webhook_rejects_missing_signature_header() -> None:
+def test_oauth_bearer_jwt_webhook_rejects_missing_authorization() -> None:
     connector = _connector({})
-    body = _issue_updated_body()
-    verifier = connector.webhook_verifier(HMAC_SECRET)
-    assert verifier is not None
+    verifier = connector.webhook_verifier(JWT_SECRET)
 
-    with pytest.raises(WebhookRejected, match="missing webhook header: x-hub-signature"):
-        verifier.verify(_delivery(body), now=NOW)
+    with pytest.raises(WebhookRejected, match="missing webhook header: authorization"):
+        verifier.verify(_delivery(_issue_updated_body()), now=NOW)
 
 
-def test_hmac_webhook_secret_must_not_be_empty() -> None:
+def test_oauth_bearer_jwt_webhook_rejects_unsupported_algorithm() -> None:
+    connector = _connector({})
+    verifier = connector.webhook_verifier(JWT_SECRET)
+    token = _bearer_token({"sub": "synthetic"}, JWT_SECRET, alg="none")
+
+    with pytest.raises(WebhookRejected, match="unsupported bearer token algorithm"):
+        verifier.verify(_delivery(_issue_updated_body(), {"authorization": f"Bearer {token}"}), now=NOW)
+
+
+def test_oauth_bearer_jwt_secret_must_not_be_empty() -> None:
     connector = _connector({})
 
     with pytest.raises(ConfigError, match="must not be empty"):
         connector.webhook_verifier(b"")
 
 
-# --- webhooks: shared token -------------------------------------------------
+@pytest.mark.parametrize("field", ["webhook_verifier_mode", "webhook_shared_header", "webhook_secret"])
+def test_unsourced_webhook_configuration_is_rejected(field: str) -> None:
+    values = _config()
+    values[field] = "shared_token" if field == "webhook_verifier_mode" else {"ref": "legacy"}
 
-
-def test_shared_token_mode_returns_delivery_verifier_wrapping_shared_token() -> None:
-    connector = _connector({}, webhook_verifier_mode="shared_token")
-
-    verifier = connector.webhook_verifier(b"synthetic-token")
-
-    assert isinstance(verifier, JiraDeliveryVerifier)
-    assert isinstance(verifier._inner, SharedToken)
-
-
-def test_shared_token_webhook_accepts_matching_token_and_rejects_mismatch() -> None:
-    connector = _connector({}, webhook_verifier_mode="shared_token")
-    body = _issue_updated_body()
-    verifier = connector.webhook_verifier(b"synthetic-token")
-    assert verifier is not None
-
-    verifier.verify(_delivery(body, {"x-icuhub-token": "synthetic-token"}), now=NOW)
-    with pytest.raises(WebhookRejected, match="invalid webhook token"):
-        verifier.verify(_delivery(body, {"x-icuhub-token": "wrong"}), now=NOW)
-
-
-def test_shared_token_secret_must_be_utf8() -> None:
-    connector = _connector({}, webhook_verifier_mode="shared_token")
-
-    with pytest.raises(ConfigError, match="UTF-8"):
-        connector.webhook_verifier(b"\xff\xfe")
+    with pytest.raises(ValueError):
+        JiraCloud.config_model.model_validate(values)
 
 
 # --- webhooks: parsing ------------------------------------------------------
@@ -588,7 +595,10 @@ def test_list_webhooks_flags_registrations_near_expiry_or_without_expiry() -> No
             {"id": 3, "url": "https://hooks.example.test/c", "events": ["comment_updated"]},
         ],
     }
-    connector = _connector({("GET", "/rest/api/3/webhook"): _recording(payload, seen)})
+    connector = _connector({
+        ("GET", "/rest/api/3/webhook"): _recording(payload, seen),
+        ("GET", "/rest/api/3/webhook/failed"): {"status": 200, "json": {"values": []}},
+    })
 
     output = asyncio.run(connector.list_webhooks(EmptyInput()))
 
