@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: icuhub-api
+  namespace: icuhub
+  labels:
+    app.kubernetes.io/name: icuhub
+    app.kubernetes.io/part-of: icuhub
+    app.kubernetes.io/component: api
+spec:
+  # Two replicas: the PodDisruptionBudget (minAvailable: 1) blocks voluntary eviction with one replica.
+  replicas: 2
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: icuhub
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: icuhub
+        app.kubernetes.io/part-of: icuhub
+        app.kubernetes.io/component: api
+    spec:
+      serviceAccountName: icuhub-runtime
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: api
+          image: icuhub
+          command: ["python", "-m", "icuhub", "api", "--host", "0.0.0.0", "--port", "8080"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: icuhub-config
+          env:
+            - name: ICUHUB_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: icuhub-runtime-db
+                  key: database-url
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          # Unmeasured estimates; tune from observed usage before production sizing.
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: openbao-token
+              mountPath: /var/run/icuhub/runtime
+              readOnly: true
+            - name: evidence-keys
+              mountPath: /var/run/icuhub/evidence
+              readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: openbao-token
+          secret:
+            secretName: icuhub-openbao
+            # 0440 (decimal 288): group read for the fsGroup assigned by the restricted SCC.
+            defaultMode: 288
+            items:
+              - key: openbao-token
+                path: openbao-token
+        - name: evidence-keys
+          secret:
+            secretName: icuhub-evidence-keys
+            defaultMode: 288
+            items:
+              - key: signing-key.pem
+                path: signing-key.pem
+              - key: verification-key.pem
+                path: verification-key.pem

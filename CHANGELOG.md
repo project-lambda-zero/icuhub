@@ -20,6 +20,11 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - GitLab.com and GitLab Self-Managed editions with GraphQL vulnerability reconciliation, project/group/repository/MR/pipeline/audit streams, bounded file/log/artifact evidence, asynchronous exports, MR governance, and edition-aware Standard Webhook verification.
 - F5 BIG-IP iRule collection and natural-key reads plus bounded, write-gated `create_irule` with exact no-op, conflict rejection, and uncertain-outcome reconciliation.
 - F2 current-revision source directives and F3 durable Archer exception convergence with exact Prisma suppression scope, separate approvals, revision supersession, scheduled expiry, late-outcome reversal, source reconciliation, and signed evidence links.
+- Mend SCA with eight streams, twelve operations, three governed actions, bounded report downloads, project UUID identity, and incremental activity replay.
+- Kubernetes and OpenShift editions with inventory, policy and posture assessments, LIST/WATCH checkpoints, snapshot reconciliation, managed audit ingress, and separately gated workload, RBAC, Route, SCC, and BuildConfig actions.
+- F1 real-scanner routing, F4 GitHub native publication, F5 GitLab native ingestion and feedback, and F6 OpenShift posture-to-approved-remediation flows with offline signed evidence and cross-tenant denial.
+- OpenShift runtime profile with restricted workloads, migration and RBAC separation, TLS Route, default-deny NetworkPolicies, secure worker relay, and optional narrow vendor and OIDC egress policies.
+- Deduplicated action-plan, approval, and terminal-outcome evidence items whose digests verify offline in F7 bundles.
 - Event and deterministic artifact-replay stream declarations, with hint-only webhooks able to enqueue canonical full or incremental reconciliation.
 - Integration inventory of the existing consumer platforms with an ICUHUB disposition per integration (`docs/INTEGRATION_INVENTORY.md`).
 - Technology options per design concern with licenses, air-gap fit, and sources (`docs/OPTIONS.md`).
@@ -47,12 +52,18 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - CI installs `icuhub-schemas`, compiles `src`, `packages`, and `tools`, and runs the license check.
 - HLD: ingestion capabilities are stream declarations driven by the sync engine; write and destructive operations are plan/apply actions; the `cursor` table is replaced by `stream_state`, with `target`, `sync_run`, `raw_batch`, `quarantine_item`, and `action_plan` added.
 - ROADMAP P2, P3, P4, P5, and P10 carry the connector framework tasks and tests; connector guide checklist follows the framework.
+- Scheduler, manual, webhook, and post-remediation sync triggers share one active job per durable stream state; OCSF persistence omits optional null fields to match schema golden serialization.
+- Ticket creation uses strict `route_key` correlation for Jira and configured logical fields plus natural-key correlation for Archer.
 
 ### Fixed
 
 - Asynchronous actions now reconcile from the approved plan and persisted prior outcome without repeating the vendor write, including accepted-then-failed and bounded-poll paths.
 - The runtime license gate now accepts valid MIT-0 metadata and normalizes legacy PSF and PSFL fields to PSF-2.0 without relaxing rejection of unrecognized or restricted licenses.
 - OCSF `Resolved` status 4 now drives source resolution, and correlation cases reopen and resolve consistently as source members reappear or leave complete snapshots.
+- OCSF 2003 compliance `pass` observations resolve source posture without routing resolved-only cases; Jira or Archer remediation state alone never closes detection.
+- Route TLS private keys are removed before raw persistence and remain absent from plans, outcomes, database views, and signed evidence.
+- Archer action planning permits only declared authentication and read-only POST endpoints, and cached clients no longer retain the planning facade into apply.
+- One-shot test scenarios dispose per-loop database pools before loop shutdown, preventing connection exhaustion across the offline suite.
 
 ## [0.0.1] - 2026-11-05 -- design documents and repository setup
 

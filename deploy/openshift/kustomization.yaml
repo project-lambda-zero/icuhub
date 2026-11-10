@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: icuhub
+resources:
+  - namespace.yaml
+  - serviceaccount-rbac.yaml
+  - configmap.yaml
+  - service-route.yaml
+  - api-pdb.yaml
+  - deployment-api.yaml
+  - deployment-worker.yaml
+  - migration-job.yaml
+  - networkpolicies.yaml
+# Operator-replaced image reference. The digest is a placeholder and MUST be replaced with the
+# digest of the image built from this repository before any apply.
+images:
+  - name: icuhub
+    newName: registry.example.com/icuhub/icuhub
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000

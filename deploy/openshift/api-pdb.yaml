@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: icuhub-api
+  namespace: icuhub
+  labels:
+    app.kubernetes.io/part-of: icuhub
+    app.kubernetes.io/component: api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: icuhub
+      app.kubernetes.io/component: api

@@ -5,11 +5,12 @@ Each vendor integration is built once, and every internal platform uses it throu
 governed, audited path. The first consumer is AILA; others include the posture management
 console and other enterprise hubs.
 
-**Status: MVP implementation.** Decisions D1-D21 are closed (`docs/adr/`). The shared schema package
-[`packages/icuhub-schemas`](packages/icuhub-schemas) (OCSF 1.9.0, SARIF 2.1.0, CloudEvents
-envelope, finding fingerprint), durable core runtime, REST/MCP surfaces, and initial connectors
-are implemented. The remaining connector and cross-vendor DoD work is tracked in
-[`docs/ROADMAP.md`](docs/ROADMAP.md) and [`docs/IMPLEMENTATION_GAPS.md`](docs/IMPLEMENTATION_GAPS.md).
+**Status: MVP offline implementation complete; live acceptance pending.** Decisions D1-D22 are closed (`docs/adr/`).
+The shared schema package [`packages/icuhub-schemas`](packages/icuhub-schemas) (OCSF 1.9.0, SARIF 2.1.0,
+CloudEvents envelope, finding fingerprint), durable core runtime, REST/MCP surfaces, all required connector
+editions, and F1-F7 flows are implemented with offline fixtures and PostgreSQL integration tests. The OpenShift
+runtime profile is included. Live vendor and cluster acceptance is opt-in; remaining target-system uncertainties
+are tracked in [`docs/IMPLEMENTATION_GAPS.md`](docs/IMPLEMENTATION_GAPS.md).
 
 ## What it does
 
