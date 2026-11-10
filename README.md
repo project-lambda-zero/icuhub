@@ -56,7 +56,7 @@ are tracked in [`docs/IMPLEMENTATION_GAPS.md`](docs/IMPLEMENTATION_GAPS.md).
 python -m pip install -e ".[dev]" -e packages/icuhub-schemas
 python -m ruff check .
 python -m compileall -q src packages tools
-python -m pytest -q packages/icuhub-schemas/tests tests
+python -m pytest -q --import-mode=importlib packages/icuhub-schemas/tests tests
 python tools/license_check.py
 ```
 

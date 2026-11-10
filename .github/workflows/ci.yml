@@ -24,6 +24,6 @@ jobs:
       - name: Compile
         run: python -m compileall -q src packages tools
       - name: Tests
-        run: python -m pytest -q packages/icuhub-schemas/tests tests
+        run: python -m pytest -q --import-mode=importlib packages/icuhub-schemas/tests tests
       - name: License check
         run: python tools/license_check.py
