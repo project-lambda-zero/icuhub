@@ -136,6 +136,7 @@ class StreamRecord(BaseModel):
     raw: dict[str, Any]
     target_uid: str | None = None
     event: Literal["upsert", "delete"] = "upsert"
+    reconcile: Literal["incremental", "full"] | None = None
 
 
 class WebhookDelivery(BaseModel):

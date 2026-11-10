@@ -1,0 +1,736 @@
+{
+  "actions": [],
+  "auth": [],
+  "capabilities": [
+    "FindingSource"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "base_url": {
+        "default": "",
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "max_report_bytes": {
+        "default": 16777216,
+        "maximum": 16777216,
+        "minimum": 1,
+        "title": "Max Report Bytes",
+        "type": "integer"
+      },
+      "max_report_files": {
+        "default": 16,
+        "maximum": 128,
+        "minimum": 1,
+        "title": "Max Report Files",
+        "type": "integer"
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "report_files": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "title": "Report Files",
+        "type": "array"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "webhook_configuration_revision": {
+        "default": 1,
+        "minimum": 1,
+        "title": "Webhook Configuration Revision",
+        "type": "integer"
+      },
+      "webhook_header": {
+        "default": "x-icuhub-token",
+        "minLength": 1,
+        "title": "Webhook Header",
+        "type": "string"
+      },
+      "webhook_mode": {
+        "default": "static_header",
+        "enum": [
+          "static_header",
+          "basic_auth"
+        ],
+        "title": "Webhook Mode",
+        "type": "string"
+      },
+      "website_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Website Id"
+      },
+      "website_name": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Website Name"
+      }
+    },
+    "title": "InvictiStandardConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-218"
+  ],
+  "format_version": 1,
+  "importers": [
+    {
+      "extensions": [
+        ".json"
+      ],
+      "media_types": [
+        "application/json"
+      ],
+      "name": "invicti_json",
+      "stream": "report_issues"
+    }
+  ],
+  "kind": "invicti_standard",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "internal",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "content_base64": {
+            "title": "Content Base64",
+            "type": "string"
+          },
+          "profile": {
+            "const": "invicti_json",
+            "default": "invicti_json",
+            "title": "Profile",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content_base64"
+        ],
+        "title": "ParseReportArgs",
+        "type": "object"
+      },
+      "name": "parse_report",
+      "output_schema": {
+        "$defs": {
+          "InvictiClassification": {
+            "additionalProperties": false,
+            "properties": {
+              "cve": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Cve"
+              },
+              "cwe": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Cwe"
+              },
+              "owasp_top_ten_2021": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Owasp Top Ten 2021"
+              },
+              "pci_dss_40": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Pci Dss 40"
+              }
+            },
+            "title": "InvictiClassification",
+            "type": "object"
+          },
+          "InvictiCompliance": {
+            "additionalProperties": false,
+            "properties": {
+              "pci_dss_40": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Pci Dss 40"
+              }
+            },
+            "title": "InvictiCompliance",
+            "type": "object"
+          },
+          "InvictiIssue": {
+            "additionalProperties": false,
+            "properties": {
+              "accepted_risk": {
+                "title": "Accepted Risk",
+                "type": "boolean"
+              },
+              "assignee": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Assignee"
+              },
+              "certainty": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Certainty"
+              },
+              "classification": {
+                "$ref": "#/$defs/InvictiClassification"
+              },
+              "compliance": {
+                "$ref": "#/$defs/InvictiCompliance"
+              },
+              "confirmed": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Confirmed"
+              },
+              "false_positive": {
+                "title": "False Positive",
+                "type": "boolean"
+              },
+              "first_seen": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "First Seen"
+              },
+              "id": {
+                "title": "Id",
+                "type": "string"
+              },
+              "issue_type": {
+                "title": "Issue Type",
+                "type": "string"
+              },
+              "last_seen": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Last Seen"
+              },
+              "location": {
+                "$ref": "#/$defs/InvictiLocation"
+              },
+              "proof": {
+                "$ref": "#/$defs/InvictiProof"
+              },
+              "scan_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Scan Id"
+              },
+              "severity": {
+                "title": "Severity",
+                "type": "string"
+              },
+              "state": {
+                "title": "State",
+                "type": "string"
+              },
+              "tags": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Tags",
+                "type": "array"
+              },
+              "title": {
+                "title": "Title",
+                "type": "string"
+              },
+              "website": {
+                "$ref": "#/$defs/InvictiWebsite"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "issue_type",
+              "severity",
+              "state",
+              "confirmed",
+              "accepted_risk",
+              "false_positive",
+              "certainty",
+              "location",
+              "website",
+              "proof",
+              "classification",
+              "compliance",
+              "first_seen",
+              "last_seen",
+              "scan_id",
+              "tags"
+            ],
+            "title": "InvictiIssue",
+            "type": "object"
+          },
+          "InvictiLocation": {
+            "additionalProperties": false,
+            "properties": {
+              "parameter": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Parameter"
+              },
+              "parameter_type": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Parameter Type"
+              },
+              "url": {
+                "title": "Url",
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "title": "InvictiLocation",
+            "type": "object"
+          },
+          "InvictiProof": {
+            "additionalProperties": false,
+            "properties": {
+              "attack_detail": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Attack Detail"
+              },
+              "http_request": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Http Request"
+              },
+              "http_response": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Http Response"
+              },
+              "proof_of_concept": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Proof Of Concept"
+              }
+            },
+            "title": "InvictiProof",
+            "type": "object"
+          },
+          "InvictiReport": {
+            "additionalProperties": false,
+            "properties": {
+              "file_sha256": {
+                "title": "File Sha256",
+                "type": "string"
+              },
+              "parser_version": {
+                "title": "Parser Version",
+                "type": "string"
+              },
+              "report_id": {
+                "title": "Report Id",
+                "type": "string"
+              },
+              "scan_date": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Scan Date"
+              },
+              "scan_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Scan Id"
+              },
+              "snapshot": {
+                "$ref": "#/$defs/ReportSnapshot"
+              },
+              "target_url": {
+                "title": "Target Url",
+                "type": "string"
+              },
+              "vulnerabilities": {
+                "items": {
+                  "$ref": "#/$defs/InvictiIssue"
+                },
+                "title": "Vulnerabilities",
+                "type": "array"
+              }
+            },
+            "required": [
+              "report_id",
+              "scan_id",
+              "target_url",
+              "scan_date",
+              "file_sha256",
+              "parser_version",
+              "snapshot",
+              "vulnerabilities"
+            ],
+            "title": "InvictiReport",
+            "type": "object"
+          },
+          "InvictiWebsite": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Id"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Name"
+              },
+              "root_url": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Root Url"
+              }
+            },
+            "title": "InvictiWebsite",
+            "type": "object"
+          },
+          "ReportSnapshot": {
+            "additionalProperties": false,
+            "properties": {
+              "file_sha256": {
+                "title": "File Sha256",
+                "type": "string"
+              },
+              "report_id": {
+                "title": "Report Id",
+                "type": "string"
+              },
+              "scan_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Scan Id"
+              },
+              "snapshot_id": {
+                "title": "Snapshot Id",
+                "type": "string"
+              },
+              "target_url": {
+                "title": "Target Url",
+                "type": "string"
+              }
+            },
+            "required": [
+              "snapshot_id",
+              "file_sha256",
+              "report_id",
+              "scan_id",
+              "target_url"
+            ],
+            "title": "ReportSnapshot",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "report": {
+            "$ref": "#/$defs/InvictiReport"
+          }
+        },
+        "required": [
+          "report"
+        ],
+        "title": "ParseReportOutput",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [],
+  "scopes": [],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full",
+        "replay"
+      ],
+      "name": "report_issues",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "sequence",
+      "mapper_version": 1,
+      "modes": [
+        "event"
+      ],
+      "name": "webhook_issues",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": [
+    {
+      "event_types": [
+        "issue",
+        "issue_export",
+        "vulnerability",
+        "*"
+      ],
+      "header_event": null,
+      "name": "receive_event"
+    }
+  ]
+}

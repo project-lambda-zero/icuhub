@@ -73,7 +73,7 @@ KNOWN_CAPABILITIES: frozenset[str] = frozenset(
 
 _SPEC_ATTR = "_ICUHUB_SPEC"
 _REGISTRY_ATTR = "_icuhub_registry"
-_MODES: frozenset[str] = frozenset({"incremental", "full"})
+_MODES: frozenset[str] = frozenset({"incremental", "full", "event", "replay"})
 _STABILITIES: frozenset[str] = frozenset({"experimental", "beta", "stable"})
 _EGRESS: frozenset[str] = frozenset({"internal", "vendor_tenant", "third_party_shared"})
 _ACTION_CLASSES: frozenset[str] = frozenset({"write", "destructive"})
@@ -443,7 +443,7 @@ def _check_stream(cls: type, spec: StreamSpec) -> None:
     _check_capability(cls, owner, spec.capability)
     _check_model(cls, owner + " cursor", spec.cursor)
     if not spec.modes or not set(spec.modes) <= _MODES:
-        raise _fail(cls, f"{owner} modes must be a non-empty subset of incremental/full")
+        raise _fail(cls, f"{owner} modes must be a non-empty subset of incremental/full/event/replay")
     if spec.stability not in _STABILITIES:
         raise _fail(cls, f"{owner} stability {spec.stability!r} is not valid")
     if not inspect.isasyncgenfunction(spec.fn):

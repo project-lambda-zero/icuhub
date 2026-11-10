@@ -209,12 +209,24 @@ async def run_webhook_job(payload: dict[str, Any], lease: Any = None) -> dict[st
             row.status = "ignored"
             row.processed_at = _now()
             return {"status": "ignored"}
-        from icuhub.core.sync import commit_batch  # noqa: PLC0415
+        from icuhub.core.auth_types import Caller  # noqa: PLC0415
+        from icuhub.core.sync import commit_batch, trigger_sync  # noqa: PLC0415
 
         try:
             grouped: dict[str, list[dict[str, Any]]] = {}
+            reconciliations = 0
             for spec in specs:
                 for record in spec.fn(connector, delivery):
+                    if record.reconcile is not None:
+                        await trigger_sync(
+                            session,
+                            Caller(id="webhook-reconcile", tenant_id=tenant_id, roles=frozenset({"system"})),
+                            connection.id,
+                            record.stream,
+                            mode=record.reconcile,
+                        )
+                        reconciliations += 1
+                        continue
                     grouped.setdefault(record.stream, []).append(record.raw)
             totals = {"findings": 0, "records": 0, "quarantined": 0}
             for stream, records in grouped.items():
@@ -230,7 +242,7 @@ async def run_webhook_job(payload: dict[str, Any], lease: Any = None) -> dict[st
                     totals[key] += result[key]
             row.status = "processed"
             row.processed_at = _now()
-            return {"status": "processed", **totals}
+            return {"status": "processed", **totals, "reconciliations": reconciliations}
         except Exception as exc:  # noqa: BLE001 - failure class is recorded at this boundary
             row.status = "failed"
             row.error = type(exc).__name__
