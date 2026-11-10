@@ -146,6 +146,13 @@ def test_free_text_license_field_falls_back_to_classifier() -> None:
     assert check_licenses(["app"], lookup=_lookup(table)) == {"app": "MIT"}
 
 
+@pytest.mark.parametrize(("raw", "canonical"), [("PSFL", "PSF-2.0"), ("PSF", "PSF-2.0"), ("MIT-0", "MIT-0")])
+def test_valid_single_token_license_metadata(raw: str, canonical: str) -> None:
+    table = {"app": _dist("app", license_field=raw)}
+
+    assert check_licenses(["app"], lookup=_lookup(table)) == {"app": canonical}
+
+
 def test_free_text_license_field_without_classifier_fails() -> None:
     table = {"app": _dist("app", license_field="BSD License")}
 

@@ -51,6 +51,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - Asynchronous actions now reconcile from the approved plan and persisted prior outcome without repeating the vendor write, including accepted-then-failed and bounded-poll paths.
+- The runtime license gate now accepts valid MIT-0 metadata and normalizes legacy PSF and PSFL fields to PSF-2.0 without relaxing rejection of unrecognized or restricted licenses.
 - OCSF `Resolved` status 4 now drives source resolution, and correlation cases reopen and resolve consistently as source members reappear or leave complete snapshots.
 
 ## [0.0.1] - 2026-11-05 -- design documents and repository setup

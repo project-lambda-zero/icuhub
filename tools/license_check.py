@@ -38,6 +38,7 @@ ALLOWED_LICENSES: Final[frozenset[str]] = frozenset(
         "LGPL-3.0-only",
         "LGPL-3.0-or-later",
         "MIT",
+        "MIT-0",
         "MPL-2.0",
         "PSF-2.0",
         "Python-2.0",
@@ -63,6 +64,13 @@ CLASSIFIER_LICENSES: Final[dict[str, str]] = {
     "License :: OSI Approved :: Python Software Foundation License": "PSF-2.0",
     "License :: OSI Approved :: The Unlicense (Unlicense)": "Unlicense",
     "License :: OSI Approved :: zlib/libpng License": "Zlib",
+}
+
+# Legacy single-token License metadata emitted by otherwise valid runtime packages.
+# License-Expression is never aliased: that field must always contain valid SPDX.
+LICENSE_ALIASES: Final[dict[str, str]] = {
+    "PSF": "PSF-2.0",
+    "PSFL": "PSF-2.0",
 }
 
 # Source-available and commercial-restriction licenses that must never pass,
@@ -215,9 +223,10 @@ def _resolve_license(name: str, distribution: metadata.Distribution) -> str:
         return expression
 
     if license_field:
-        allowed = _expression_allowed(license_field)
+        normalized = LICENSE_ALIASES.get(license_field.strip(), license_field)
+        allowed = _expression_allowed(normalized)
         if allowed is True:
-            return license_field
+            return normalized
         if allowed is False:
             raise LicenseCheckError(f"{name}: license {license_field!r} is not on the allowlist")
         # Free text such as "BSD License" is not an SPDX expression; fall back to classifiers.
