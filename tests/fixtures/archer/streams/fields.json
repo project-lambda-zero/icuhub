@@ -1,0 +1,14 @@
+[
+  {
+    "IsSuccessful": true,
+    "RequestedObject": {"Id": 9001, "Name": "LastUpdated", "Type": 3}
+  },
+  {
+    "IsSuccessful": true,
+    "RequestedObject": {"Id": 9002, "Name": "Title", "Type": 1}
+  },
+  {
+    "IsSuccessful": true,
+    "RequestedObject": {"Id": 9003, "Name": "Version", "Type": 1}
+  }
+]

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetRecordByIdResponse xmlns="http://archer-tech.com/webservices/">
+      <GetRecordByIdResult>
+        <Record contentId="1001" levelId="201">
+          <Field id="301" type="1">First example risk</Field>
+          <Field id="304" type="3" xmlConvertedValue="2026-01-02T03:04:05Z">01/02/2026</Field>
+        </Record>
+      </GetRecordByIdResult>
+    </GetRecordByIdResponse>
+  </soap:Body>
+</soap:Envelope>

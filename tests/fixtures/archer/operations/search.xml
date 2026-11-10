@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteSearchResponse xmlns="http://archer-tech.com/webservices/">
+      <ExecuteSearchResult>
+        <Records>
+          <Record contentId="1001" levelId="201">
+            <Field id="301" type="1">First example risk</Field>
+            <Field id="302" type="4" xmlConvertedValue="High">
+              <ListValue displayName="High">402</ListValue>
+            </Field>
+          </Record>
+          <Record contentId="1002" levelId="201">
+            <Field id="301" type="1">Second example risk</Field>
+            <Field id="302" type="4" xmlConvertedValue="Low">
+              <ListValue displayName="Low">404</ListValue>
+            </Field>
+          </Record>
+        </Records>
+      </ExecuteSearchResult>
+    </ExecuteSearchResponse>
+  </soap:Body>
+</soap:Envelope>

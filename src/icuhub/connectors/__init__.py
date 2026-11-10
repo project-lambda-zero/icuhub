@@ -1,5 +1,6 @@
 """Built-in connectors, populated by explicit imports in connector releases."""
 
+from icuhub.connectors.archer import Archer
 from icuhub.connectors.f5_bigip import F5BigIp
 from icuhub.connectors.fortify_fod import FortifyFod
 from icuhub.connectors.fortify_ssc import FortifySsc
@@ -14,6 +15,7 @@ from icuhub.kit.connector import Connector
 __all__ = ["CONNECTORS"]
 
 CONNECTORS: dict[str, type[Connector]] = {
+    Archer.kind: Archer,
     FortifySsc.kind: FortifySsc,
     FortifyFod.kind: FortifyFod,
     Smtp.kind: Smtp,

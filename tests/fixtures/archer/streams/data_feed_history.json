@@ -1,0 +1,9 @@
+{
+  "IsSuccessful": true,
+  "RequestedObject": {
+    "Runs": [
+      {"HistoryId": "feed-run-1", "DataFeedGuid": "feed-guid-1", "Status": "Completed"},
+      {"HistoryId": "feed-run-2", "DataFeedGuid": "feed-guid-2", "Status": "Running"}
+    ]
+  }
+}

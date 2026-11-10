@@ -1,0 +1,9 @@
+{
+  "IsSuccessful": true,
+  "RequestedObject": {
+    "Entries": [
+      {"HistoryId": "h-1", "User": "api-user", "Action": "Updated"},
+      {"HistoryId": "h-2", "User": "api-user", "Action": "Viewed"}
+    ]
+  }
+}

@@ -1,0 +1,1335 @@
+{
+  "actions": [
+    {
+      "capability": "RiskRegister",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "correlation_value": {
+            "minLength": 1,
+            "title": "Correlation Value",
+            "type": "string"
+          },
+          "field_values": {
+            "additionalProperties": true,
+            "title": "Field Values",
+            "type": "object"
+          },
+          "record_type": {
+            "minLength": 1,
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "correlation_value"
+        ],
+        "title": "CreateFindingOrExceptionInput",
+        "type": "object"
+      },
+      "name": "create_finding_or_exception",
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "destructive",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_plan_hash": {
+            "minLength": 1,
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "content_id": {
+            "minimum": 1,
+            "title": "Content Id",
+            "type": "integer"
+          },
+          "expected_version": {
+            "minimum": 0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "level_id": {
+            "minimum": 1,
+            "title": "Level Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "content_id",
+          "level_id",
+          "expected_version",
+          "approved_plan_hash"
+        ],
+        "title": "DeleteContentInput",
+        "type": "object"
+      },
+      "name": "delete_content",
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_plan_hash": {
+            "minLength": 1,
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "data_feed_guid": {
+            "minLength": 1,
+            "title": "Data Feed Guid",
+            "type": "string"
+          },
+          "include_reference_feeds": {
+            "default": false,
+            "title": "Include Reference Feeds",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "data_feed_guid",
+          "approved_plan_hash"
+        ],
+        "title": "ExecuteDataFeedInput",
+        "type": "object"
+      },
+      "name": "execute_data_feed",
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "content_id": {
+            "minimum": 1,
+            "title": "Content Id",
+            "type": "integer"
+          },
+          "expected_version": {
+            "minimum": 0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "field_values": {
+            "additionalProperties": true,
+            "title": "Field Values",
+            "type": "object"
+          },
+          "record_type": {
+            "minLength": 1,
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "content_id",
+          "expected_version"
+        ],
+        "title": "UpdateFindingOrExceptionInput",
+        "type": "object"
+      },
+      "name": "update_finding_or_exception",
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "content_base64": {
+            "minLength": 1,
+            "title": "Content Base64",
+            "type": "string"
+          },
+          "content_id": {
+            "minimum": 1,
+            "title": "Content Id",
+            "type": "integer"
+          },
+          "expected_version": {
+            "minimum": 0,
+            "title": "Expected Version",
+            "type": "integer"
+          },
+          "field_name": {
+            "minLength": 1,
+            "title": "Field Name",
+            "type": "string"
+          },
+          "filename": {
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "record_type": {
+            "minLength": 1,
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "content_id",
+          "field_name",
+          "filename",
+          "content_base64",
+          "expected_version"
+        ],
+        "title": "UploadAttachmentInput",
+        "type": "object"
+      },
+      "name": "upload_attachment",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "SessionLogin"
+  ],
+  "capabilities": [
+    "RiskRegister"
+  ],
+  "config_schema": {
+    "$defs": {
+      "ArcherRecordTypeMap": {
+        "additionalProperties": false,
+        "description": "Maps one logical Archer record type to its application, level, and fields.",
+        "properties": {
+          "application_id": {
+            "minimum": 1,
+            "title": "Application Id",
+            "type": "integer"
+          },
+          "correlation_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Correlation Field"
+          },
+          "field_ids": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Field Ids",
+            "type": "object"
+          },
+          "level_id": {
+            "minimum": 1,
+            "title": "Level Id",
+            "type": "integer"
+          },
+          "time_field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Time Field"
+          }
+        },
+        "required": [
+          "application_id",
+          "level_id"
+        ],
+        "title": "ArcherRecordTypeMap",
+        "type": "object"
+      },
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "Archer on-prem or SaaS connection configuration.",
+    "properties": {
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "attachment_max_bytes": {
+        "default": 16777216,
+        "maximum": 67108864,
+        "minimum": 1,
+        "title": "Attachment Max Bytes",
+        "type": "integer"
+      },
+      "auth_mode": {
+        "default": "session",
+        "enum": [
+          "session",
+          "domain_session"
+        ],
+        "title": "Auth Mode",
+        "type": "string"
+      },
+      "base_url": {
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "destructive_enabled": {
+        "default": false,
+        "title": "Destructive Enabled",
+        "type": "boolean"
+      },
+      "instance_name": {
+        "minLength": 1,
+        "title": "Instance Name",
+        "type": "string"
+      },
+      "max_pages": {
+        "default": 10000,
+        "maximum": 100000,
+        "minimum": 1,
+        "title": "Max Pages",
+        "type": "integer"
+      },
+      "page_size": {
+        "default": 100,
+        "maximum": 1000,
+        "minimum": 1,
+        "title": "Page Size",
+        "type": "integer"
+      },
+      "password": {
+        "$ref": "#/$defs/SecretRef",
+        "writeOnly": true
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "record_types": {
+        "additionalProperties": {
+          "$ref": "#/$defs/ArcherRecordTypeMap"
+        },
+        "title": "Record Types",
+        "type": "object"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "user": {
+        "minLength": 1,
+        "title": "User",
+        "type": "string"
+      },
+      "user_domain": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "User Domain"
+      },
+      "write_enabled": {
+        "default": false,
+        "title": "Write Enabled",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "base_url",
+      "instance_name",
+      "user",
+      "password"
+    ],
+    "title": "ArcherConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-124",
+    "F-125",
+    "F-126",
+    "F-127",
+    "F-128",
+    "F-129",
+    "F-130",
+    "F-230",
+    "F-231",
+    "F-232",
+    "F-233",
+    "F-234",
+    "F-235",
+    "F-236"
+  ],
+  "format_version": 1,
+  "importers": [],
+  "kind": "archer",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "description": "Input for operations that take no arguments.",
+        "properties": {},
+        "title": "EmptyInput",
+        "type": "object"
+      },
+      "name": "discover_content_api",
+      "output_schema": {
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "available",
+          "status"
+        ],
+        "title": "DiscoverOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "properties": {
+          "attachment_id": {
+            "minimum": 1,
+            "title": "Attachment Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "attachment_id"
+        ],
+        "title": "AttachmentRef",
+        "type": "object"
+      },
+      "name": "get_attachment",
+      "output_schema": {
+        "properties": {
+          "attachment_id": {
+            "title": "Attachment Id",
+            "type": "integer"
+          },
+          "content_base64": {
+            "title": "Content Base64",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "attachment_id",
+          "size_bytes",
+          "sha256",
+          "content_base64"
+        ],
+        "title": "AttachmentOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "properties": {
+          "content_id": {
+            "minimum": 1,
+            "title": "Content Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "content_id"
+        ],
+        "title": "ContentRef",
+        "type": "object"
+      },
+      "name": "get_content",
+      "output_schema": {
+        "$defs": {
+          "ArcherContent": {
+            "properties": {
+              "content_id": {
+                "title": "Content Id",
+                "type": "integer"
+              },
+              "fields": {
+                "additionalProperties": true,
+                "title": "Fields",
+                "type": "object"
+              },
+              "level_id": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Level Id"
+              },
+              "raw": {
+                "additionalProperties": true,
+                "title": "Raw",
+                "type": "object"
+              },
+              "version": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Version"
+              }
+            },
+            "required": [
+              "content_id"
+            ],
+            "title": "ArcherContent",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "content": {
+            "$ref": "#/$defs/ArcherContent"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "ContentOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "description": "Input for operations that take no arguments.",
+        "properties": {},
+        "title": "EmptyInput",
+        "type": "object"
+      },
+      "name": "get_data_feed_history",
+      "output_schema": {
+        "properties": {
+          "runs": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Runs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "runs"
+        ],
+        "title": "DataFeedHistoryOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "properties": {
+          "content_id": {
+            "minimum": 1,
+            "title": "Content Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "content_id"
+        ],
+        "title": "ContentRef",
+        "type": "object"
+      },
+      "name": "get_history",
+      "output_schema": {
+        "properties": {
+          "entries": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "HistoryOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "properties": {
+          "content_id": {
+            "minimum": 1,
+            "title": "Content Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "content_id"
+        ],
+        "title": "ContentRef",
+        "type": "object"
+      },
+      "name": "get_record_soap",
+      "output_schema": {
+        "$defs": {
+          "ArcherContent": {
+            "properties": {
+              "content_id": {
+                "title": "Content Id",
+                "type": "integer"
+              },
+              "fields": {
+                "additionalProperties": true,
+                "title": "Fields",
+                "type": "object"
+              },
+              "level_id": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Level Id"
+              },
+              "raw": {
+                "additionalProperties": true,
+                "title": "Raw",
+                "type": "object"
+              },
+              "version": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Version"
+              }
+            },
+            "required": [
+              "content_id"
+            ],
+            "title": "ArcherContent",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "content": {
+            "$ref": "#/$defs/ArcherContent"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "ContentOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "description": "Input for operations that take no arguments.",
+        "properties": {},
+        "title": "EmptyInput",
+        "type": "object"
+      },
+      "name": "get_version",
+      "output_schema": {
+        "properties": {
+          "raw": {
+            "additionalProperties": true,
+            "title": "Raw",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "VersionOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "description": "Input for operations that take no arguments.",
+        "properties": {},
+        "title": "EmptyInput",
+        "type": "object"
+      },
+      "name": "list_applications",
+      "output_schema": {
+        "$defs": {
+          "ArcherItem": {
+            "description": "One metadata entity (application, level, field, values-list value).",
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "integer"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Name"
+              },
+              "raw": {
+                "additionalProperties": true,
+                "title": "Raw",
+                "type": "object"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "ArcherItem",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ArcherItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ItemsOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "properties": {
+          "level_id": {
+            "minimum": 1,
+            "title": "Level Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "level_id"
+        ],
+        "title": "LevelRef",
+        "type": "object"
+      },
+      "name": "list_fields",
+      "output_schema": {
+        "$defs": {
+          "ArcherItem": {
+            "description": "One metadata entity (application, level, field, values-list value).",
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "integer"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Name"
+              },
+              "raw": {
+                "additionalProperties": true,
+                "title": "Raw",
+                "type": "object"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "ArcherItem",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ArcherItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ItemsOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "properties": {
+          "application_id": {
+            "minimum": 1,
+            "title": "Application Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "application_id"
+        ],
+        "title": "ApplicationRef",
+        "type": "object"
+      },
+      "name": "list_levels",
+      "output_schema": {
+        "$defs": {
+          "ArcherItem": {
+            "description": "One metadata entity (application, level, field, values-list value).",
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "integer"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Name"
+              },
+              "raw": {
+                "additionalProperties": true,
+                "title": "Raw",
+                "type": "object"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "ArcherItem",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ArcherItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ItemsOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "properties": {
+          "values_list_id": {
+            "minimum": 1,
+            "title": "Values List Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "values_list_id"
+        ],
+        "title": "ValuesListRef",
+        "type": "object"
+      },
+      "name": "list_values",
+      "output_schema": {
+        "$defs": {
+          "ArcherItem": {
+            "description": "One metadata entity (application, level, field, values-list value).",
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "integer"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Name"
+              },
+              "raw": {
+                "additionalProperties": true,
+                "title": "Raw",
+                "type": "object"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "ArcherItem",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/ArcherItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ItemsOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "RiskRegister",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "properties": {
+          "level_id": {
+            "minimum": 1,
+            "title": "Level Id",
+            "type": "integer"
+          },
+          "page_number": {
+            "default": 1,
+            "minimum": 1,
+            "title": "Page Number",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 100,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Page Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "level_id"
+        ],
+        "title": "SearchContentArgs",
+        "type": "object"
+      },
+      "name": "search_content",
+      "output_schema": {
+        "$defs": {
+          "ArcherItem": {
+            "description": "One metadata entity (application, level, field, values-list value).",
+            "properties": {
+              "id": {
+                "title": "Id",
+                "type": "integer"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Name"
+              },
+              "raw": {
+                "additionalProperties": true,
+                "title": "Raw",
+                "type": "object"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "ArcherItem",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "page_number": {
+            "title": "Page Number",
+            "type": "integer"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/$defs/ArcherItem"
+            },
+            "title": "Records",
+            "type": "array"
+          }
+        },
+        "required": [
+          "records",
+          "page_number",
+          "has_more"
+        ],
+        "title": "SearchContentOutput",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [],
+  "scopes": [
+    {
+      "name": "version",
+      "probe": "POST /platformapi/core/system/applicationinfo (X-Http-Method-Override: GET)",
+      "required_by": [
+        "RiskRegister"
+      ]
+    },
+    {
+      "name": "metadata",
+      "probe": "POST /platformapi/core/system/application (X-Http-Method-Override: GET)",
+      "required_by": [
+        "RiskRegister"
+      ]
+    },
+    {
+      "name": "content_read",
+      "probe": "SOAP ExecuteSearch on /ws/search.asmx",
+      "required_by": [
+        "RiskRegister"
+      ]
+    },
+    {
+      "name": "content_write",
+      "probe": "POST/PUT /platformapi/core/content",
+      "required_by": [
+        "RiskRegister"
+      ]
+    },
+    {
+      "name": "data_feed_execute",
+      "probe": "POST /platformapi/core/datafeed/execute",
+      "required_by": [
+        "RiskRegister"
+      ]
+    },
+    {
+      "name": "content_api",
+      "probe": "GET /contentapi/",
+      "required_by": []
+    }
+  ],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "RiskRegister",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "applications_devices",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "assessment_findings",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "attachments",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "data_feed_runs",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "exception_requests",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "history",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "remediation_plans",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "risks",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "vulnerability_library",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "RiskRegister",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "vulnerability_scan_results",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": []
+}

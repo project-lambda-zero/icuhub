@@ -1,0 +1,4 @@
+[
+  {"IsSuccessful": true, "RequestedObject": {"Id": 301, "Type": 1, "Name": "Risk Register", "LanguageId": 1, "Status": 1, "Guid": "3f6f0f6e-0000-4000-8000-000000000301"}, "ValidationMessages": []},
+  {"IsSuccessful": false, "RequestedObject": null, "ValidationMessages": [{"ResourcedMessage": "Access denied"}]}
+]

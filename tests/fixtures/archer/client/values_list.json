@@ -1,0 +1,14 @@
+{
+  "IsSuccessful": true,
+  "RequestedObject": {
+    "Id": 701,
+    "Name": "Risk Status",
+    "Children": [
+      {"Data": {"Id": 9001, "Name": "Open", "IsSelectable": true}, "Depth": 0, "Children": [
+        {"Data": {"Id": 9002, "Name": "Open Child", "IsSelectable": true}, "Depth": 1, "Children": []}
+      ]},
+      {"Data": {"Id": 9003, "Name": "Closed", "IsSelectable": true}, "Depth": 0, "Children": []}
+    ]
+  },
+  "ValidationMessages": []
+}

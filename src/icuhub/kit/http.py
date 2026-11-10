@@ -251,7 +251,14 @@ class VendorHttp:
             return _to_result(response)
         raise self._status_error(response, secrets, call, idempotency)
 
-    async def stream_download(self, method: str, url: str, *, max_bytes: int) -> bytes:
+    async def stream_download(
+        self,
+        method: str,
+        url: str,
+        *,
+        max_bytes: int,
+        headers: Mapping[str, str] | None = None,
+    ) -> bytes:
         """Download a response body capped at ``max_bytes``. This path is not retried."""
         call = _Call(
             method=method,
@@ -259,7 +266,7 @@ class VendorHttp:
             params=None,
             json=None,
             content=None,
-            headers={},
+            headers=dict(headers or {}),
             pool="default",
         )
         try:

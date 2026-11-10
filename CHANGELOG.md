@@ -13,6 +13,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - F7 signed evidence export: auditor-only case bundles with Ed25519 signatures, bounded secret-free references, embedded audit-chain verification, offline CLI verification, and cross-tenant denial.
 - Connectors: `fortify_ssc`, `fortify_fod`, `jira_dc` (partial DoD completion in progress), `nessus` (scans, history exports, compliance, `.nessus` uploads), `prisma_cloud` (CSPM and Compute), `f5_bigip` (inventory and Enforcer block/unblock), `google_threat_intelligence` (lookup), `smtp` (notification send).
 - Invicti Enterprise REST sync, per-scan reports, bounded evidence, authenticated webhook reconciliation, and governed triage; Invicti Standard JSON report replay plus authenticated Send To Action ingestion.
+- Archer GRC session authentication, application/content/history/user/group sync, metadata reads, bounded evidence downloads, data-feed execution, and governed content and attachment actions with read-back verification.
 - Event and deterministic artifact-replay stream declarations, with hint-only webhooks able to enqueue canonical full or incremental reconciliation.
 - Integration inventory of the existing consumer platforms with an ICUHUB disposition per integration (`docs/INTEGRATION_INVENTORY.md`).
 - Technology options per design concern with licenses, air-gap fit, and sources (`docs/OPTIONS.md`).

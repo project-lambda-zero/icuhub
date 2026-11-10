@@ -408,6 +408,50 @@ def test_stream_download_over_the_cap_raises_budget_exhausted() -> None:
         asyncio.run(go())
 
 
+def test_stream_download_sends_caller_headers_on_the_wire() -> None:
+    seen: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        seen.append(request)
+        return httpx2.Response(200, content=b"abc")
+
+    http = _http(handler)
+
+    async def go() -> bytes:
+        try:
+            return await http.stream_download(
+                "POST",
+                "/file",
+                max_bytes=10,
+                headers={"X-Http-Method-Override": "GET"},
+            )
+        finally:
+            await http.aclose()
+
+    assert asyncio.run(go()) == b"abc"
+    assert seen[0].method == "POST"
+    assert seen[0].headers["X-Http-Method-Override"] == "GET"
+
+
+def test_stream_download_without_headers_sends_no_override() -> None:
+    seen: list[httpx2.Request] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        seen.append(request)
+        return httpx2.Response(200, content=b"abc")
+
+    http = _http(handler)
+
+    async def go() -> bytes:
+        try:
+            return await http.stream_download("GET", "/file", max_bytes=10)
+        finally:
+            await http.aclose()
+
+    asyncio.run(go())
+    assert "X-Http-Method-Override" not in seen[0].headers
+
+
 # --- TLS material ---------------------------------------------------------
 
 

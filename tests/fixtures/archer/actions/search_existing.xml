@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteSearchResponse xmlns="http://archer-tech.com/webservices/">
+      <ExecuteSearchResult>
+        <Records xmlns="">
+          <Record contentId="42">
+            <Field id="101" type="1">case-1</Field>
+          </Record>
+        </Records>
+      </ExecuteSearchResult>
+    </ExecuteSearchResponse>
+  </soap:Body>
+</soap:Envelope>

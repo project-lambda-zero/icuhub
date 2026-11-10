@@ -1,0 +1,7 @@
+{
+  "IsSuccessful": true,
+  "RequestedObject": {
+    "DataFeedGuid": "feed-guid-1",
+    "Status": "Queued"
+  }
+}

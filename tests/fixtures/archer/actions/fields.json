@@ -1,0 +1,26 @@
+[
+  {
+    "IsSuccessful": true,
+    "RequestedObject": {
+      "Id": 101,
+      "Name": "ExternalCorrelationId",
+      "Type": 1
+    }
+  },
+  {
+    "IsSuccessful": true,
+    "RequestedObject": {
+      "Id": 102,
+      "Name": "Title",
+      "Type": 1
+    }
+  },
+  {
+    "IsSuccessful": true,
+    "RequestedObject": {
+      "Id": 103,
+      "Name": "Evidence",
+      "Type": 11
+    }
+  }
+]

@@ -1,0 +1,34 @@
+{
+  "IsSuccessful": true,
+  "RequestedObject": {
+    "Id": 401,
+    "Name": "Risk Rating",
+    "Children": [
+      {
+        "Data": {
+          "Id": 402,
+          "Name": "High",
+          "IsSelectable": true
+        },
+        "Children": [
+          {
+            "Data": {
+              "Id": 403,
+              "Name": "Critical",
+              "IsSelectable": true
+            },
+            "Children": []
+          }
+        ]
+      },
+      {
+        "Data": {
+          "Id": 404,
+          "Name": "Low",
+          "IsSelectable": false
+        },
+        "Children": []
+      }
+    ]
+  }
+}
