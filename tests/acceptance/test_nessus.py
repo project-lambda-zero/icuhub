@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 
+import httpx2
+
 from icuhub.connectors.nessus import Nessus
 from icuhub.connectors.nessus.models import (
     CreateExportArgs,
@@ -12,13 +14,13 @@ from icuhub.connectors.nessus.models import (
     ListHistoryArgs,
     ListScansArgs,
 )
-from icuhub.kit.testing import RouteTransport, make_connector
+from icuhub.kit.testing import make_connector
 
 ACCEPTANCE_KIND = "nessus"
 
 
 def _connector(acceptance) -> Nessus:
-    return make_connector(Nessus, acceptance.config, RouteTransport({}), acceptance.secrets)  # type: ignore[return-value]
+    return make_connector(Nessus, acceptance.config, httpx2.AsyncHTTPTransport(), acceptance.secrets)  # type: ignore[return-value]
 
 
 def test_health_and_changed_scans(acceptance) -> None:

@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import asyncio
 
+import httpx2
+
 from icuhub.connectors.f5_bigip import F5BigIp
 from icuhub.connectors.f5_bigip.models import BlockArgs, InventoryQuery, UnblockArgs
-from icuhub.kit.testing import RouteTransport, make_connector
+from icuhub.kit.testing import make_connector
 
 ACCEPTANCE_KIND = "f5_bigip"
 
 
 def _connector(acceptance) -> F5BigIp:
-    return make_connector(F5BigIp, acceptance.config, RouteTransport({}), acceptance.secrets)  # type: ignore[return-value]
+    return make_connector(F5BigIp, acceptance.config, httpx2.AsyncHTTPTransport(), acceptance.secrets)  # type: ignore[return-value]
 
 
 def test_health_and_inventory(acceptance) -> None:

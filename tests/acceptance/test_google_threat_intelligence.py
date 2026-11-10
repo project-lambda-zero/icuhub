@@ -4,15 +4,17 @@ from __future__ import annotations
 
 import asyncio
 
+import httpx2
+
 from icuhub.connectors.google_threat_intelligence import GoogleThreatIntelligence
 from icuhub.connectors.google_threat_intelligence.models import Indicator
-from icuhub.kit.testing import RouteTransport, make_connector
+from icuhub.kit.testing import make_connector
 
 ACCEPTANCE_KIND = "google_threat_intelligence"
 
 
 def _connector(acceptance) -> GoogleThreatIntelligence:
-    return make_connector(GoogleThreatIntelligence, acceptance.config, RouteTransport({}), acceptance.secrets)  # type: ignore[return-value]
+    return make_connector(GoogleThreatIntelligence, acceptance.config, httpx2.AsyncHTTPTransport(), acceptance.secrets)  # type: ignore[return-value]
 
 
 def test_health(acceptance) -> None:
