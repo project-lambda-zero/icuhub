@@ -2210,7 +2210,7 @@
     {
       "capability": "FindingSource",
       "cursor": "time_id",
-      "mapper_version": 1,
+      "mapper_version": 2,
       "modes": [
         "incremental",
         "full"
@@ -2224,7 +2224,7 @@
     {
       "capability": "FindingSource",
       "cursor": "snapshot",
-      "mapper_version": 1,
+      "mapper_version": 2,
       "modes": [
         "full",
         "replay"

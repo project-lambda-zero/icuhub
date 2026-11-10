@@ -60,7 +60,7 @@ def _repository_target(acceptance) -> Target:
     repository_id = _required_param(acceptance, "repository_id")
     return Target(
         id=repository_id,
-        source_uid=f"github:repository:{repository_id}",
+        source_uid=repository_id,
         kind="repository",
         display_name=f"{owner}/{repo}",
         attributes={"owner": owner, "repo": repo},

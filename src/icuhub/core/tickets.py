@@ -46,6 +46,7 @@ def route_matches(
 ) -> bool:
     """Match a route against the case and its observations."""
     match = route.match_json or {}
+    findings = [finding for finding in findings if finding.status != "resolved_by_source"]
     if not findings:
         return False
     if match.get("require_correlation_key", True) and case.correlation_key.startswith("v1|own|"):
@@ -93,13 +94,22 @@ def render_ticket(route: TicketRoute, case: CorrelationCase, findings: list[Find
         if obs["url"]:
             lines.append(f"  {obs['url']}")
     summary = (case.title or case.correlation_key)[:240]
+    route_key = f"route:{route.id}:case:{case.id}"
+    if route.action == "create_finding_or_exception":
+        field_values = dict(template.get("field_values", {}))
+        field_values[str(template["title_field"])] = summary
+        field_values[str(template["description_field"])] = "\n".join(lines)[:30000]
+        return {
+            "record_type": template["record_type"],
+            "correlation_value": route_key,
+            "field_values": field_values,
+        }
     labels = sorted(set(template.get("labels", [])) | {"icuhub", f"case-{str(case.id)[:8]}"})
     args: dict[str, Any] = {
         "summary": summary,
         "description": "\n".join(lines)[:30000],
         "labels": labels,
-        "icuhub_case_id": str(case.id),
-        "icuhub_route_key": f"route:{route.id}:case:{case.id}",
+        "route_key": route_key,
     }
     for field in ("project", "project_key", "issue_type", "priority", "assignee", "fields"):
         if field in template:
@@ -134,6 +144,7 @@ async def evaluate_routes(session: AsyncSession, case: CorrelationCase) -> list[
         )
         .scalars()
         .all()
+        if finding.status != "resolved_by_source"
     ]
     routes = (
         (await session.execute(select(TicketRoute).where(TicketRoute.tenant_id == case.tenant_id)))

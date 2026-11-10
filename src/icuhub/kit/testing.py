@@ -84,8 +84,21 @@ async def amake_connector(
     )
     connector = cls(config, ctx)
     auth = await connector.build_auth()
+    cert_pem = key_pem = None
+    if getattr(config, "client_cert", None) is not None:
+        cert_pem = await ctx.secrets.resolve(config.client_cert)
+    if getattr(config, "client_key", None) is not None:
+        key_pem = await ctx.secrets.resolve(config.client_key)
     if cls.uses_http:
-        ctx.http = build_http(config, auth, transport=transport, clock=_fixed_clock)
+        ctx.http = build_http(
+            config,
+            auth,
+            transport=transport,
+            clock=_fixed_clock,
+            extra_hosts=tuple(getattr(config, "extra_hosts", ()) or ()),
+            client_cert_pem=cert_pem,
+            client_key_pem=key_pem,
+        )
     return connector
 
 

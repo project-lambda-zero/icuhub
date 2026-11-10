@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import zipfile
 from typing import Any, ClassVar, Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel
 
@@ -28,7 +29,7 @@ from icuhub.connectors._gitlab.models import (
     PublishSecurityReportArtifactArgs,
     VendorResult,
 )
-from icuhub.connectors._gitlab.webhooks import RotatingStandardWebhooks
+from icuhub.connectors._gitlab.webhooks import EVENT_TYPES, GitLabWebhookParser, RotatingStandardWebhooks
 from icuhub.kit import (
     AuthStrategy,
     BearerToken,
@@ -38,11 +39,14 @@ from icuhub.kit import (
     HeaderToken,
     HealthReport,
     NotFound,
+    StreamRecord,
     VendorContractError,
+    WebhookDelivery,
     WebhookVerifier,
     action,
     operation,
 )
+from icuhub.kit.connector import webhook
 from icuhub.kit.errors import BudgetExhausted, ConnectorError, PermissionDenied
 from icuhub.kit.paginate import link_header_pages
 
@@ -208,6 +212,12 @@ class GitLabConnectorBase(Connector):
                 capabilities[name] = CapabilityHealth(status="degraded", reason=type(exc).__name__)
             status = "degraded"
         return HealthReport(status=status, capabilities=capabilities, vendor_version=None)
+
+    @webhook(event_types=EVENT_TYPES)
+    def receive_event(self, delivery: WebhookDelivery) -> list[StreamRecord]:
+        # Parsing yields non-authoritative reconciliation hints; the stream sync fetches the data.
+        host = urlsplit(self._config().base_url).netloc.lower()
+        return GitLabWebhookParser(host).parse(delivery)
 
     def webhook_verifier(self, secret: bytes) -> WebhookVerifier | None:
         if not secret:

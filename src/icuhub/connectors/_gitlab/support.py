@@ -54,9 +54,16 @@ _NON_OCSF_CLASS_UID = 0
 
 
 def numeric_id(target: Target | None, kind: str) -> int:
-    if target is None or not target.id.isdigit():
-        raise ConfigError(f"GitLab {kind} streams require a target whose id is the numeric GitLab {kind} id")
-    return int(target.id)
+    """Return the GitLab numeric id carried by ``target.source_uid`` as ``gitlab:<kind>:<id>``.
+
+    ``target.id`` is the host-owned row identifier and is never read as a vendor id.
+    """
+    prefix = f"gitlab:{kind}:"
+    uid = target.source_uid if target is not None else ""
+    digits = uid[len(prefix) :] if uid.startswith(prefix) else ""
+    if not digits.isascii() or not digits.isdigit() or digits[0] == "0":
+        raise ConfigError(f"GitLab {kind} streams require a target whose source_uid is gitlab:{kind}:<positive id>")
+    return int(digits)
 
 
 def annotate(records: list[dict[str, Any]], **fields: Any) -> list[dict[str, Any]]:

@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from tests.kit.sample_tracker import SampleTracker
 
 from icuhub.kit.errors import VendorContractError, WebhookRejected
 from icuhub.kit.testing import (
@@ -20,6 +19,7 @@ from icuhub.kit.testing import (
     map_all,
 )
 from icuhub.kit.types import WebhookDelivery
+from tests.kit.sample_tracker import SampleTracker
 
 GOLDEN = Path(__file__).parent / "golden" / "tickets.json"
 BASE = "https://tracker.example.test"

@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from icuhub.core.auth_types import Caller
-from icuhub.core.correlation import link_finding
+from icuhub.core.correlation import link_finding, record_raw_evidence
 from icuhub.core.credentials import EncryptedBlob
 from icuhub.core.outbox import add_event
 from icuhub.core.queue import DuplicateActiveJob, enqueue
@@ -24,7 +24,6 @@ from icuhub.kit.types import MapContext, SourceRecord, TicketRecord
 from icuhub.storage.db import session_scope
 from icuhub.storage.models import (
     Connection,
-    EvidenceItem,
     Finding,
     QuarantineItem,
     RawBatch,
@@ -66,8 +65,13 @@ def _digest_text(text: str) -> str:
 
 
 def _finding_status(document: dict[str, Any]) -> str:
-    """Map OCSF 1.9 ``status_id``: 4 (Resolved) closes the finding; 2 (In Progress) and all others stay open."""
-    return "resolved_by_source" if document.get("status_id") == 4 else "open"
+    """Close explicit OCSF resolution and compliance passes; keep unknown and failing posture open."""
+    if document.get("status_id") == 4:
+        return "resolved_by_source"
+    compliance = document.get("compliance")
+    if document.get("class_uid") == 2003 and isinstance(compliance, dict) and compliance.get("status") == "pass":
+        return "resolved_by_source"
+    return "open"
 
 
 def _apply_status(finding: Finding, status: str) -> bool:
@@ -218,18 +222,9 @@ async def commit_batch(
                 elif obj.record_type == "exception_requests":
                     case = await on_exception_decision(session, connection, obj)
                     if case is not None:
-                        session.add(
-                            EvidenceItem(
-                                tenant_id=case.tenant_id,
-                                case_id=case.id,
-                                kind="raw_batch",
-                                digest=raw.digest,
-                                ref_table="raw_batch",
-                                ref_id=raw.id,
-                            )
-                        )
+                        await record_raw_evidence(session, case, raw)
                 continue
-            document = obj.model_dump(mode="json")
+            document = obj.model_dump(mode="json", exclude_none=True)
             source_uid, fingerprint, severity_id, title = _identity(document, connector.kind)
             seen_uids.add(source_uid)
             revision = _digest_text(_canonical(document))
@@ -263,6 +258,7 @@ async def commit_batch(
                 session.add(existing)
                 await session.flush()
                 case = await link_finding(session, existing)
+                await record_raw_evidence(session, case, raw)
                 await _finding_event(session, existing, "icuhub.finding.upserted")
                 await _enqueue_route(session, case.id, connection.tenant_id)
                 counts["findings"] += 1
@@ -276,15 +272,20 @@ async def commit_batch(
                 _apply_status(existing, status)
                 existing.last_seen = datetime.now(UTC)
                 case = await link_finding(session, existing)
+                # Finding.raw_batch_id moves to this batch; earlier batches stay as case evidence from their own commits.
+                await record_raw_evidence(session, case, raw)
                 await _finding_event(session, existing, "icuhub.finding.upserted")
                 await _enqueue_route(session, case.id, connection.tenant_id)
                 counts["findings"] += 1
             else:
                 # A reappearing finding must reopen even when its document is unchanged.
+                # Every batch that carries the finding is case evidence, so the case is resolved and the batch recorded
+                # on each unchanged record too. Routing runs only on a real status transition.
                 transitioned = _apply_status(existing, status)
                 existing.last_seen = datetime.now(UTC)
+                case = await link_finding(session, existing)
+                await record_raw_evidence(session, case, raw)
                 if transitioned:
-                    case = await link_finding(session, existing)
                     await _enqueue_route(session, case.id, connection.tenant_id)
                 counts["unchanged"] += 1
     if state is not None and checkpoint is not None:
@@ -394,6 +395,21 @@ async def trigger_sync(
 ) -> uuid.UUID:
     if mode not in ("incremental", "full"):
         raise ValueError("mode must be incremental or full")
+    target_key = str(target_id) if target_id else ""
+    state = (
+        await session.execute(
+            select(StreamState).where(
+                StreamState.connection_id == connection_id,
+                StreamState.target_key == target_key,
+                StreamState.stream == stream,
+            )
+        )
+    ).scalar_one_or_none()
+    dedupe_key = (
+        f"{caller.tenant_id}:sync:{state.id}"
+        if state is not None
+        else f"{caller.tenant_id}:sync:{connection_id}:{stream}:{target_id}"
+    )
     return await enqueue(
         session,
         "sync",
@@ -406,7 +422,7 @@ async def trigger_sync(
             "mode": mode,
         },
         tenant_id=caller.tenant_id,
-        dedupe_key=f"{caller.tenant_id}:sync:{connection_id}:{stream}:{target_id}:{mode}",
+        dedupe_key=dedupe_key,
     )
 
 
@@ -542,7 +558,7 @@ async def _run_stream_target(
     seen: set[str] = set()
     complete = False
     try:
-        async for batch in getattr(connector, spec.fn.__name__)(target, checkpoint, mode):
+        async for batch in spec.fn(connector, target, checkpoint, mode):
             result = await commit_batch(
                 session,
                 connection=connection,
@@ -746,7 +762,7 @@ async def run_import_job(payload: dict[str, Any], lease: Any = None) -> dict[str
         totals = {"findings": 0, "records": 0, "quarantined": 0, "unchanged": 0}
         buffer: list[dict[str, Any]] = []
         try:
-            async for raw_record in getattr(connector, spec.fn.__name__)(imported):
+            async for raw_record in spec.fn(connector, imported):
                 buffer.append(raw_record)
                 if len(buffer) >= _BATCH_SIZE:
                     result = await commit_batch(
@@ -784,21 +800,25 @@ async def scheduler_once(now: datetime | None = None, limit: int = 100) -> int:
             mode = "incremental"
             if state.last_full_at is None or now - state.last_full_at > timedelta(seconds=state.full_interval_s):
                 mode = "full"
-            await enqueue(
-                session,
-                "sync",
-                "sync",
-                {
-                    "connection_id": str(state.connection_id),
-                    "stream": state.stream,
-                    "tenant_id": str(state.tenant_id),
-                    "target_id": str(state.target_id) if state.target_id else None,
-                    "mode": mode,
-                },
-                tenant_id=state.tenant_id,
-                dedupe_key=f"{state.tenant_id}:sync:{state.id}",
-            )
             state.next_run_at = now + timedelta(seconds=state.interval_s)
+            try:
+                await enqueue(
+                    session,
+                    "sync",
+                    "sync",
+                    {
+                        "connection_id": str(state.connection_id),
+                        "stream": state.stream,
+                        "tenant_id": str(state.tenant_id),
+                        "target_id": str(state.target_id) if state.target_id else None,
+                        "mode": mode,
+                    },
+                    tenant_id=state.tenant_id,
+                    dedupe_key=f"{state.tenant_id}:sync:{state.id}",
+                )
+            except DuplicateActiveJob:
+                # An active job already covers this state; skip it without aborting the other due states.
+                continue
             scheduled += 1
     return scheduled
 

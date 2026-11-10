@@ -79,6 +79,13 @@ class Archer(Connector):
     auth_modes: ClassVar[tuple[str, ...]] = ("SessionLogin",)
     capabilities: ClassVar[tuple[str, ...]] = ("RiskRegister",)
     flows: ClassVar[tuple[str, ...]] = _FLOWS
+    plan_safe_post_paths: ClassVar[tuple[str, ...]] = (
+        "/platformapi/core/security/login",
+        "/platformapi/core/system/fielddefinition/level/",
+        "/platformapi/core/content/contentid",
+        "/ws/general.asmx",
+        "/ws/search.asmx",
+    )
     scopes: ClassVar[tuple[Scope, ...]] = (
         # Custom role names vary per instance; probes prove the permission instead.
         Scope(
@@ -135,7 +142,7 @@ class Archer(Connector):
         session = getattr(self, "_session", None)
         if session is None:
             raise ConfigError("build_auth must run before Archer api access")
-        return ArcherClient(self.http, self._cfg(), session)
+        return ArcherClient(lambda: self.http, self._cfg(), session)
 
     def map_context(self) -> MapContext:
         return MapContext(

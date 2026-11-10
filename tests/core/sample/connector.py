@@ -55,8 +55,7 @@ class CreateIssueArgs(BaseModel):
     issue_type: str | None = None
     assignee: str | None = None
     fields: dict[str, Any] = {}
-    icuhub_case_id: str | None = None
-    icuhub_route_key: str | None = None
+    route_key: str | None = None
 
 
 def _finding(raw: dict[str, Any], ctx: MapContext) -> ocsf.VulnerabilityFinding:
@@ -206,16 +205,16 @@ class _SampleBase(Connector):
         idempotency="natural_key",
     )
     async def plan_create(self, args: CreateIssueArgs) -> ActionPlan:
-        if args.icuhub_route_key:
-            result = await self.http.request("GET", "/api/issues", params={"route_key": args.icuhub_route_key})
+        if args.route_key:
+            result = await self.http.request("GET", "/api/issues", params={"route_key": args.route_key})
             existing = result.json().get("items", [])
             if existing:
                 return ActionPlan(
                     action="create_issue",
                     target_ref=f"sample:issue:{existing[0]['key']}",
                     diff={},
-                    preconditions={"route_key": args.icuhub_route_key},
-                    idempotency_key=args.icuhub_route_key,
+                    preconditions={"route_key": args.route_key},
+                    idempotency_key=args.route_key,
                     changed=False,
                     request={},
                 )
@@ -224,9 +223,9 @@ class _SampleBase(Connector):
             target_ref="sample:issue:new",
             diff={"summary": args.summary},
             preconditions={},
-            idempotency_key=args.icuhub_route_key or args.summary,
+            idempotency_key=args.route_key or args.summary,
             changed=True,
-            request={"summary": args.summary, "description": args.description, "route_key": args.icuhub_route_key},
+            request={"summary": args.summary, "description": args.description, "route_key": args.route_key},
         )
 
     @plan_create.apply

@@ -56,7 +56,7 @@ def test_full_approval_flow_and_audit(tmp_path: Any, clean_database: None) -> No
                 caller_for(tenant_id, "requester"),
                 connection.id,
                 "create_issue",
-                {"summary": "fix CVE", "icuhub_route_key": "rk-1"},
+                {"summary": "fix CVE", "route_key": "rk-1"},
                 idempotency_key="key-1",
             )
             assert request.state == "pending_approval"
@@ -86,7 +86,7 @@ def test_full_approval_flow_and_audit(tmp_path: Any, clean_database: None) -> No
                 caller_for(tenant_id, "requester"),
                 connection.id,
                 "create_issue",
-                {"summary": "fix CVE", "icuhub_route_key": "rk-1"},
+                {"summary": "fix CVE", "route_key": "rk-1"},
                 idempotency_key="key-1",
             )
             assert replay.id == request.id
@@ -115,7 +115,7 @@ def test_no_op_stale_plan_and_unknown_reconcile(tmp_path: Any, clean_database: N
                 caller_for(tenant_id, "requester"),
                 connection.id,
                 "create_issue",
-                {"summary": "dup", "icuhub_route_key": "rk-dup"},
+                {"summary": "dup", "route_key": "rk-dup"},
                 idempotency_key="key-noop",
             )
             assert noop.state == "no_op"
@@ -125,7 +125,7 @@ def test_no_op_stale_plan_and_unknown_reconcile(tmp_path: Any, clean_database: N
                 caller_for(tenant_id, "requester"),
                 connection.id,
                 "create_issue",
-                {"summary": "stale", "icuhub_route_key": "rk-stale"},
+                {"summary": "stale", "route_key": "rk-stale"},
                 idempotency_key="key-stale",
             )
             approval = (
@@ -145,7 +145,7 @@ def test_no_op_stale_plan_and_unknown_reconcile(tmp_path: Any, clean_database: N
                 caller_for(tenant_id, "requester"),
                 connection.id,
                 "create_issue",
-                {"summary": "unknown", "icuhub_route_key": "rk-unknown"},
+                {"summary": "unknown", "route_key": "rk-unknown"},
                 idempotency_key="key-unknown",
             )
             approval = (
@@ -179,7 +179,7 @@ def test_accepted_async_reconciles_without_reapply(tmp_path: Any, clean_database
                 caller_for(tenant_id, "requester"),
                 connection.id,
                 "create_issue",
-                {"summary": "async", "icuhub_route_key": "rk-async"},
+                {"summary": "async", "route_key": "rk-async"},
                 idempotency_key="key-async",
             )
             approval = (
@@ -226,7 +226,7 @@ def test_apply_failure_is_terminal_and_never_retried(tmp_path: Any, clean_databa
                 caller_for(tenant_id, "requester"),
                 connection.id,
                 "create_issue",
-                {"summary": "boom", "icuhub_route_key": "rk-fail"},
+                {"summary": "boom", "route_key": "rk-fail"},
                 idempotency_key="key-fail",
             )
             approval = (

@@ -18,9 +18,17 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from icuhub.core.audit import append as audit_append
 from icuhub.core.auth_types import Caller
 from icuhub.core.outbox import add_event
-from icuhub.storage.models import CaseMember, CorrelationCase, Finding
+from icuhub.storage.models import CaseMember, CorrelationCase, EvidenceItem, Finding, RawBatch
 
-__all__ = ["KEY_VERSION", "canonical_asset_key", "correlation_key", "link_finding", "merge_cases", "split_finding"]
+__all__ = [
+    "KEY_VERSION",
+    "canonical_asset_key",
+    "correlation_key",
+    "link_finding",
+    "merge_cases",
+    "record_raw_evidence",
+    "split_finding",
+]
 
 KEY_VERSION = 1
 
@@ -247,6 +255,34 @@ async def link_finding(session: AsyncSession, finding: Finding) -> CorrelationCa
     return case
 
 
+async def record_raw_evidence(session: AsyncSession, case: CorrelationCase, raw: RawBatch) -> None:
+    """Keep a raw batch that fed ``case`` as digest-addressed evidence, once per case.
+
+    ``Finding.raw_batch_id`` names only the latest observation. This row is what keeps a
+    superseded observation reachable from the case export.
+    """
+    present = (
+        await session.execute(
+            select(EvidenceItem.id).where(
+                EvidenceItem.case_id == case.id,
+                EvidenceItem.ref_table == "raw_batch",
+                EvidenceItem.ref_id == raw.id,
+            )
+        )
+    ).first()
+    if present is None:
+        session.add(
+            EvidenceItem(
+                tenant_id=case.tenant_id,
+                case_id=case.id,
+                kind="raw_batch",
+                digest=raw.digest,
+                ref_table="raw_batch",
+                ref_id=raw.id,
+            )
+        )
+
+
 async def merge_cases(session: AsyncSession, caller: Caller, source_id: uuid.UUID, target_id: uuid.UUID) -> CorrelationCase:
     """Move every member of ``source`` onto ``target`` (FR-COR-03). Audited."""
     source = await session.get(CorrelationCase, source_id)
@@ -300,6 +336,11 @@ async def split_finding(session: AsyncSession, caller: Caller, finding_id: uuid.
     member.reason = "manual_split"
     member.linked_by = caller.id
     finding.correlation_key = key
+    if finding.raw_batch_id is not None:
+        # Batch-level evidence stays on the origin case; the split case carries the finding's current observation.
+        raw = await session.get(RawBatch, finding.raw_batch_id)
+        if raw is not None:
+            await record_raw_evidence(session, case, raw)
     await audit_append(
         session,
         caller.tenant_id,

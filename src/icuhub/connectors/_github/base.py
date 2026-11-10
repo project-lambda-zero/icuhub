@@ -16,11 +16,12 @@ from typing import Any
 from pydantic import ValidationError
 
 from icuhub.connectors._github.models import GitHubConfig, RepoRef
+from icuhub.connectors._github.streams import list_repositories
 from icuhub.kit.connector import Connector
-from icuhub.kit.errors import ConfigError
+from icuhub.kit.errors import ConfigError, VendorContractError
 from icuhub.kit.http import HttpResult, IdempotencyMode
 from icuhub.kit.paginate import Page, link_header_pages
-from icuhub.kit.types import Target
+from icuhub.kit.types import Target, TargetRecord
 from icuhub.kit.webhook import HmacSignature, WebhookVerifier
 
 __all__ = ["GITHUB_EVENT_HEADER", "GITHUB_DELIVERY_HEADER", "GITHUB_SIGNATURE_HEADER", "GitHubBase"]
@@ -103,13 +104,35 @@ class GitHubBase(Connector):
         )
 
     def target_repository(self, target: Target) -> RepoRef:
-        """Owner and repository name of a repository target. The numeric ID stays in ``target.id``."""
+        """Owner and repository name of a repository target. The numeric ID stays in ``target.source_uid``."""
         try:
             return RepoRef.model_validate(
                 {"owner": target.attributes.get("owner"), "repo": target.attributes.get("repo")}
             )
         except ValidationError as exc:
             raise ConfigError(f"GitHub target {target.source_uid!r} lacks a valid owner/repo") from exc
+
+    async def discover(self) -> AsyncIterator[TargetRecord]:
+        """Yield one repository target per listed repository; the numeric repository ID is the source UID."""
+        _, repositories = await list_repositories(self, self.config.organization)
+        for repo in repositories:
+            repository_id = repo.get("id")
+            owner = repo.get("owner")
+            login = owner.get("login") if isinstance(owner, dict) else None
+            name = repo.get("name")
+            full_name = repo.get("full_name")
+            if (
+                not isinstance(repository_id, int)
+                or isinstance(repository_id, bool)
+                or not all(isinstance(value, str) and value for value in (login, name, full_name))
+            ):
+                raise VendorContractError("GitHub repository record lacks id, owner login, name, or full_name")
+            yield TargetRecord(
+                source_uid=str(repository_id),
+                kind="repository",
+                display_name=full_name,
+                attributes={"owner": login, "repo": name, "full_name": full_name},
+            )
 
     def webhook_verifier(self, secret: bytes) -> WebhookVerifier | None:
         if not secret:

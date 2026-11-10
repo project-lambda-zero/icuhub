@@ -557,7 +557,6 @@ async def plan_publish_security_report_artifact(
     run_count, result_count = _sarif_counts(parsed.data)
     digest = _sarif_digest(parsed.data)
     operation = _publication_operation(str(job["status"]))
-    changed = operation is not None
     request = {
         "project_id": args.project_id,
         "iid": args.iid,
@@ -574,10 +573,15 @@ async def plan_publish_security_report_artifact(
     return ActionPlan(
         action="publish_security_report_artifact",
         target_ref=f"gitlab:project:{args.project_id}:job:{args.job_id}",
-        diff={"job_id": args.job_id, "operation": operation, "sarif_sha256": digest} if changed else {},
+        diff={
+            "job_id": args.job_id,
+            "job_status": job["status"],
+            "operation": operation,
+            "sarif_sha256": digest,
+        },
         preconditions={"head_sha": args.expected_head_sha, "job_id": args.job_id, "job_status": job["status"]},
         idempotency_key=action_identity(connector, "publish_security_report_artifact", args.action_key),
-        changed=changed,
+        changed=True,
         request=request,
     )
 
@@ -667,7 +671,7 @@ async def apply_publish_security_report_artifact(connector: Any, plan: ActionPla
     job = await connector.get_job(project_id, job_id)
     if str(job["status"]) != plan.preconditions["job_status"]:
         raise StalePlan("artifact job status changed since the plan was made")
-    if not plan.changed:
+    if request["operation"] is None:
         return await _publication_outcome(connector, plan, project_id, job_id)
     operation = str(request["operation"])
     try:

@@ -2721,5 +2721,23 @@
   ],
   "support": "core",
   "version": "0.1.0",
-  "webhooks": []
+  "webhooks": [
+    {
+      "event_types": [
+        "merge_request",
+        "note",
+        "vulnerability",
+        "vulnerability_create",
+        "vulnerability_update",
+        "vulnerability_delete",
+        "pipeline",
+        "build",
+        "job",
+        "audit",
+        "audit_event"
+      ],
+      "header_event": null,
+      "name": "receive_event"
+    }
+  ]
 }

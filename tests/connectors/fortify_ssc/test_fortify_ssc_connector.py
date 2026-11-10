@@ -20,12 +20,13 @@ from typing import Any, cast
 import pytest
 
 from icuhub.connectors.fortify_ssc import FortifySsc
-from icuhub.connectors.fortify_ssc.connector import ActivityRecord, ArtifactRecord, FindingRecord
+from icuhub.connectors.fortify_ssc.connector import ActivityRecord, ArtifactRecord
 from icuhub.connectors.fortify_ssc.models import GetIssueArgs
 from icuhub.kit.cursors import SequenceCursor, TimeIdCursor
 from icuhub.kit.errors import ConfigError, VendorContractError
 from icuhub.kit.testing import RouteTransport, collect_stream, make_connector, map_all
 from icuhub.kit.types import Target
+from icuhub_schemas.ocsf import VulnerabilityFinding, validate_ocsf
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "fortify_ssc"
 BASE = "https://ssc.example.test/ssc"
@@ -66,8 +67,13 @@ def _paged(pages_by_start: dict[str, Any], seen: list[Any]) -> Any:
     return handler
 
 
-def _findings(connector: FortifySsc, records: list[dict[str, Any]]) -> list[FindingRecord]:
-    return [cast(FindingRecord, r) for r in map_all(connector, "issues", records, target=PV)]
+def _findings(connector: FortifySsc, records: list[dict[str, Any]]) -> list[VulnerabilityFinding]:
+    return [cast(VulnerabilityFinding, r) for r in map_all(connector, "issues", records, target=PV)]
+
+
+def _source(finding: VulnerabilityFinding) -> dict[str, Any]:
+    assert finding.unmapped is not None
+    return cast(dict[str, Any], finding.unmapped["fortify_ssc"])
 
 
 def _issue_item(n: int) -> dict[str, Any]:
@@ -250,22 +256,35 @@ def test_issues_requires_target() -> None:
 # --- issue mapper ----------------------------------------------------------
 
 
-def test_issue_mapper_normalizes_fixture_items() -> None:
+def test_issue_mapper_emits_ocsf_vulnerability_finding() -> None:
     connector = _connector({})
-    first, second = _findings(connector, _load("issues_page1.json")["data"])
+    items = _load("issues_page1.json")["data"]
+    first, second = _findings(connector, items)
 
-    assert first.issue_id == 1001
-    assert first.issue_instance_id == "a1b2c3d4-0001-4000-8000-000000000001"
-    assert first.project_version_id == 42
-    assert first.revision == 3
-    assert first.rule_guid == "11111111-aaaa-4bbb-8ccc-000000000001"
-    assert first.category == "SQL Injection"
-    assert first.file_path == "src/app/Db.java"
-    assert first.line == 88
-    assert first.suppressed is False
-    assert first.removed is False
-    assert first.updated_at == datetime(2026, 3, 1, 10, 0, tzinfo=UTC)
-    assert set(first.fingerprint_inputs) == {
+    document = first.model_dump(mode="json", exclude_none=True)
+    assert document["class_uid"] == 2002
+    validate_ocsf(document)
+    assert first.finding_info.uid == "fortify_ssc:pv:42:instance:a1b2c3d4-0001-4000-8000-000000000001"
+    assert first.finding_info.uid_alt == "1001"
+    assert first.finding_info.title == "SQL Injection"
+    assert first.metadata.uid == "42:a1b2c3d4-0001-4000-8000-000000000001"
+    assert first.cloud.provider == "fortify_ssc"
+    assert first.time == int(datetime(2026, 3, 1, 10, 0, tzinfo=UTC).timestamp() * 1000)
+    assert first.vulnerabilities == []
+    assert first.status_id is None
+
+    source = _source(first)
+    assert source["issue_id"] == 1001
+    assert source["issue_instance_id"] == "a1b2c3d4-0001-4000-8000-000000000001"
+    assert source["project_version_id"] == 42
+    assert source["revision"] == 3
+    assert source["rule_guid"] == "11111111-aaaa-4bbb-8ccc-000000000001"
+    assert source["category"] == "SQL Injection"
+    assert source["file_path"] == "src/app/Db.java"
+    assert source["line"] == 88
+    assert source["suppressed"] is False
+    assert source["removed"] is False
+    assert set(source["fingerprint_inputs"]) == {
         "algorithmVersion",
         "primaryRuleGuid",
         "issueName",
@@ -274,24 +293,27 @@ def test_issue_mapper_normalizes_fixture_items() -> None:
         "lineNumber",
     }
 
-    assert second.issue_id == 1002
-    assert second.revision == 1
-    assert second.line == 17
-    assert second.suppressed is True
+    assert second.finding_info.uid == f"fortify_ssc:pv:42:instance:{items[1]['issueInstanceId']}"
+    assert second.status_id == 3
+    assert second.status == "Suppressed"
+    assert _source(second)["issue_id"] == 1002
+    assert _source(second)["revision"] == 1
+    assert _source(second)["line"] == 17
+    assert _source(second)["suppressed"] is True
 
 
 def test_audit_state_reads_official_fixture_field() -> None:
     connector = _connector({})
     first, _ = _findings(connector, _load("issues_page1.json")["data"])
 
-    assert first.audit_state == "Unaudited"
+    assert _source(first)["audit_state"] == "Unaudited"
 
 
 def test_audit_state_reads_top_level_field() -> None:
     connector = _connector({})
     (finding,) = _findings(connector, [_issue_item(7) | {"issueStatus": "Audited"}])
 
-    assert finding.audit_state == "Audited"
+    assert _source(finding)["audit_state"] == "Audited"
 
 
 def test_issue_mapper_rejects_boolean_project_version() -> None:

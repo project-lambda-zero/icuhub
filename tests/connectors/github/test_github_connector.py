@@ -41,7 +41,7 @@ from icuhub.connectors.github import GitHub
 from icuhub.kit.auth import BearerToken, GitHubAppAuth
 from icuhub.kit.errors import AuthFailed, ConfigError, PermissionDenied, StalePlan, VendorContractError, WebhookRejected
 from icuhub.kit.testing import RouteTransport, collect_stream, make_connector, map_all
-from icuhub.kit.types import ActionOutcome, ActionPlan, Target, WebhookDelivery
+from icuhub.kit.types import ActionOutcome, ActionPlan, Target, TargetRecord, WebhookDelivery
 from icuhub_schemas.ocsf import VulnerabilityFinding
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "github"
@@ -56,7 +56,7 @@ ALERTS_PATH = f"{REPO_PATH}/code-scanning/alerts"
 ALERT_PATH = f"{ALERTS_PATH}/4"
 TARGET = Target(
     id="1001",
-    source_uid="github:repository:1001",
+    source_uid="1001",
     kind="repository",
     display_name="example-org/example-repo",
     attributes={"owner": "example-org", "repo": "example-repo"},
@@ -538,8 +538,19 @@ def test_code_scanning_alert_delivery_parses_to_stream_record() -> None:
         "delivery_id": "delivery-1",
         "repository_id": 1001,
     }
+    assert record.target_uid == "1001"
     assert record.reconcile == "incremental"
     assert record.event == "upsert"
+
+
+def test_delivery_without_repository_leaves_hint_unbound() -> None:
+    body = json.dumps({"action": "created"}).encode()
+    delivery = _delivery(body, {"x-github-event": "code_scanning_alert", "x-github-delivery": "delivery-3"})
+
+    (record,) = hints_for_delivery("code_scanning_alert", delivery)
+
+    assert record.target_uid is None
+    assert record.raw["repository_id"] is None
 
 
 def test_unrelated_github_event_produces_no_records() -> None:
@@ -565,6 +576,41 @@ def test_non_json_delivery_body_is_rejected() -> None:
 
     with pytest.raises(VendorContractError, match="must be JSON"):
         hints_for_delivery("code_scanning_alert", delivery)
+
+
+def test_repository_target_with_non_numeric_source_uid_is_rejected() -> None:
+    connector = _connector({})
+    target = Target(
+        id="example-org/example-repo",
+        source_uid="github:repository:1001",
+        kind="repository",
+        display_name="example-org/example-repo",
+        attributes={"owner": "example-org", "repo": "example-repo"},
+    )
+
+    with pytest.raises(ConfigError, match="must be numeric"):
+        collect_stream(connector, "collaborators", target, mode="full")
+
+
+def test_discover_yields_repository_targets_keyed_by_vendor_id() -> None:
+    connector = _connector(
+        {("GET", "/orgs/example-org/repos"): {"status": 200, "json": _load("repositories_page1.json")}},
+        organization="example-org",
+    )
+
+    async def collect() -> list[TargetRecord]:
+        return [record async for record in connector.discover()]
+
+    (record,) = asyncio.run(collect())
+
+    assert record.source_uid == "1001"
+    assert record.kind == "repository"
+    assert record.display_name == "example-org/example-repo"
+    assert record.attributes == {
+        "owner": "example-org",
+        "repo": "example-repo",
+        "full_name": "example-org/example-repo",
+    }
 
 
 # --- write actions: gates, reconcile, no-op planning, merge ----------------

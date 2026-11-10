@@ -9,17 +9,19 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from icuhub.core.audit import append as audit_append
 from icuhub.core.credentials import EncryptedBlob
-from icuhub.core.queue import enqueue
+from icuhub.core.queue import DuplicateActiveJob, enqueue
 from icuhub.core.services import get_services
 from icuhub.kit.errors import WebhookRejected
 from icuhub.kit.types import WebhookDelivery
 from icuhub.storage.db import session_scope
 from icuhub.storage.models import Connection, RawBatch, WebhookEndpoint
+from icuhub.storage.models import Target as TargetRow
 from icuhub.storage.models import WebhookDelivery as DeliveryRow
 from icuhub.storage.system import lookup_webhook_endpoint
 
@@ -115,7 +117,6 @@ async def receive(endpoint_id: str, headers: dict[str, str], body: bytes) -> Rec
             )
             return Receipt(status_code=401, detail="verification failed")
         vendor_id = verified.delivery_id or _fallback_delivery_id(body, verified.event_type)
-        from sqlalchemy import select  # noqa: PLC0415
 
         existing = (
             await session.execute(
@@ -218,13 +219,29 @@ async def run_webhook_job(payload: dict[str, Any], lease: Any = None) -> dict[st
             for spec in specs:
                 for record in spec.fn(connector, delivery):
                     if record.reconcile is not None:
-                        await trigger_sync(
-                            session,
-                            Caller(id="webhook-reconcile", tenant_id=tenant_id, roles=frozenset({"system"})),
-                            connection.id,
-                            record.stream,
-                            mode=record.reconcile,
-                        )
+                        target_id: uuid.UUID | None = None
+                        if record.target_uid is not None:
+                            target = (
+                                await session.execute(
+                                    select(TargetRow).where(
+                                        TargetRow.connection_id == connection.id,
+                                        TargetRow.source_uid == record.target_uid,
+                                    )
+                                )
+                            ).scalar_one_or_none()
+                            target_id = target.id if target is not None else None
+                        try:
+                            await trigger_sync(
+                                session,
+                                Caller(id="webhook-reconcile", tenant_id=tenant_id, roles=frozenset({"system"})),
+                                connection.id,
+                                record.stream,
+                                target_id=target_id,
+                                mode=record.reconcile,
+                            )
+                        except DuplicateActiveJob:
+                            # A repeated delivery reuses the active sync; the delivery still processes.
+                            pass
                         reconciliations += 1
                         continue
                     grouped.setdefault(record.stream, []).append(record.raw)

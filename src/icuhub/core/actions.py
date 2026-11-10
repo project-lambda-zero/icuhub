@@ -13,6 +13,7 @@ import json
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +32,8 @@ from icuhub.storage.models import (
     ActionRequest,
     Approval,
     Connection,
+    CorrelationCase,
+    EvidenceItem,
     PolicyRule,
     Tenant,
 )
@@ -55,6 +58,97 @@ def _digest(args: dict[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(canonical.encode()).hexdigest()
 
 
+_POST_ACTION_ASSESSMENTS = {
+    ("openshift", "update_scc"): "scc_assessment_snapshot",
+    ("openshift", "update_route_tls"): "route_assessment_snapshot",
+}
+
+
+async def _record_case_evidence(
+    session: AsyncSession,
+    request: ActionRequest,
+    *,
+    kind: str,
+    ref_table: str,
+    ref_id: uuid.UUID,
+    digest: str,
+) -> None:
+    """Link one immutable action artifact to its case using the exporter's exact digest."""
+    if request.correlation_id is None:
+        return
+    try:
+        case_id = uuid.UUID(request.correlation_id)
+    except ValueError:
+        return
+    case = await session.get(CorrelationCase, case_id)
+    if case is None or case.tenant_id != request.tenant_id:
+        return
+    existing = (
+        await session.execute(
+            select(EvidenceItem).where(
+                EvidenceItem.tenant_id == request.tenant_id,
+                EvidenceItem.case_id == case_id,
+                EvidenceItem.kind == kind,
+                EvidenceItem.ref_table == ref_table,
+                EvidenceItem.ref_id == ref_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        if existing.digest != digest:
+            raise Conflict(f"{kind} evidence changed after it was recorded")
+        return
+    session.add(
+        EvidenceItem(
+            tenant_id=request.tenant_id,
+            case_id=case_id,
+            kind=kind,
+            digest=digest,
+            ref_table=ref_table,
+            ref_id=ref_id,
+        )
+    )
+
+
+async def _record_approval_evidence(
+    session: AsyncSession, request: ActionRequest, approval: Approval
+) -> None:
+    from icuhub.core.evidence_export import _approval  # noqa: PLC0415
+    from icuhub.core.evidence_export import _digest as export_digest  # noqa: PLC0415
+
+    await _record_case_evidence(
+        session,
+        request,
+        kind="approval",
+        ref_table="approval",
+        ref_id=approval.id,
+        digest=export_digest(_approval(approval)),
+    )
+
+
+async def _schedule_post_action_assessment(session: AsyncSession, request: ActionRequest) -> None:
+    connection = await session.get(Connection, request.connection_id)
+    if connection is None:
+        return
+    stream = _POST_ACTION_ASSESSMENTS.get((connection.kind, request.action))
+    if stream is None:
+        return
+    from icuhub.core.queue import DuplicateActiveJob  # noqa: PLC0415
+    from icuhub.core.sync import trigger_sync  # noqa: PLC0415
+
+    try:
+        await trigger_sync(
+            session,
+            Caller(id="action-completion", tenant_id=request.tenant_id, roles=frozenset({"system"})),
+            connection.id,
+            stream,
+            mode="full",
+        )
+    except DuplicateActiveJob:
+        # The active authoritative read covers the same checkpoint; never enqueue a duplicate.
+        pass
+
+
 class _ReadOnlyHttp:
     """VendorHttp facade that rejects vendor writes during planning (GAP-PLAT plan safety)."""
 
@@ -69,8 +163,10 @@ class _ReadOnlyHttp:
         verb = method.upper()
         if verb in ("GET", "HEAD", "OPTIONS"):
             return await self._inner.request(method, url, **kwargs)
-        path = str(url).split("?", 1)[0]
-        if verb == "POST" and any(path.endswith(p) for p in self._allowed):
+        path = urlsplit(str(url)).path
+        if verb == "POST" and any(
+            path == allowed or (allowed.endswith("/") and path.startswith(allowed)) for allowed in self._allowed
+        ):
             return await self._inner.request(method, url, **kwargs)
         raise AssertionError(f"plan must not send vendor writes: {verb} {url}")
 
@@ -124,6 +220,22 @@ async def _transition(
             data={"action": request.action, "connection_id": str(request.connection_id), "state": state},
         ),
     )
+    if state in ("succeeded", "failed", "no_op", "stale_plan"):
+        from icuhub.core.evidence_export import _action, _outcome_digest  # noqa: PLC0415
+
+        digest = _outcome_digest(_action(request))
+        if digest is None:  # pragma: no cover - _action always emits an outcome object
+            raise RuntimeError("terminal action outcome has no evidence digest")
+        await _record_case_evidence(
+            session,
+            request,
+            kind="outcome",
+            ref_table="action_request",
+            ref_id=request.id,
+            digest=digest,
+        )
+    if state == "succeeded":
+        await _schedule_post_action_assessment(session, request)
     if state in ("succeeded", "failed", "no_op", "stale_plan", "outcome_unknown"):
         from icuhub.core.tickets import on_action_terminal  # noqa: PLC0415 - tickets builds actions
 
@@ -134,7 +246,7 @@ async def _plan(
     connector: Connector, spec: ActionSpec, args: dict[str, Any]
 ) -> ActionPlan:
     parsed = spec.input_model.model_validate(args)
-    read_only = _ReadOnlyHttp(connector.ctx.http, allowed_post_paths=())
+    read_only = _ReadOnlyHttp(connector.ctx.http, allowed_post_paths=connector.plan_safe_post_paths)
     original = connector.ctx.http
     connector.ctx.http = read_only
     try:
@@ -211,6 +323,14 @@ async def submit_action(
     connector = await services.runtime.open(session, caller.tenant_id, connection.id)
     plan = await _plan(connector, spec, args)
     session.add(_store_plan(request, plan))
+    await _record_case_evidence(
+        session,
+        request,
+        kind="action_plan",
+        ref_table="action_plan",
+        ref_id=request.id,
+        digest=plan.plan_hash,
+    )
     rules = list(
         (await session.execute(select(PolicyRule).where(PolicyRule.tenant_id == caller.tenant_id))).scalars().all()
     )
@@ -304,6 +424,7 @@ async def decide(
         approval.decision = "expired"
         approval.decided_at = datetime.now(UTC)
         await _transition(session, request, "expired", caller_id=caller.id)
+        await _record_approval_evidence(session, request, approval)
         return request
     if caller.id == request.caller_id:
         raise PermissionDenied("requester cannot approve their own action (SoD)")
@@ -315,6 +436,7 @@ async def decide(
     approval.reason = reason
     approval.change_ref = change_ref
     await _transition(session, request, "approved" if decision == "approved" else "rejected", caller_id=caller.id)
+    await _record_approval_evidence(session, request, approval)
     if decision == "approved":
         await enqueue(
             session,

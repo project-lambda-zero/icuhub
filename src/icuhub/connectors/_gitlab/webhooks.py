@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Awaitable, Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any, Literal, Protocol, runtime_checkable
 
@@ -13,6 +13,7 @@ from icuhub.kit.types import StreamRecord, WebhookDelivery
 from icuhub.kit.webhook import StandardWebhooks, VerifiedDelivery, WebhookVerifier
 
 __all__ = [
+    "EVENT_TYPES",
     "GitLabWebhookParser",
     "GitLabWebhookProcessor",
     "ProcessedWebhook",
@@ -34,6 +35,8 @@ _HINTS: dict[str, tuple[str, Literal["incremental", "full"]]] = {
     "audit": ("audit_events", "incremental"),
     "audit_event": ("audit_events", "incremental"),
 }
+# Every event key the connector accepts; the @webhook declaration and verifier share this set.
+EVENT_TYPES: tuple[str, ...] = tuple(_HINTS)
 
 
 class RotatingStandardWebhooks:
@@ -60,6 +63,16 @@ class RotatingStandardWebhooks:
         self._verifiers = tuple(verifiers)
 
     def verify(self, delivery: WebhookDelivery, *, now: datetime) -> VerifiedDelivery:
+        verified = self._authenticate(delivery, now=now)
+        # Only an authenticated body is classified. A signed body GitLab does not support is rejected
+        # here so it is never stored with no event type, which core records as ignored.
+        try:
+            event_type = _event_key(_payload(delivery))
+        except VendorContractError as exc:
+            raise WebhookRejected(str(exc)) from exc
+        return replace(verified, event_type=event_type)
+
+    def _authenticate(self, delivery: WebhookDelivery, *, now: datetime) -> VerifiedDelivery:
         last_rejection: WebhookRejected | None = None
         for verifier in self._verifiers:
             try:
@@ -133,25 +146,25 @@ def _target_uid(payload: dict[str, Any]) -> str | None:
     project = payload.get("project")
     if project_id is None and isinstance(project, dict):
         project_id = _numeric_id(project.get("id"))
-    return f"project:{project_id}" if project_id is not None else None
+    return f"gitlab:project:{project_id}" if project_id is not None else None
 
 
-def _hint(payload: dict[str, Any]) -> tuple[str, Literal["incremental", "full"]]:
-    matches: set[tuple[str, Literal["incremental", "full"]]] = set()
+def _event_key(payload: dict[str, Any]) -> str:
+    """Return the canonical ``_HINTS`` key for a body, preferring ``object_kind`` when both match."""
+    matched: list[str] = []
     for field in ("object_kind", "event_name"):
         value = payload.get(field)
         if value is None:
             continue
         if not isinstance(value, str):
             raise VendorContractError(f"GitLab webhook {field} must be a string")
-        match = _HINTS.get(value)
-        if match is not None:
-            matches.add(match)
-    if not matches:
+        if value in _HINTS:
+            matched.append(value)
+    if not matched:
         raise VendorContractError("unsupported GitLab webhook event")
-    if len(matches) != 1:
+    if len({_HINTS[key] for key in matched}) != 1:
         raise VendorContractError("conflicting GitLab webhook event hints")
-    return matches.pop()
+    return matched[0]
 
 
 class GitLabWebhookParser:
@@ -164,7 +177,7 @@ class GitLabWebhookParser:
 
     def parse(self, delivery: WebhookDelivery) -> list[StreamRecord]:
         payload = _payload(delivery)
-        stream, reconcile = _hint(payload)
+        stream, reconcile = _HINTS[_event_key(payload)]
         raw = _without_secrets(payload)
         raw["_gitlab_host"] = self._host
         return [

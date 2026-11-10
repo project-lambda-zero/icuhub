@@ -599,7 +599,8 @@ def test_publish_roundtrip_plays_then_publishes_verified_artifact(edition: str) 
         fake.jobs[JOB_ID]["status"] = "success"
         fake.artifacts[JOB_ID] = json.dumps(document).encode("utf-8")
         replan = await plan_publish_security_report_artifact(fake, args)
-        assert replan.changed is False
+        assert replan.changed is True
+        assert replan.request["operation"] is None
         done = await apply_publish_security_report_artifact(fake, replan)
         assert done.status == "succeeded"
         assert done.result["artifact_sha256"] == replan.request["sarif_sha256"]
@@ -700,5 +701,96 @@ def test_publish_incomplete_native_reconciliation_is_accepted_async(edition: str
         plan = await plan_publish_security_report_artifact(fake, args)
         outcome = await apply_publish_security_report_artifact(fake, plan)
         assert outcome.status == "accepted_async"
+
+    asyncio.run(scenario())
+
+
+def _counting_control(fake: FakeGitLab) -> list[str]:
+    """Record every job-control write the publication path issues against the fake."""
+    operations: list[str] = []
+    original = fake.control_job
+
+    async def recording(project_id: int, job_id: int, operation: str) -> dict[str, Any]:
+        operations.append(operation)
+        return await original(project_id, job_id, operation)
+
+    fake.control_job = recording  # type: ignore[method-assign]
+    return operations
+
+
+@pytest.mark.parametrize("edition", EDITIONS)
+def test_publish_success_missing_native_fails_without_write(edition: str) -> None:
+    document = _load(edition, "sarif_report_valid.sarif.json")
+    uids = _uids(edition)
+
+    async def scenario() -> None:
+        fake = FakeGitLab()
+        head = _seed_publish(fake, edition, "success")
+        fake.artifacts[JOB_ID] = json.dumps(document).encode("utf-8")
+        fake.native_found = set()
+        writes = _counting_control(fake)
+        plan = await plan_publish_security_report_artifact(fake, _publish_args(head, document, uids))
+        assert plan.changed is True
+        outcome = await apply_publish_security_report_artifact(fake, plan)
+        assert outcome.status == "failed"
+        assert outcome.result["native_missing"] == uids
+        assert writes == []
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("edition", EDITIONS)
+def test_publish_in_flight_job_is_accepted_async_without_write(edition: str) -> None:
+    document = _load(edition, "sarif_report_valid.sarif.json")
+    uids = _uids(edition)
+
+    async def scenario() -> None:
+        fake = FakeGitLab()
+        head = _seed_publish(fake, edition, "running")
+        writes = _counting_control(fake)
+        plan = await plan_publish_security_report_artifact(fake, _publish_args(head, document, uids))
+        assert plan.request["operation"] is None
+        outcome = await apply_publish_security_report_artifact(fake, plan)
+        assert outcome.status == "accepted_async"
+        assert outcome.vendor_ref == str(JOB_ID)
+        assert writes == []
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("edition", EDITIONS)
+def test_publish_skipped_job_fails_without_write(edition: str) -> None:
+    document = _load(edition, "sarif_report_valid.sarif.json")
+    uids = _uids(edition)
+
+    async def scenario() -> None:
+        fake = FakeGitLab()
+        head = _seed_publish(fake, edition, "skipped")
+        writes = _counting_control(fake)
+        plan = await plan_publish_security_report_artifact(fake, _publish_args(head, document, uids))
+        assert plan.changed is True
+        outcome = await apply_publish_security_report_artifact(fake, plan)
+        assert outcome.status == "failed"
+        assert outcome.error == "artifact job ended with status skipped"
+        assert writes == []
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("edition", EDITIONS)
+def test_publish_already_native_success_performs_no_write(edition: str) -> None:
+    document = _load(edition, "sarif_report_valid.sarif.json")
+    uids = _uids(edition)
+
+    async def scenario() -> None:
+        fake = FakeGitLab()
+        head = _seed_publish(fake, edition, "success")
+        fake.artifacts[JOB_ID] = json.dumps(document).encode("utf-8")
+        fake.native_found = set(uids)
+        writes = _counting_control(fake)
+        plan = await plan_publish_security_report_artifact(fake, _publish_args(head, document, uids))
+        outcome = await apply_publish_security_report_artifact(fake, plan)
+        assert outcome.status == "succeeded"
+        assert writes == []
 
     asyncio.run(scenario())

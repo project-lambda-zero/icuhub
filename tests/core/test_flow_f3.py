@@ -357,8 +357,13 @@ def test_f3_approval_expiry_reversal_and_f7_evidence(tmp_path: Any, clean_databa
         assert {row["action"] for row in payload["actions"]} == {"snooze_alert", "reopen_alert"}
         assert len(payload["plans"]) == 4 and len(payload["approvals"]) == 4
         assert payload["raw_batches"] and payload["evidence"]
-        assert report["evidence_references"]["checked"] == 2
-        assert len(payload["evidence"]) == 2
+        evidence_counts = {
+            kind: sum(row["kind"] == kind for row in payload["evidence"])
+            for kind in ("raw_batch", "action_plan", "approval", "outcome")
+        }
+        assert evidence_counts == {"raw_batch": 2, "action_plan": 4, "approval": 4, "outcome": 4}
+        assert report["evidence_references"]["checked"] == 14
+        assert len(payload["evidence"]) == 14
         assert {row["value"] for row in payload["vendor_references"]} == {"alert-1"}
 
         foreign_id = uuid.uuid4()

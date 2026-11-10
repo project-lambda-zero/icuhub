@@ -561,6 +561,9 @@ class Connector(ABC):
     #: Non-HTTP connectors (for example SMTP) set this to False so the runtime attaches no HTTP client.
     uses_http: ClassVar[bool] = True
     scopes: ClassVar[tuple[Scope, ...]] = ()
+    #: Authentication and read-only POST paths permitted while building a side-effect-free action plan.
+    #: Entries ending in ``/`` are prefixes; every other entry is an exact path.
+    plan_safe_post_paths: ClassVar[tuple[str, ...]] = ()
     flows: ClassVar[tuple[str, ...]]
     rate_limits: ClassVar[dict[str, tuple[float, float]]] = {}
 

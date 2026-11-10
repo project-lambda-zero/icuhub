@@ -406,9 +406,9 @@ def test_unknown_extra_fields_are_tolerated_and_preserved():
 @pytest.mark.parametrize(
     ("payload", "expected"),
     [
-        ({"object_kind": "note", "project_id": 5, "project": {"id": 6}}, "project:5"),
-        ({"object_kind": "note", "project_id": "40123"}, "project:40123"),
-        ({"object_kind": "merge_request", "project": {"id": 40123}}, "project:40123"),
+        ({"object_kind": "note", "project_id": 5, "project": {"id": 6}}, "gitlab:project:5"),
+        ({"object_kind": "note", "project_id": "40123"}, "gitlab:project:40123"),
+        ({"object_kind": "merge_request", "project": {"id": 40123}}, "gitlab:project:40123"),
         ({"object_kind": "note", "project_id": "abc"}, None),
         ({"object_kind": "note", "project_id": True}, None),
         ({"object_kind": "note", "project": {"id": "12x"}}, None),
@@ -421,11 +421,11 @@ def test_target_uid_from_numeric_project_id(payload: dict[str, Any], expected: s
 
 
 def test_fixture_target_uid_comes_from_project_object():
-    assert _parse_one(_fixture(GITLAB_FIXTURES, "merge_request_hook.json")).target_uid == "project:40123"
+    assert _parse_one(_fixture(GITLAB_FIXTURES, "merge_request_hook.json")).target_uid == "gitlab:project:40123"
 
 
 def test_fixture_target_uid_comes_from_top_level_project_id():
-    assert _parse_one(_fixture(GITLAB_FIXTURES, "job_hook.json")).target_uid == "project:40123"
+    assert _parse_one(_fixture(GITLAB_FIXTURES, "job_hook.json")).target_uid == "gitlab:project:40123"
 
 
 # --- Redaction -------------------------------------------------------------------------

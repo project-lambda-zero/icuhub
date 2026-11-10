@@ -40,7 +40,8 @@ GITHUB_WEBHOOK_EVENTS: tuple[str, ...] = tuple(sorted(_EVENT_STREAMS))
 def hints_for_delivery(event: str, delivery: WebhookDelivery) -> list[StreamRecord]:
     """Return one incremental reconcile hint per stream named by ``event``.
 
-    The body is parsed only to reject malformed JSON and to bind the hint to its repository.
+    The body is parsed only to reject malformed JSON and to bind the hint to its repository:
+    a numeric repository ID sets ``target_uid`` to that ID, otherwise ``target_uid`` stays None.
     Records are never produced from the body itself.
     """
     streams = _EVENT_STREAMS.get(event)
@@ -57,10 +58,12 @@ def hints_for_delivery(event: str, delivery: WebhookDelivery) -> list[StreamReco
         raise VendorContractError("GitHub webhook delivery lacks X-GitHub-Delivery")
     repository = value.get("repository")
     repository_id = repository.get("id") if isinstance(repository, dict) else None
+    target_uid = str(repository_id) if isinstance(repository_id, int) and not isinstance(repository_id, bool) else None
     return [
         StreamRecord(
             stream=stream,
             raw={"event": event, "delivery_id": delivery_id, "repository_id": repository_id},
+            target_uid=target_uid,
             reconcile="incremental",
         )
         for stream in streams

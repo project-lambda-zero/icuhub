@@ -16,6 +16,7 @@ import hashlib
 import json
 import re
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -25,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from icuhub.storage.models import AuditRecord
 
-__all__ = ["AuditFailure", "VerifyResult", "append", "verify_chain"]
+__all__ = ["AuditFailure", "VerifyResult", "append", "verify_chain", "verify_records"]
 
 GENESIS_PREV_HASH = "sha256:" + "0" * 64
 _HASH_PATTERN = re.compile(r"sha256:[0-9a-f]{64}")
@@ -163,14 +164,7 @@ async def append(
 
 
 async def verify_chain(session: AsyncSession, tenant_id: uuid.UUID) -> VerifyResult:
-    """Check every retained record of a tenant in sequence order.
-
-    For each row the verifier checks that ``seq`` is the next expected value,
-    that ``prev_hash`` equals the previous stored hash (or genesis), and that the
-    hash is correct. Unpurged rows are rehashed from their fields. Purged rows
-    (``detail_json == {}``) are checked for a well-formed stored hash only. Every
-    failure is reported; a gap does not stop the scan.
-    """
+    """Check every retained record of a tenant in sequence order (see ``verify_records``)."""
 
     records = (
         (
@@ -183,6 +177,20 @@ async def verify_chain(session: AsyncSession, tenant_id: uuid.UUID) -> VerifyRes
         .scalars()
         .all()
     )
+    return verify_records(records)
+
+
+def verify_records(records: Sequence[AuditRecord]) -> VerifyResult:
+    """Check a tenant's records, given in sequence order, against the chain rules.
+
+    For each row the verifier checks that ``seq`` is the next expected value,
+    that ``prev_hash`` equals the previous stored hash (or genesis), and that the
+    hash is correct. Unpurged rows are rehashed from their fields. Purged rows
+    (``detail_json == {}``) are checked for a well-formed stored hash only. Every
+    failure is reported; a gap does not stop the scan. The database verifier and
+    the offline evidence bundle verifier both use this function.
+    """
+
     failures: list[AuditFailure] = []
     expected_seq = 1
     expected_prev_hash = GENESIS_PREV_HASH

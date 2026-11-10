@@ -134,6 +134,47 @@ def test_report_mapper_preserves_native_identity_and_dast_evidence_bounds() -> N
     finding.to_ocsf()
 
 
+def test_webinspect_mapper_carries_source_host_as_resource_identity() -> None:
+    scan = b"""<?xml version="1.0"?>
+<Scan version="24.2">
+  <Issues>
+    <Issue>
+      <VulnerabilityID>7</VulnerabilityID><URL>https://example.test/a</URL>
+      <Host>example.test</Host><Port>443</Port>
+      <Name>XSS</Name><Severity>3</Severity>
+    </Issue>
+  </Issues>
+</Scan>
+"""
+    raw = next(iter(iter_fortify_xml(scan)))
+
+    (finding,) = map_report_issue(raw, _ctx())
+
+    assert finding.resources is not None
+    assert finding.resources[0].hostname == "example.test"
+    assert finding.unmapped["fortify"]["host"] == "example.test"
+    finding.to_ocsf()
+
+
+def test_webinspect_mapper_without_source_host_emits_no_resource() -> None:
+    scan = b"""<?xml version="1.0"?>
+<Scan version="24.2">
+  <Issues>
+    <Issue>
+      <VulnerabilityID>7</VulnerabilityID><URL>https://example.test/a</URL>
+      <Name>XSS</Name><Severity>3</Severity>
+    </Issue>
+  </Issues>
+</Scan>
+"""
+    raw = next(iter(iter_fortify_xml(scan)))
+
+    (finding,) = map_report_issue(raw, _ctx())
+
+    assert finding.resources is None
+    finding.to_ocsf()
+
+
 def test_legacy_report_mapper_uses_native_friority_and_source_location() -> None:
     report = b"""<?xml version="1.0"?>
 <ReportDefinition>

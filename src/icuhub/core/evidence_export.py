@@ -123,6 +123,40 @@ async def _rows(session: AsyncSession, statement: Any) -> list[Any]:
     return list((await session.execute(statement)).scalars().all())
 
 
+async def _lineage_case_ids(session: AsyncSession, tenant_id: uuid.UUID, case_id: uuid.UUID) -> set[uuid.UUID]:
+    """The case plus every case merged into it, transitively.
+
+    A merge moves members but leaves the source case's evidence, tickets, and actions in place,
+    so the export of the surviving case must read all of them.
+    """
+    lineage = {case_id}
+    frontier = {case_id}
+    while frontier:
+        merged = await _rows(
+            session,
+            select(CorrelationCase.id).where(
+                CorrelationCase.tenant_id == tenant_id,
+                CorrelationCase.merged_into.in_(list(frontier)),
+            ),
+        )
+        frontier = set(merged) - lineage
+        lineage |= frontier
+    return lineage
+
+
+def _distinct_evidence(rows: list[EvidenceItem]) -> list[EvidenceItem]:
+    """A batch that fed several cases in one lineage is one piece of evidence; keep the first row per reference."""
+    seen: set[tuple[str, uuid.UUID]] = set()
+    distinct: list[EvidenceItem] = []
+    for row in rows:
+        key = (row.ref_table, row.ref_id)
+        if key in seen:
+            continue
+        seen.add(key)
+        distinct.append(row)
+    return distinct
+
+
 def _case(row: CorrelationCase) -> dict[str, Any]:
     return {
         "id": _uuid(row.id),
@@ -359,42 +393,86 @@ def _audit_object(row: dict[str, Any]) -> AuditRecord:
 
 
 def _verify_audit_records(records: list[dict[str, Any]]) -> dict[str, Any]:
-    failures: list[str] = []
-    previous = audit_chain.GENESIS_PREV_HASH
-    for expected_seq, row in enumerate(records, start=1):
-        try:
-            record = _audit_object(row)
-            if record.seq != expected_seq:
-                failures.append(f"seq:{record.seq}:sequence")
-            if record.prev_hash != previous:
-                failures.append(f"seq:{record.seq}:previous_hash")
-            expected_hash = audit_chain._record_hash(record, previous)
-            if record.hash != expected_hash:
-                failures.append(f"seq:{record.seq}:hash")
-            previous = record.hash
-        except (KeyError, TypeError, ValueError) as exc:
-            failures.append(f"record:{expected_seq}:{type(exc).__name__}")
-    return {"ok": not failures, "checked": len(records), "failures": failures}
+    try:
+        objects = [_audit_object(row) for row in records]
+    except (KeyError, TypeError, ValueError) as exc:
+        return {"ok": False, "checked": len(records), "failures": [f"record:{type(exc).__name__}"]}
+    result = audit_chain.verify_records(objects)
+    failures = [f"seq:{failure.seq}:{failure.reason}" for failure in result.failures]
+    return {"ok": result.ok, "checked": result.checked, "failures": failures}
+
+
+# Each evidence kind binds to exactly one ref_table. Any other kind or pairing is rejected (fail closed).
+_EVIDENCE_REF_TABLES: dict[str, str] = {
+    "raw_batch": "raw_batch",
+    "file_import": "file_import",
+    "action_plan": "action_plan",
+    "approval": "approval",
+    "outcome": "action_request",
+}
+
+
+def _index_by_key(rows: list[dict[str, Any]], key: str, label: str, failures: list[str]) -> dict[Any, dict[str, Any]]:
+    """Index exported rows by key. A repeated key is a failure, never a silent overwrite."""
+    indexed: dict[Any, dict[str, Any]] = {}
+    for row in rows:
+        ident = row.get(key)
+        if ident in indexed:
+            failures.append(f"{label}:duplicate:{ident}")
+        indexed[ident] = row
+    return indexed
+
+
+def _outcome_digest(action: dict[str, Any]) -> str | None:
+    """Digest of an action's outcome, bound to the action id so a swapped reference fails recomputation."""
+    outcome = action.get("outcome")
+    result = outcome.get("result") if isinstance(outcome, dict) else None
+    if not isinstance(outcome, dict) or not isinstance(result, dict):
+        return None
+    return _digest(
+        {
+            "action_request_id": action.get("id"),
+            "state": outcome.get("state"),
+            "error_class": outcome.get("error_class"),
+            "result_sha256": result.get("sha256"),
+        }
+    )
 
 
 def _verify_evidence_references(payload: dict[str, Any]) -> dict[str, Any]:
-    raw = {row["id"]: row["digest"] for row in payload.get("raw_batches", [])}
-    imports = {row["id"]: row["digest"] for row in payload.get("file_imports", [])}
-    plans = {row["action_request_id"]: row["plan_hash"] for row in payload.get("plans", [])}
     failures: list[str] = []
-    for item in payload.get("evidence", []):
+    raw = _index_by_key(payload.get("raw_batches", []), "id", "raw_batch", failures)
+    imports = _index_by_key(payload.get("file_imports", []), "id", "file_import", failures)
+    plans = _index_by_key(payload.get("plans", []), "action_request_id", "action_plan", failures)
+    approvals = _index_by_key(payload.get("approvals", []), "id", "approval", failures)
+    actions = _index_by_key(payload.get("actions", []), "id", "action_request", failures)
+    evidence = payload.get("evidence", [])
+    for item in evidence:
+        item_id = item.get("id")
+        kind = item.get("kind")
         table = item.get("ref_table")
         ref_id = item.get("ref_id")
-        expected = None
-        if table == "raw_batch":
-            expected = raw.get(ref_id)
-        elif table == "file_import":
-            expected = imports.get(ref_id)
-        elif table == "action_plan":
-            expected = plans.get(ref_id)
+        if _EVIDENCE_REF_TABLES.get(kind) != table:
+            failures.append(f"{item_id}:unknown_kind:{kind}:{table}")
+            continue
+        expected: str | None = None
+        if kind == "raw_batch":
+            expected = raw[ref_id]["digest"] if ref_id in raw else None
+        elif kind == "file_import":
+            expected = imports[ref_id]["digest"] if ref_id in imports else None
+        elif kind == "action_plan":
+            expected = plans[ref_id]["plan_hash"] if ref_id in plans else None
+        elif kind == "approval":
+            # The approval digest covers its action_request_id, so a reference moved to another action fails here.
+            approval = approvals.get(ref_id)
+            if approval is not None and approval.get("action_request_id") in actions:
+                expected = _digest(approval)
+        else:  # outcome: bound to the action that owns the result
+            action = actions.get(ref_id)
+            expected = _outcome_digest(action) if action is not None else None
         if expected is None or expected != item.get("digest"):
-            failures.append(f"{item.get('id')}:{table}:{ref_id}")
-    return {"ok": not failures, "checked": len(payload.get("evidence", [])), "failures": failures}
+            failures.append(f"{item_id}:{kind}:{ref_id}")
+    return {"ok": not failures, "checked": len(evidence), "failures": failures}
 
 
 async def export_evidence_bundle(
@@ -422,15 +500,20 @@ async def export_evidence_bundle(
     members = await _rows(session, select(CaseMember).where(CaseMember.case_id == case_id).order_by(CaseMember.finding_id))
     finding_ids = [row.finding_id for row in members]
     findings = await _rows(session, select(Finding).where(Finding.id.in_(finding_ids)).order_by(Finding.id)) if finding_ids else []
-    tickets = await _rows(session, select(TicketLink).where(TicketLink.case_id == case_id).order_by(TicketLink.id))
+    lineage = await _lineage_case_ids(session, caller.tenant_id, case_id)
+    tickets = await _rows(session, select(TicketLink).where(TicketLink.case_id.in_(lineage)).order_by(TicketLink.id))
     actions = await _rows(
         session,
-        select(ActionRequest).where(ActionRequest.correlation_id == str(case_id)).order_by(ActionRequest.id),
+        select(ActionRequest)
+        .where(ActionRequest.correlation_id.in_([str(item) for item in lineage]))
+        .order_by(ActionRequest.id),
     )
     action_ids = [row.id for row in actions]
     plans = await _rows(session, select(ActionPlanRow).where(ActionPlanRow.action_request_id.in_(action_ids)).order_by(ActionPlanRow.action_request_id)) if action_ids else []
     approvals = await _rows(session, select(Approval).where(Approval.action_request_id.in_(action_ids)).order_by(Approval.id)) if action_ids else []
-    evidence = await _rows(session, select(EvidenceItem).where(EvidenceItem.case_id == case_id).order_by(EvidenceItem.id))
+    evidence = _distinct_evidence(
+        await _rows(session, select(EvidenceItem).where(EvidenceItem.case_id.in_(lineage)).order_by(EvidenceItem.id))
+    )
 
     raw_ids = {row.raw_batch_id for row in findings if row.raw_batch_id is not None}
     raw_ids.update(row.ref_id for row in evidence if row.ref_table == "raw_batch")

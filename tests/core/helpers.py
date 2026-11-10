@@ -6,6 +6,7 @@ import os
 import uuid
 from typing import Any
 
+from icuhub.connectors.github import GitHub
 from icuhub.connectors.smtp import Smtp
 from icuhub.core.auth_types import Caller
 from icuhub.core.connections import create_connection
@@ -19,6 +20,7 @@ REGISTRY = {
     "sample_scanner_b": SampleScannerB,
     "sample_tracker_core": SampleTracker,
     "smtp": Smtp,
+    "github": GitHub,
 }
 
 

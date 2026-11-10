@@ -19,6 +19,7 @@ from icuhub_schemas.ocsf import (
     FindingInfo,
     Metadata,
     Product,
+    ResourceDetails,
     Vulnerability,
     VulnerabilityFinding,
 )
@@ -234,6 +235,7 @@ def _vulnerability_finding(
     unmapped: dict[str, Any],
     status_id: int | None = None,
     status: str | None = None,
+    resources: list[ResourceDetails] | None = None,
 ) -> VulnerabilityFinding:
     return VulnerabilityFinding(
         time=_observed_time_ms(ctx, source),
@@ -247,6 +249,7 @@ def _vulnerability_finding(
         vulnerabilities=vulnerabilities,
         metadata=Metadata(product=_product(product_name), uid=metadata_uid),
         cloud=Cloud(provider=cloud_provider),
+        resources=resources,
         osint=[],
         unmapped={"fortify": unmapped},
         raw_data=bounded_raw(raw),
@@ -388,9 +391,12 @@ def _webinspect_finding(raw: dict[str, Any], ctx: MapContext) -> VulnerabilityFi
             "raw_response": _bounded_text(raw.get("raw_response")),
         },
     }
+    host = _optional_str(raw, "host")
+    resources = [ResourceDetails(name=host, hostname=host)] if host else None
     return _vulnerability_finding(
         ctx=ctx,
         source="WebInspect scan",
+        resources=resources,
         product_name=_WEBINSPECT_PRODUCT_NAME,
         cloud_provider=_WEBINSPECT_CLOUD_PROVIDER,
         severity_id=severity_id,

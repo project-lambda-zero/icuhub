@@ -64,9 +64,9 @@ def _repository(connector, target: Target | None) -> tuple[Any, int, str]:
         raise ConfigError("GitHub repository stream requires a repository target")
     reference = connector.target_repository(target)
     try:
-        repository_id = int(target.id)
+        repository_id = int(target.source_uid)
     except (TypeError, ValueError) as exc:
-        raise ConfigError("GitHub repository target id must be numeric") from exc
+        raise ConfigError("GitHub repository target source_uid must be numeric") from exc
     path = f"/repos/{_segment(reference.owner)}/{_segment(reference.repo)}"
     return reference, repository_id, path
 
@@ -95,6 +95,26 @@ def _object(value: Any, source: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise VendorContractError(f"GitHub {source} response must be an object")
     return value
+
+
+async def list_repositories(connector, organization: str | None) -> tuple[str, list[dict[str, Any]]]:
+    """List the repositories in one organization, or the authenticated user's repositories when none is given."""
+    if organization:
+        return organization, await _paged(
+            connector,
+            f"/orgs/{_segment(organization)}/repos",
+            params={"type": "all", "sort": "full_name", "direction": "asc"},
+        )
+    return "connection", await _paged(
+        connector,
+        "/user/repos",
+        params={
+            "visibility": "all",
+            "affiliation": "owner,collaborator,organization_member",
+            "sort": "full_name",
+            "direction": "asc",
+        },
+    )
 
 
 async def _one(connector, path: str, context: Mapping[str, Any] | None = None) -> dict[str, Any]:
@@ -866,19 +886,7 @@ async def _snapshot_dispatch(
             organization = connector.config.organization or (
                 _organization(connector, target) if target is not None else None
             )
-            if organization:
-                path = f"/orgs/{_segment(organization)}/repos"
-                params: dict[str, Any] = {"type": "all", "sort": "full_name", "direction": "asc"}
-                scope = organization
-            else:
-                path = "/user/repos"
-                params = {
-                    "visibility": "all",
-                    "affiliation": "owner,collaborator,organization_member",
-                    "sort": "full_name",
-                    "direction": "asc",
-                }
-            records = await _paged(connector, path, params=params)
+            scope, records = await list_repositories(connector, organization)
     elif stream_name == "organizations":
         organization = connector.config.organization or (
             _organization(connector, target) if target is not None else None

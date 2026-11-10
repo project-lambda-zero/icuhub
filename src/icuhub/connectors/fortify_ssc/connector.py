@@ -79,6 +79,7 @@ from icuhub.kit.errors import (
     TransientVendorError,
     VendorContractError,
 )
+from icuhub.kit.mapping import bounded_raw
 from icuhub.kit.paginate import offset_pages
 from icuhub.kit.types import (
     ActionOutcome,
@@ -93,6 +94,7 @@ from icuhub.kit.types import (
     WebhookDelivery,
 )
 from icuhub.kit.webhook import WebhookVerifier
+from icuhub_schemas.ocsf import Cloud, FindingInfo, Metadata, Product, VulnerabilityFinding
 
 __all__ = [
     "AddIssueCommentArgs",
@@ -273,6 +275,39 @@ def _audit_state(raw: dict[str, Any]) -> str | None:
     if value is None or isinstance(value, str):
         return value
     raise VendorContractError("issueStatus must be a string or null")
+
+
+_SSC_PRODUCT_NAME = "Fortify Software Security Center"
+_SSC_VENDOR_NAME = "OpenText"
+_SSC_CLOUD_PROVIDER = "fortify_ssc"
+
+
+def _finding_record(raw: dict[str, Any]) -> FindingRecord:
+    project_version = raw.get("projectVersionId")
+    if not isinstance(project_version, int) or isinstance(project_version, bool):
+        raise VendorContractError("projectVersionId must be an integer")
+    return FindingRecord(
+        issue_instance_id=_issue_id_of(raw),
+        issue_id=_int_required(raw, "id"),
+        project_version_id=project_version,
+        revision=_int_required(raw, "revision"),
+        rule_guid=_str_or_none(raw, "primaryRuleGuid"),
+        category=_str_or_none(raw, "issueName"),
+        file_path=_str_or_none(raw, "fullFileName"),
+        line=raw.get("lineNumber") if isinstance(raw.get("lineNumber"), int) else None,
+        audit_state=_audit_state(raw),
+        suppressed=bool(raw.get("suppressed", False)),
+        removed=bool(raw.get("removed", False)),
+        updated_at=_issue_updated_at(raw),
+        fingerprint_inputs={
+            "algorithmVersion": 1,
+            "primaryRuleGuid": _str_or_none(raw, "primaryRuleGuid"),
+            "issueName": _str_or_none(raw, "issueName"),
+            "kingdom": _str_or_none(raw, "kingdom"),
+            "fullFileName": _str_or_none(raw, "fullFileName"),
+            "lineNumber": raw.get("lineNumber"),
+        },
+    )
 
 
 def _as_path(path: str) -> str:
@@ -467,33 +502,33 @@ class FortifySsc(Connector):
         final_cursor = SequenceCursor(seq=highest_seq) if highest_seq is not None else cursor
         yield RawBatch(records=[], checkpoint=final_cursor, complete=True)
 
-    @mapper("issues", version=1)
-    def map_issue(self, raw: dict[str, Any], ctx: MapContext) -> list[FindingRecord]:
-        project_version = raw.get("projectVersionId")
-        if not isinstance(project_version, int) or isinstance(project_version, bool):
-            raise VendorContractError("projectVersionId must be an integer")
+    @mapper("issues", version=2)
+    def map_issue(self, raw: dict[str, Any], ctx: MapContext) -> list[VulnerabilityFinding]:
+        record = _finding_record(raw)
+        product = Product(name=_SSC_PRODUCT_NAME, vendor_name=_SSC_VENDOR_NAME)
         return [
-            FindingRecord(
-                issue_instance_id=_issue_id_of(raw),
-                issue_id=_int_required(raw, "id"),
-                project_version_id=project_version,
-                revision=_int_required(raw, "revision"),
-                rule_guid=_str_or_none(raw, "primaryRuleGuid"),
-                category=_str_or_none(raw, "issueName"),
-                file_path=_str_or_none(raw, "fullFileName"),
-                line=raw.get("lineNumber") if isinstance(raw.get("lineNumber"), int) else None,
-                audit_state=_audit_state(raw),
-                suppressed=bool(raw.get("suppressed", False)),
-                removed=bool(raw.get("removed", False)),
-                updated_at=_issue_updated_at(raw),
-                fingerprint_inputs={
-                    "algorithmVersion": 1,
-                    "primaryRuleGuid": _str_or_none(raw, "primaryRuleGuid"),
-                    "issueName": _str_or_none(raw, "issueName"),
-                    "kingdom": _str_or_none(raw, "kingdom"),
-                    "fullFileName": _str_or_none(raw, "fullFileName"),
-                    "lineNumber": raw.get("lineNumber"),
-                },
+            VulnerabilityFinding(
+                time=int(record.updated_at.timestamp() * 1000),
+                severity_id=0,
+                activity_id=1,
+                type_uid=200201,
+                status_id=3 if record.suppressed else None,
+                status="Suppressed" if record.suppressed else None,
+                finding_info=FindingInfo(
+                    uid=f"fortify_ssc:pv:{record.project_version_id}:instance:{record.issue_instance_id}",
+                    uid_alt=str(record.issue_id),
+                    title=record.category,
+                    product=product,
+                ),
+                vulnerabilities=[],
+                metadata=Metadata(
+                    product=product,
+                    uid=f"{record.project_version_id}:{record.issue_instance_id}",
+                ),
+                cloud=Cloud(provider=_SSC_CLOUD_PROVIDER),
+                osint=[],
+                unmapped={"fortify_ssc": record.model_dump(mode="json")},
+                raw_data=bounded_raw(raw),
             )
         ]
 
@@ -567,7 +602,7 @@ class FortifySsc(Connector):
         raise ConfigError("report_issues is offline-import-driven; submit a local Fortify or WebInspect XML report")
         yield RawBatch(records=[], checkpoint=checkpoint, complete=False)
 
-    @mapper("report_issues", version=1)
+    @mapper("report_issues", version=2)
     def map_report_issue(self, raw: dict[str, Any], ctx: MapContext) -> list[Any]:
         return map_report_record(raw, ctx)
 
@@ -771,13 +806,7 @@ class FortifySsc(Connector):
         body = result.json()
         if not isinstance(body, dict) or not isinstance(body.get("data"), dict):
             raise VendorContractError("issue response must carry a 'data' object")
-        ctx = MapContext(
-            connection_id=self.ctx.connection_id,
-            tenant_id=self.ctx.tenant_id,
-            connector_kind=self.kind,
-            received_at=self.ctx.clock(),
-        )
-        return IssueOutput(finding=self.map_issue(body["data"], ctx)[0])
+        return IssueOutput(finding=_finding_record(body["data"]))
 
     @operation(
         "get_project_version",

@@ -87,7 +87,7 @@ def test_connection_action_approval_and_audit(asgi: Any, api_env: Any) -> None:
     assert status == 200
     names = {row["name"] for row in json.loads(body)}
     assert "create_issue" in names and "ping" in names
-    headers, payload = _json({"args": {"summary": "from api", "icuhub_route_key": "api-rk"}})
+    headers, payload = _json({"args": {"summary": "from api", "route_key": "api-rk"}})
     status, _, body = call(
         "POST",
         f"/v1/connections/{connection['id']}/operations/create_issue",

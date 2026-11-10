@@ -95,7 +95,7 @@ class ConnectorRuntime:
         if cls.uses_http:
             ctx.http = build_http(
                 config,
-            auth,
+                auth,
                 transport=self._transport,
                 limiter=self._limiter_for(connection, cls),
                 extra_hosts=tuple(getattr(config, "extra_hosts", ()) or ()),
@@ -142,7 +142,7 @@ class ConnectorRuntime:
         status = "succeeded"
         error: str | None = None
         try:
-            result = await getattr(connector, spec.fn.__name__)(parsed)
+            result = await spec.fn(connector, parsed)
         except Exception as exc:
             status = "failed"
             error = type(exc).__name__

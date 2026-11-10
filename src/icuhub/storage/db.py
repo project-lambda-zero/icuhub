@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from icuhub.settings import get_settings
 
-__all__ = ["admin_session", "create_engine", "get_engine", "session_scope"]
+__all__ = ["admin_session", "create_engine", "dispose_engine", "get_engine", "session_scope"]
 
 _POSTGRES_SCHEME = "postgresql://"
 _ASYNCPG_SCHEME = "postgresql+asyncpg://"
@@ -52,6 +52,14 @@ def get_engine() -> AsyncEngine:
         engine = create_engine(database_url)
         _default_engines[loop] = engine
     return engine
+
+
+async def dispose_engine() -> None:
+    """Dispose the running loop's default engine before a one-shot loop closes."""
+    loop = asyncio.get_running_loop()
+    engine = _default_engines.pop(loop, None)
+    if engine is not None:
+        await engine.dispose()
 
 
 def _factory(engine: AsyncEngine | None) -> async_sessionmaker[AsyncSession]:

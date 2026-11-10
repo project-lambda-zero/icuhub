@@ -148,11 +148,20 @@ async def domain_login(http: VendorHttp, cfg: ArcherConfig, password: str) -> tu
 class ArcherClient:
     """Typed Archer API surface shared by streams, operations, and actions."""
 
-    def __init__(self, http: VendorHttp, config: ArcherConfig, session: AuthStrategy) -> None:
-        self.http = http
+    def __init__(
+        self,
+        http: VendorHttp | Callable[[], VendorHttp],
+        config: ArcherConfig,
+        session: AuthStrategy,
+    ) -> None:
+        self._http_source = http
         self.config = config
         self.session = session
         self._cache: dict[tuple[str, int], Any] = {}
+
+    @property
+    def http(self) -> VendorHttp:
+        return self._http_source() if callable(self._http_source) else self._http_source
 
     def invalidate_metadata(self) -> None:
         self._cache.clear()

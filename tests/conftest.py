@@ -16,8 +16,9 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Coroutine, Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic import command
@@ -26,7 +27,7 @@ from sqlalchemy import text
 
 import icuhub.storage.migrations as migrations_package
 from icuhub.settings import get_settings
-from icuhub.storage.db import create_engine
+from icuhub.storage.db import create_engine, dispose_engine
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _ENV_LOCAL = _REPO_ROOT / ".env.local"
@@ -70,6 +71,23 @@ def _default_database_url() -> Iterator[None]:
         get_settings.cache_clear()
         yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _dispose_engines_after_asyncio_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Run every one-shot coroutine with same-loop pool cleanup before asyncio closes the loop."""
+    original_run = asyncio.run
+
+    def run(coro: Coroutine[Any, Any, Any]) -> Any:
+        async def managed() -> Any:
+            try:
+                return await coro
+            finally:
+                await dispose_engine()
+
+        return original_run(managed())
+
+    monkeypatch.setattr(asyncio, "run", run)
 
 
 def _alembic_config(url: str) -> Config:
