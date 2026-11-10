@@ -18,19 +18,26 @@ __all__ = [
     "DataExportArgs",
     "DataExportType",
     "DeleteResourceInput",
+    "DownloadFprArgs",
     "DownloadOutput",
+    "DataExportRecord",
+    "EmptyArgs",
     "FortifyFodConfig",
     "ImportScanInput",
     "IssueArgs",
     "IssueHistoryArgs",
     "IssueInstanceArgs",
+    "ListApplicationsArgs",
+    "ListDataExportsArgs",
+    "ListReleasesArgs",
     "ListScansArgs",
     "MicroservicesArgs",
     "ReleaseArgs",
-    "ReleaseFprArgs",
+    "ReleaseScanArgs",
     "ReportArgs",
     "ScanArgs",
     "ScanProfile",
+    "ScanRecord",
     "StartScanInput",
     "StrictModel",
     "VendorListOutput",
@@ -40,6 +47,7 @@ __all__ = [
 _DIGITS = r"^[0-9]+$"
 _DIGITS_RE = re.compile(_DIGITS)
 _SHA256 = r"^[0-9a-f]{64}$"
+_MAX_BYTES = 1024 * 1024 * 1024
 
 DataExportType = Literal[
     "IssuesExport",
@@ -48,6 +56,7 @@ DataExportType = Literal[
     "ApplicationsExport",
     "EntitlementConsumptionExport",
 ]
+ScanType = Literal["Static", "Dynamic", "Mobile", "Monitoring", "Network", "OpenSource", "SASTAviator"]
 
 
 class StrictModel(BaseModel):
@@ -55,11 +64,16 @@ class StrictModel(BaseModel):
 
 
 class FortifyFodConfig(ConnectorConfig):
-    """OAuth client credentials and explicit destructive-action gate."""
+    """OAuth client credentials, bounded reads, and the destructive-action gate."""
 
     client_id: str = Field(min_length=1)
     client_secret: SecretRef
+    write_enabled: bool = False
     destructive_enabled: bool = False
+    probe_release_id: str | None = Field(default=None, pattern=_DIGITS)
+    page_size: int = Field(default=50, ge=1, le=50)
+    max_download_bytes: int = Field(default=512 * 1024 * 1024, gt=0, le=_MAX_BYTES)
+    max_payload_bytes: int = Field(default=512 * 1024 * 1024, gt=0, le=_MAX_BYTES)
 
 
 class VendorObjectOutput(StrictModel):
@@ -74,9 +88,30 @@ class VendorListOutput(StrictModel):
 class DownloadOutput(StrictModel):
     ready: bool
     vendor_ref: str
+    status: str | None = None
     sha256: str | None = Field(default=None, pattern=_SHA256)
     size_bytes: int = Field(default=0, ge=0)
     content_base64: str | None = None
+
+
+class ScanRecord(StrictModel):
+    scan_id: int
+    release_id: int
+    analysis_status: str | None = None
+    observed_at: datetime
+
+
+class DataExportRecord(StrictModel):
+    data_export_id: int
+    data_export_type: DataExportType
+    status: Literal["Started", "Completed", "Failed", "Queued", "Canceled"]
+    ready: bool
+    sha256: str | None = Field(default=None, pattern=_SHA256)
+    size_bytes: int = Field(default=0, ge=0)
+
+
+class EmptyArgs(StrictModel):
+    """Operation with no input."""
 
 
 class ReleaseArgs(StrictModel):
@@ -89,6 +124,15 @@ class ApplicationArgs(StrictModel):
 
 class MicroservicesArgs(ApplicationArgs):
     pass
+
+
+class ListApplicationsArgs(StrictModel):
+    modified_since: datetime | None = None
+
+
+class ListReleasesArgs(StrictModel):
+    application_id: str | None = Field(default=None, pattern=_DIGITS)
+    modified_since: datetime | None = None
 
 
 class IssueInstanceArgs(ReleaseArgs):
@@ -112,12 +156,27 @@ class ScanArgs(StrictModel):
     scan_id: str = Field(pattern=_DIGITS)
 
 
-class ReleaseFprArgs(ReleaseArgs):
-    scan_type: Literal["Static", "Dynamic", "Mobile", "Monitoring", "Network", "OpenSource", "SASTAviator"]
+class ReleaseScanArgs(ReleaseArgs):
+    scan_id: str = Field(pattern=_DIGITS)
+
+
+class DownloadFprArgs(ReleaseArgs):
+    scan_type: ScanType | None = None
+    scan_id: str | None = Field(default=None, pattern=_DIGITS)
+
+    @model_validator(mode="after")
+    def _one_download_mode(self) -> DownloadFprArgs:
+        if (self.scan_type is None) == (self.scan_id is None):
+            raise ValueError("provide exactly one of scan_type or scan_id")
+        return self
 
 
 class ReportArgs(StrictModel):
     report_id: str = Field(pattern=_DIGITS)
+
+
+class ListDataExportsArgs(StrictModel):
+    data_export_type: DataExportType | None = None
 
 
 class DataExportArgs(StrictModel):
@@ -125,26 +184,24 @@ class DataExportArgs(StrictModel):
     expected_type: DataExportType | None = None
 
 
-class BulkAuditInput(BaseModel):
+class BulkAuditInput(StrictModel):
     """One bulk-edit request against a release's vulnerabilities."""
 
-    model_config = ConfigDict(extra="forbid")
-
     release_id: str = Field(pattern=_DIGITS)
-    vulnerability_ids: list[str] = Field(min_length=1)
+    vulnerability_ids: list[str] = Field(min_length=1, max_length=1000)
     user_id: int | None = Field(default=None, gt=0)
-    developer_status: str | None = Field(default=None, min_length=1)
-    auditor_status: str | None = Field(default=None, min_length=1)
-    severity: str | None = Field(default=None, min_length=1)
-    comment: str | None = Field(default=None, min_length=1)
+    developer_status: str | None = Field(default=None, min_length=1, max_length=128)
+    auditor_status: str | None = Field(default=None, min_length=1, max_length=128)
+    severity: str | None = Field(default=None, min_length=1, max_length=128)
+    comment: str | None = Field(default=None, min_length=1, max_length=4000)
     attributes: dict[str, str] | None = None
 
     @field_validator("vulnerability_ids")
     @classmethod
-    def _ids_are_digits(cls, value: list[str]) -> list[str]:
+    def _ids_are_bounded(cls, value: list[str]) -> list[str]:
         for vuln_id in value:
-            if not _DIGITS_RE.fullmatch(vuln_id):
-                raise ValueError(f"vulnerability id {vuln_id!r} must be decimal digits")
+            if len(vuln_id) > 128 or not _DIGITS_RE.fullmatch(vuln_id):
+                raise ValueError("vulnerability ids must be bounded decimal numeric IDs")
         return value
 
     @model_validator(mode="after")
@@ -182,7 +239,6 @@ class StartScanInput(ReleaseArgs):
 
 
 class ImportScanInput(ReleaseArgs):
-    scan_type: Literal["Static", "Dynamic", "Mobile"] = "Static"
     payload_base64: str = Field(min_length=1)
     payload_sha256: str = Field(pattern=_SHA256)
 
@@ -205,3 +261,8 @@ class DeleteResourceInput(StrictModel):
     resource_type: Literal["release", "application", "report"]
     resource_id: str = Field(pattern=_DIGITS)
     approval_ref: str = Field(min_length=1)
+
+
+def is_decimal_id(value: str) -> bool:
+    """Return whether a caller-supplied identifier is the numeric ``id`` form."""
+    return bool(_DIGITS_RE.fullmatch(value))

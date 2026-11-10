@@ -22,26 +22,56 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from icuhub.connectors._fortify.importers import iter_fortify_xml, iter_fpr
+from icuhub.connectors._fortify.mappers import map_fpr_issue as map_fpr_record
+from icuhub.connectors._fortify.mappers import map_report_issue as map_report_record
 from icuhub.connectors.fortify_ssc.models import (
     AddIssueCommentArgs,
+    ArtifactArgs,
+    ArtifactOutput,
+    ArtifactStatus,
     AssignIssueArgs,
     AuditIssueArgs,
     CreateWebhookArgs,
     FortifySscConfig,
     GetIssueArgs,
+    IssueAuditArgs,
+    IssueAuditOutput,
+    IssueAuditRecord,
+    IssueCommentArgs,
+    IssueCommentOutput,
+    IssueCommentRecord,
+    IssueDetailArgs,
+    IssueDetailOutput,
+    IssueDetailRecord,
     IssueListArgs,
+    IssueListOutput,
+    IssueRecord,
+    ProbeArgs,
+    ProjectVersionInfo,
+    ProjectVersionListArgs,
+    ProjectVersionListOutput,
+    ProjectVersionRecord,
     PurgeArtifactArgs,
     PurgeProjectVersionArgs,
     SetIssueSuppressionArgs,
+    TargetProbeOutput,
     UploadFprArgs,
+    WebhookDefinitionRecord,
+    WebhookDeliveryRecord,
+    WebhookHistoryArgs,
+    WebhookHistoryOutput,
+    WebhookListArgs,
+    WebhookListOutput,
 )
 from icuhub.connectors.fortify_ssc.webhooks import SscHmacVerifier, parse_delivery_payload
 from icuhub.kit.auth import AuthStrategy, HeaderToken
-from icuhub.kit.connector import Connector, action, mapper, operation, stream, webhook
+from icuhub.kit.connector import Connector, action, importer, mapper, operation, stream, webhook
 from icuhub.kit.cursors import SequenceCursor, SnapshotCursor, TimeIdCursor
 from icuhub.kit.errors import (
     AuthFailed,
     ConfigError,
+    NotFound,
     OutcomeUnknown,
     PermissionDenied,
     RateLimited,
@@ -55,6 +85,7 @@ from icuhub.kit.types import (
     ActionPlan,
     CapabilityHealth,
     HealthReport,
+    ImportedFile,
     MapContext,
     RawBatch,
     StreamRecord,
@@ -124,15 +155,6 @@ class ActivityRecord(BaseModel):
     occurred_at: datetime
 
 
-class ProjectVersionRecord(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    project_version_id: int
-    project_name: str | None
-    version_name: str
-    folder_guid: str | None
-
-
 class IssueOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -156,13 +178,13 @@ class ProjectVersionArgs(BaseModel):
 class DeltaExportArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    export_id: str = Field(min_length=1, max_length=128)
+    export_id: int = Field(ge=1)
 
 
 class DeltaExportOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    export_id: str
+    export_id: int
     state: str
     detail: dict[str, Any] = Field(default_factory=dict)
 
@@ -171,13 +193,13 @@ class WebhookDeliveryArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     webhook_id: int = Field(ge=1)
+    delivery_id: int = Field(ge=1)
 
 
 class WebhookDeliveryOutput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    webhook_id: int
-    detail: dict[str, Any] = Field(default_factory=dict)
+    delivery: WebhookDeliveryRecord
 
 
 class FprArtifactRef(BaseModel):
@@ -185,18 +207,6 @@ class FprArtifactRef(BaseModel):
 
     artifact_id: int
     sha256: str
-
-
-class ArtifactArgs(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    artifact_id: int = Field(ge=1)
-
-
-class ProjectVersionInfo(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    record: ProjectVersionRecord
 
 
 def _str_or_none(raw: dict[str, Any], key: str) -> str | None:
@@ -239,12 +249,19 @@ def _data_list(body: Any) -> list[dict[str, Any]]:
     return items
 
 
+def _data_object(body: Any) -> dict[str, Any]:
+    """Extract the ``data`` object from an SSC single-resource response."""
+    if not isinstance(body, dict) or not isinstance(body.get("data"), dict):
+        raise VendorContractError("SSC response must contain a 'data' object")
+    return body["data"]
+
+
 def _issue_id_of(raw: dict[str, Any]) -> str:
     return _str_required(raw, "issueInstanceId")
 
 
 def _issue_updated_at(raw: dict[str, Any]) -> datetime:
-    return _parse_ts(raw.get("updated"), "updated")
+    return _parse_ts(raw.get("foundDate"), "foundDate")
 
 
 def _activity_seq(raw: dict[str, Any]) -> int:
@@ -252,14 +269,60 @@ def _activity_seq(raw: dict[str, Any]) -> int:
 
 
 def _audit_state(raw: dict[str, Any]) -> str | None:
-    value = raw.get("auditState")
+    value = raw.get("issueStatus")
     if value is None or isinstance(value, str):
         return value
-    raise VendorContractError("auditState must be a string or null")
+    raise VendorContractError("issueStatus must be a string or null")
 
 
 def _as_path(path: str) -> str:
     return f"{_API}{path}"
+
+
+def _upload_file_name(fpr_sha256: str) -> str:
+    # The artifact schema carries no sha256, so the name encodes it for read-back matching.
+    return f"icuhub-{fpr_sha256}.fpr"
+
+
+def _artifact_id_of(body: Any) -> int | None:
+    data = body.get("data") if isinstance(body, dict) else None
+    if isinstance(data, dict) and isinstance(data.get("id"), int) and not isinstance(data.get("id"), bool):
+        return data["id"]
+    return None
+
+
+def _prior_artifact_id(outcome: ActionOutcome) -> int | None:
+    if not outcome.result:
+        return None
+    value = outcome.result.get("artifact_id")
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
+def _is_upload_of(artifact: dict[str, Any], file_name: str, size: int) -> bool:
+    return artifact.get("fileSize") == size and file_name in (
+        artifact.get("originalFileName"),
+        artifact.get("fileName"),
+    )
+
+
+def _project_version_record(raw: dict[str, Any]) -> ProjectVersionRecord:
+    project = raw.get("project")
+    project_name: str | None = None
+    if isinstance(project, dict):
+        candidate = project.get("name")
+        if candidate is not None and not isinstance(candidate, str):
+            raise VendorContractError("project.name must be a string or null")
+        project_name = candidate
+    elif isinstance(project, str):
+        project_name = project
+    elif project is not None:
+        raise VendorContractError("project must be an object, string, or null")
+    return ProjectVersionRecord(
+        project_version_id=_int_required(raw, "id"),
+        project_name=project_name,
+        version_name=_str_required(raw, "name"),
+        folder_guid=_str_or_none(raw, "folderGuid"),
+    )
 
 
 class FortifySsc(Connector):
@@ -320,10 +383,17 @@ class FortifySsc(Connector):
             raise ConfigError("issues stream requires a project version target")
         project_version_id = int(target.source_uid)
         cursor = checkpoint if isinstance(checkpoint, TimeIdCursor) else TimeIdCursor(ts=None)
-        params: dict[str, Any] = {"fields": "all", "orderby": "updated", "withoutCount": "true"}
-        window = cursor.window_start()
-        if mode == "incremental" and window is not None:
-            params["filter"] = f"updated:[{window.isoformat()}]"
+        # The delta ZIP contract is not live-validated. Both modes therefore perform the
+        # documented full reconciliation, including every visibility state, and only the
+        # final durable batch closes absence. No offset or delta ID is persisted early.
+        params: dict[str, Any] = {
+            "fields": "all",
+            "orderby": "foundDate",
+            "withoutCount": "true",
+            "showhidden": "true",
+            "showremoved": "true",
+            "showsuppressed": "true",
+        }
         async for items, _result in offset_pages(
             self.http,
             _as_path(f"/projectVersions/{project_version_id}/issues"),
@@ -336,8 +406,7 @@ class FortifySsc(Connector):
         ):
             cursor = cursor.advance(items, ts_of=_issue_updated_at, id_of=_issue_id_of)
             yield RawBatch(records=items, checkpoint=cursor, complete=False)
-        if mode == "full":
-            yield RawBatch(records=[], checkpoint=cursor, complete=True)
+        yield RawBatch(records=[], checkpoint=cursor, complete=True)
 
     @stream(
         "artifacts",
@@ -353,8 +422,8 @@ class FortifySsc(Connector):
         project_version_id = int(target.source_uid)
         async for items, _result in offset_pages(
             self.http,
-            _as_path("/artifacts"),
-            {"q": f"projectVersionId:{project_version_id}", "withoutCount": "true", "fields": "all"},
+            _as_path(f"/projectVersions/{project_version_id}/artifacts"),
+            {"withoutCount": "true", "fields": "all"},
             offset_param="start",
             limit_param="limit",
             limit=_PAGE_LIMIT,
@@ -373,25 +442,30 @@ class FortifySsc(Connector):
     )
     async def activity(self, target: Target | None, checkpoint: Any, mode: str) -> AsyncIterator[RawBatch]:
         cursor = checkpoint if isinstance(checkpoint, SequenceCursor) else None
-        params: dict[str, Any] = {"orderby": "id", "withoutCount": "true"}
-        if mode == "incremental" and cursor is not None and isinstance(cursor.seq, int):
-            params["q"] = f"id:[{cursor.seq + 1} TO *]"
-        current: SequenceCursor | None = cursor
+        previous_seq = cursor.seq if cursor is not None and isinstance(cursor.seq, int) else None
+        highest_seq = previous_seq
+        # The API has no ID filter or ordering parameter. Scan bounded pages and retain the
+        # previous checkpoint until the entire traversal succeeds; otherwise a failed early
+        # page containing a high ID could hide lower IDs on retry. Duplicate replay is safe.
         async for items, _result in offset_pages(
             self.http,
-            _as_path("/activities"),
-            params,
+            _as_path("/activityFeedEvents"),
+            {"fields": "all", "withoutCount": "true"},
             offset_param="start",
             limit_param="limit",
             limit=_PAGE_LIMIT,
             items=_data_list,
             max_pages=_MAX_PAGES,
         ):
+            visible: list[dict[str, Any]] = []
             for raw in items:
                 seq = _activity_seq(raw)
-                current = SequenceCursor(seq=seq) if current is None else current.advance(seq)
-            yield RawBatch(records=items, checkpoint=current, complete=False)
-        yield RawBatch(records=[], checkpoint=current, complete=True)
+                highest_seq = seq if highest_seq is None else max(highest_seq, seq)
+                if mode == "full" or previous_seq is None or seq > previous_seq:
+                    visible.append(raw)
+            yield RawBatch(records=visible, checkpoint=cursor, complete=False)
+        final_cursor = SequenceCursor(seq=highest_seq) if highest_seq is not None else cursor
+        yield RawBatch(records=[], checkpoint=final_cursor, complete=True)
 
     @mapper("issues", version=1)
     def map_issue(self, raw: dict[str, Any], ctx: MapContext) -> list[FindingRecord]:
@@ -405,17 +479,19 @@ class FortifySsc(Connector):
                 project_version_id=project_version,
                 revision=_int_required(raw, "revision"),
                 rule_guid=_str_or_none(raw, "primaryRuleGuid"),
-                category=_str_or_none(raw, "category"),
-                file_path=_str_or_none(raw, "fileName"),
+                category=_str_or_none(raw, "issueName"),
+                file_path=_str_or_none(raw, "fullFileName"),
                 line=raw.get("lineNumber") if isinstance(raw.get("lineNumber"), int) else None,
                 audit_state=_audit_state(raw),
                 suppressed=bool(raw.get("suppressed", False)),
                 removed=bool(raw.get("removed", False)),
-                updated_at=_parse_ts(raw.get("updated"), "updated"),
+                updated_at=_issue_updated_at(raw),
                 fingerprint_inputs={
+                    "algorithmVersion": 1,
                     "primaryRuleGuid": _str_or_none(raw, "primaryRuleGuid"),
-                    "category": _str_or_none(raw, "category"),
-                    "fileName": _str_or_none(raw, "fileName"),
+                    "issueName": _str_or_none(raw, "issueName"),
+                    "kingdom": _str_or_none(raw, "kingdom"),
+                    "fullFileName": _str_or_none(raw, "fullFileName"),
                     "lineNumber": raw.get("lineNumber"),
                 },
             )
@@ -442,14 +518,242 @@ class FortifySsc(Connector):
             ActivityRecord(
                 event_id=_activity_seq(raw),
                 project_version_id=project_version,
-                event_type=_str_required(raw, "type"),
+                event_type=_str_required(raw, "eventType"),
                 occurred_at=_parse_ts(raw.get("eventDate"), "eventDate"),
             )
         ]
 
+    @stream(
+        "fpr_issues",
+        cursor=SnapshotCursor,
+        capability="FindingSource",
+        ocsf_class=2002,
+        modes=("full", "replay"),
+        requires_target=False,
+    )
+    async def fpr_issues(
+        self, target: Target | None, checkpoint: SnapshotCursor | None, mode: str
+    ) -> AsyncIterator[RawBatch]:
+        raise ConfigError("fpr_issues is offline-import-driven; submit a local FPR file")
+        yield RawBatch(records=[], checkpoint=checkpoint, complete=False)
+
+    @mapper("fpr_issues", version=1)
+    def map_fpr_issue(self, raw: dict[str, Any], ctx: MapContext) -> list[Any]:
+        return map_fpr_record(raw, ctx)
+
+    @importer(
+        "fortify_fpr",
+        stream="fpr_issues",
+        media_types=("application/zip", "application/octet-stream"),
+        extensions=(".fpr",),
+    )
+    async def import_fpr(self, imported: ImportedFile) -> AsyncIterator[dict[str, Any]]:
+        if not isinstance(self.config, FortifySscConfig):
+            raise ConfigError("fortify_ssc requires a FortifySscConfig")
+        for record in iter_fpr(imported.data, location_semantics=self.config.fpr_location_semantics):
+            yield record
+
+    @stream(
+        "report_issues",
+        cursor=SnapshotCursor,
+        capability="FindingSource",
+        ocsf_class=2002,
+        modes=("full", "replay"),
+        requires_target=False,
+    )
+    async def report_issues(
+        self, target: Target | None, checkpoint: SnapshotCursor | None, mode: str
+    ) -> AsyncIterator[RawBatch]:
+        raise ConfigError("report_issues is offline-import-driven; submit a local Fortify or WebInspect XML report")
+        yield RawBatch(records=[], checkpoint=checkpoint, complete=False)
+
+    @mapper("report_issues", version=1)
+    def map_report_issue(self, raw: dict[str, Any], ctx: MapContext) -> list[Any]:
+        return map_report_record(raw, ctx)
+
+    @importer(
+        "fortify_report",
+        stream="report_issues",
+        media_types=("application/xml", "text/xml"),
+        extensions=(".xml",),
+    )
+    async def import_report(self, imported: ImportedFile) -> AsyncIterator[dict[str, Any]]:
+        for record in iter_fortify_xml(imported.data):
+            yield record
+
     @webhook(event_types=_WEBHOOK_EVENTS, header_event="x-ssc-event")
     def parse_delivery(self, delivery: WebhookDelivery) -> list[StreamRecord]:
         return parse_delivery_payload(delivery)
+
+    async def _bounded_list(
+        self,
+        path: str,
+        *,
+        limit: int,
+        max_pages: int,
+        params: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        records: list[dict[str, Any]] = []
+        async for items, _result in offset_pages(
+            self.http,
+            path,
+            {"withoutCount": "true", **(params or {})},
+            offset_param="start",
+            limit_param="limit",
+            limit=limit,
+            items=_data_list,
+            max_pages=max_pages,
+        ):
+            records.extend(items)
+        return records
+
+    @operation(
+        "probe_target",
+        input_model=ProbeArgs,
+        output_model=TargetProbeOutput,
+        classification="read",
+        capability="FindingSource",
+    )
+    async def probe_target(self, args: ProbeArgs) -> TargetProbeOutput:
+        result = await self.http.request("POST", _as_path("/userSession/info"), json="")
+        return TargetProbeOutput.model_validate(_data_object(result.json()))
+
+    @operation(
+        "list_project_versions",
+        input_model=ProjectVersionListArgs,
+        output_model=ProjectVersionListOutput,
+        classification="read",
+        capability="FindingSource",
+    )
+    async def list_project_versions(self, args: ProjectVersionListArgs) -> ProjectVersionListOutput:
+        records = await self._bounded_list(
+            _as_path("/projectVersions"),
+            limit=args.limit,
+            max_pages=args.max_pages,
+            params={"includeInactive": str(args.include_inactive).lower(), "fields": "all"},
+        )
+        return ProjectVersionListOutput(records=[_project_version_record(raw) for raw in records])
+
+    @operation(
+        "list_issues",
+        input_model=IssueListArgs,
+        output_model=IssueListOutput,
+        classification="read",
+        capability="FindingSource",
+    )
+    async def list_issues(self, args: IssueListArgs) -> IssueListOutput:
+        records = await self._bounded_list(
+            _as_path(f"/projectVersions/{args.project_version_id}/issues"),
+            limit=args.limit,
+            max_pages=args.max_pages,
+            params={
+                "fields": "all",
+                "showhidden": "true",
+                "showremoved": "true",
+                "showsuppressed": "true",
+            },
+        )
+        return IssueListOutput(issues=[IssueRecord.model_validate(raw) for raw in records])
+
+    @operation(
+        "get_issue_details",
+        input_model=IssueDetailArgs,
+        output_model=IssueDetailOutput,
+        classification="read",
+        capability="FindingSource",
+    )
+    async def get_issue_details(self, args: IssueDetailArgs) -> IssueDetailOutput:
+        result = await self.http.request(
+            "GET", _as_path(f"/issueDetails/{args.issue_id}"), params={"fields": "all"}
+        )
+        issue = IssueDetailRecord.model_validate(_data_object(result.json()))
+        if issue.project_version_id != args.project_version_id:
+            raise VendorContractError("issue detail belongs to a different project version")
+        return IssueDetailOutput(issue=issue)
+
+    @operation(
+        "list_issue_audit",
+        input_model=IssueAuditArgs,
+        output_model=IssueAuditOutput,
+        classification="read",
+        capability="FindingSource",
+    )
+    async def list_issue_audit(self, args: IssueAuditArgs) -> IssueAuditOutput:
+        result = await self.http.request(
+            "GET", _as_path(f"/issues/{args.issue_id}/auditHistory"), params={"fields": "all"}
+        )
+        records = _data_list(result.json())
+        if len(records) > args.limit:
+            raise VendorContractError("issue audit response exceeds the configured bound")
+        audit = [IssueAuditRecord.model_validate(raw) for raw in records]
+        if any(record.issue_id != args.issue_id for record in audit):
+            raise VendorContractError("issue audit response contains another issue")
+        return IssueAuditOutput(audit=audit)
+
+    @operation(
+        "list_comments",
+        input_model=IssueCommentArgs,
+        output_model=IssueCommentOutput,
+        classification="read",
+        capability="FindingSource",
+    )
+    async def list_comments(self, args: IssueCommentArgs) -> IssueCommentOutput:
+        records = await self._bounded_list(
+            _as_path(f"/issues/{args.issue_id}/comments"),
+            limit=args.limit,
+            max_pages=args.max_pages,
+            params={"fields": "all"},
+        )
+        comments = [IssueCommentRecord.model_validate(raw) for raw in records]
+        if any(record.issue_id != args.issue_id for record in comments):
+            raise VendorContractError("issue comment response contains another issue")
+        return IssueCommentOutput(comments=comments)
+
+    @operation(
+        "get_artifact",
+        input_model=ArtifactArgs,
+        output_model=ArtifactOutput,
+        classification="read",
+        capability="FindingSource",
+    )
+    async def get_artifact(self, args: ArtifactArgs) -> ArtifactOutput:
+        result = await self.http.request("GET", _as_path(f"/artifacts/{args.artifact_id}"))
+        return ArtifactOutput(artifact=ArtifactStatus.model_validate(_data_object(result.json())))
+
+    @operation(
+        "list_webhooks",
+        input_model=WebhookListArgs,
+        output_model=WebhookListOutput,
+        classification="read",
+        capability="FindingSource",
+    )
+    async def list_webhooks(self, args: WebhookListArgs) -> WebhookListOutput:
+        records = await self._bounded_list(
+            _as_path("/webhooks"),
+            limit=args.limit,
+            max_pages=args.max_pages,
+            params={"fields": "all", "orderby": "id"},
+        )
+        return WebhookListOutput(webhooks=[WebhookDefinitionRecord.model_validate(raw) for raw in records])
+
+    @operation(
+        "list_webhook_history",
+        input_model=WebhookHistoryArgs,
+        output_model=WebhookHistoryOutput,
+        classification="read",
+        capability="FindingSource",
+    )
+    async def list_webhook_history(self, args: WebhookHistoryArgs) -> WebhookHistoryOutput:
+        records = await self._bounded_list(
+            _as_path(f"/webhooks/{args.webhook_id}/history"),
+            limit=args.limit,
+            max_pages=args.max_pages,
+            params={"fields": "all"},
+        )
+        deliveries = [WebhookDeliveryRecord.model_validate(raw) for raw in records]
+        if any(record.webhook_id != args.webhook_id for record in deliveries):
+            raise VendorContractError("webhook history contains another webhook")
+        return WebhookHistoryOutput(deliveries=deliveries)
 
     @operation(
         "get_issue",
@@ -484,18 +788,7 @@ class FortifySsc(Connector):
     )
     async def get_project_version(self, args: ProjectVersionArgs) -> ProjectVersionInfo:
         result = await self.http.request("GET", _as_path(f"/projectVersions/{args.project_version_id}"))
-        body = result.json()
-        if not isinstance(body, dict) or not isinstance(body.get("data"), dict):
-            raise VendorContractError("project version response must carry a 'data' object")
-        raw = body["data"]
-        return ProjectVersionInfo(
-            record=ProjectVersionRecord(
-                project_version_id=_int_required(raw, "id"),
-                project_name=_str_or_none(raw, "project") if isinstance(raw.get("project"), str) else None,
-                version_name=_str_required(raw, "name"),
-                folder_guid=_str_or_none(raw, "folderGuid"),
-            )
-        )
+        return ProjectVersionInfo(record=_project_version_record(_data_object(result.json())))
 
     @operation(
         "get_delta_export",
@@ -507,13 +800,14 @@ class FortifySsc(Connector):
     async def get_delta_export(self, args: DeltaExportArgs) -> DeltaExportOutput:
         """[UNVERIFIED] Poll a delta export. Its URL and response shape are unconfirmed against a live server."""
         result = await self.http.request("GET", _as_path(f"/issuesDeltaExports/{args.export_id}"))
-        body = result.json()
-        if not isinstance(body, dict):
-            raise VendorContractError("delta export response must be an object")
-        state = _str_required(body, "state")
-        if state not in {"started", "completed", "failed"}:
+        data = _data_object(result.json())
+        state = _str_required(data, "status")
+        if state not in {"EXPORT_PROCESS_STARTED", "EXPORT_PROCESS_COMPLETED", "EXPORT_PROCESS_FAILED"}:
             raise VendorContractError(f"unexpected delta export state {state!r}")
-        return DeltaExportOutput(export_id=args.export_id, state=state, detail=body)
+        export_id = _int_required(data, "id")
+        if export_id != args.export_id:
+            raise VendorContractError("delta export response has a different ID")
+        return DeltaExportOutput(export_id=export_id, state=state, detail=data)
 
     @operation(
         "get_webhook_delivery",
@@ -524,11 +818,13 @@ class FortifySsc(Connector):
     )
     async def get_webhook_delivery(self, args: WebhookDeliveryArgs) -> WebhookDeliveryOutput:
         """[UNVERIFIED] Read one webhook delivery record; retry and header behavior are unconfirmed."""
-        result = await self.http.request("GET", _as_path(f"/webhooks/{args.webhook_id}"))
-        body = result.json()
-        if not isinstance(body, dict):
-            raise VendorContractError("webhook response must be an object")
-        return WebhookDeliveryOutput(webhook_id=args.webhook_id, detail=body)
+        result = await self.http.request(
+            "GET", _as_path(f"/webhooks/{args.webhook_id}/history/{args.delivery_id}")
+        )
+        delivery = WebhookDeliveryRecord.model_validate(_data_object(result.json()))
+        if delivery.webhook_id != args.webhook_id or delivery.delivery_id != args.delivery_id:
+            raise VendorContractError("webhook delivery response has a different identity")
+        return WebhookDeliveryOutput(delivery=delivery)
 
     @operation(
         "download_fpr",
@@ -565,18 +861,38 @@ class FortifySsc(Connector):
         idempotency="none",
     )
     async def plan_audit_issue(self, args: AuditIssueArgs) -> ActionPlan:
-        current = await self._issue_summary(args.project_version_id, args.issue_id)
+        self._require_write()
+        current = await self._current_at_revision(args.project_version_id, args.issue_id, args.revision)
+        current_index = _custom_tag_index(current["customTagValues"], args.custom_tag_guid)
         return ActionPlan(
             action="audit_issue",
             target_ref=f"fortify_ssc:issue:{args.project_version_id}:{args.issue_id}",
-            diff={"auditState": {"from": current["auditState"], "to": args.audit_state}},
+            diff={
+                "customTag": {
+                    "guid": args.custom_tag_guid,
+                    "from": current_index,
+                    "to": args.new_custom_tag_index,
+                }
+            },
             preconditions={"revision": args.revision},
-            idempotency_key=f"audit:{args.project_version_id}:{args.issue_id}:{args.revision}:{args.audit_state}",
-            changed=current["auditState"] != args.audit_state,
+            idempotency_key=(
+                f"audit:{args.project_version_id}:{args.issue_id}:{args.revision}:"
+                f"{args.custom_tag_guid}:{args.new_custom_tag_index}"
+            ),
+            changed=current_index != args.new_custom_tag_index,
             request={
                 "method": "POST",
-                "path": _as_path(f"/projectVersions/{args.project_version_id}/issues/{args.issue_id}/audit"),
-                "json": {"auditState": args.audit_state, "comment": args.comment, "revision": args.revision},
+                "path": _as_path(f"/projectVersions/{args.project_version_id}/issues/action/audit"),
+                "json": {
+                    "issues": [{"id": args.issue_id, "revision": args.revision}],
+                    "customTagAudit": [
+                        {
+                            "customTagGuid": args.custom_tag_guid,
+                            "newCustomTagIndex": args.new_custom_tag_index,
+                        }
+                    ],
+                    "comment": args.comment,
+                },
             },
         )
 
@@ -595,18 +911,33 @@ class FortifySsc(Connector):
             )
         except OutcomeUnknown as exc:
             return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
-        return _audit_outcome(plan.target_ref, result.json())
+        vendor_error = _vendor_action_error(plan.target_ref, result.json())
+        if vendor_error is not None:
+            return vendor_error
+        prior = ActionOutcome(status="accepted_async", vendor_ref=plan.target_ref)
+        try:
+            return await self.reconcile_audit_issue(plan, prior)
+        except (OutcomeUnknown, TransientVendorError, RateLimited) as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
 
     @plan_audit_issue.reconcile
-    async def reconcile_audit_issue(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_audit_issue(
+        self, plan: ActionPlan, outcome: ActionOutcome
+    ) -> ActionOutcome:
         pv, issue = _ids_from_ref(plan.target_ref)
         current = await self._issue_summary(pv, issue)
-        if current["auditState"] == plan.request["json"]["auditState"]:
-            return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"reconciled": True})
+        desired = plan.request["json"]["customTagAudit"][0]
+        current_index = _custom_tag_index(current["customTagValues"], desired["customTagGuid"])
+        if current_index == desired["newCustomTagIndex"]:
+            return ActionOutcome(
+                status="succeeded",
+                vendor_ref=plan.target_ref,
+                result={"reconciled": True, "customTag": desired},
+            )
         return ActionOutcome(
             status="failed",
             vendor_ref=plan.target_ref,
-            error=f"issue {issue} is in {current['auditState']!r}",
+            error=f"issue {issue} custom tag is at index {current_index!r}",
         )
 
     @action(
@@ -617,7 +948,8 @@ class FortifySsc(Connector):
         idempotency="natural_key",
     )
     async def plan_set_issue_suppression(self, args: SetIssueSuppressionArgs) -> ActionPlan:
-        current = await self._issue_summary(args.project_version_id, args.issue_id)
+        self._require_write()
+        current = await self._current_at_revision(args.project_version_id, args.issue_id, args.revision)
         return ActionPlan(
             action="set_issue_suppression",
             target_ref=f"fortify_ssc:issue:{args.project_version_id}:{args.issue_id}",
@@ -629,8 +961,11 @@ class FortifySsc(Connector):
             changed=current["suppressed"] != args.suppressed,
             request={
                 "method": "POST",
-                "path": _as_path(f"/projectVersions/{args.project_version_id}/issues/{args.issue_id}/suppress"),
-                "json": {"suppressed": args.suppressed, "revision": args.revision},
+                "path": _as_path(f"/projectVersions/{args.project_version_id}/issues/action/suppress"),
+                "json": {
+                    "issues": [{"id": args.issue_id, "revision": args.revision}],
+                    "suppressed": args.suppressed,
+                },
             },
         )
 
@@ -640,19 +975,28 @@ class FortifySsc(Connector):
             return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
         await self._check_revision(plan)
         try:
-            await self.http.request(
+            result = await self.http.request(
                 "POST",
                 plan.request["path"],
                 json=plan.request["json"],
                 idempotency="non_idempotent",
-                expected=(200, 201, 204),
+                expected=(200, 201),
             )
         except OutcomeUnknown as exc:
             return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
-        return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+        vendor_error = _vendor_action_error(plan.target_ref, result.json())
+        if vendor_error is not None:
+            return vendor_error
+        prior = ActionOutcome(status="accepted_async", vendor_ref=plan.target_ref)
+        try:
+            return await self.reconcile_set_issue_suppression(plan, prior)
+        except (OutcomeUnknown, TransientVendorError, RateLimited) as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
 
     @plan_set_issue_suppression.reconcile
-    async def reconcile_set_issue_suppression(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_set_issue_suppression(
+        self, plan: ActionPlan, outcome: ActionOutcome
+    ) -> ActionOutcome:
         pv, issue = _ids_from_ref(plan.target_ref)
         current = await self._issue_summary(pv, issue)
         if current["suppressed"] == plan.request["json"]["suppressed"]:
@@ -667,7 +1011,8 @@ class FortifySsc(Connector):
         idempotency="none",
     )
     async def plan_assign_issue(self, args: AssignIssueArgs) -> ActionPlan:
-        current = await self._issue_summary(args.project_version_id, args.issue_id)
+        self._require_write()
+        current = await self._current_at_revision(args.project_version_id, args.issue_id, args.revision)
         return ActionPlan(
             action="assign_issue",
             target_ref=f"fortify_ssc:issue:{args.project_version_id}:{args.issue_id}",
@@ -677,8 +1022,11 @@ class FortifySsc(Connector):
             changed=current["assignee"] != args.assignee,
             request={
                 "method": "POST",
-                "path": _as_path(f"/projectVersions/{args.project_version_id}/issues/{args.issue_id}/assign"),
-                "json": {"assignee": args.assignee, "revision": args.revision},
+                "path": _as_path(f"/projectVersions/{args.project_version_id}/issues/action/assignUser"),
+                "json": {
+                    "issues": [{"id": args.issue_id, "revision": args.revision}],
+                    "user": args.assignee,
+                },
             },
         )
 
@@ -688,22 +1036,31 @@ class FortifySsc(Connector):
             return ActionOutcome(status="no_op", vendor_ref=plan.target_ref)
         await self._check_revision(plan)
         try:
-            await self.http.request(
+            result = await self.http.request(
                 "POST",
                 plan.request["path"],
                 json=plan.request["json"],
                 idempotency="non_idempotent",
-                expected=(200, 201, 204),
+                expected=(200, 201),
             )
         except OutcomeUnknown as exc:
             return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
-        return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+        vendor_error = _vendor_action_error(plan.target_ref, result.json())
+        if vendor_error is not None:
+            return vendor_error
+        prior = ActionOutcome(status="accepted_async", vendor_ref=plan.target_ref)
+        try:
+            return await self.reconcile_assign_issue(plan, prior)
+        except (OutcomeUnknown, TransientVendorError, RateLimited) as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
 
     @plan_assign_issue.reconcile
-    async def reconcile_assign_issue(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_assign_issue(
+        self, plan: ActionPlan, outcome: ActionOutcome
+    ) -> ActionOutcome:
         pv, issue = _ids_from_ref(plan.target_ref)
         current = await self._issue_summary(pv, issue)
-        if current["assignee"] == plan.request["json"]["assignee"]:
+        if current["assignee"] == plan.request["json"]["user"]:
             return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"reconciled": True})
         return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="assignee did not converge")
 
@@ -715,7 +1072,8 @@ class FortifySsc(Connector):
         idempotency="none",
     )
     async def plan_add_issue_comment(self, args: AddIssueCommentArgs) -> ActionPlan:
-        await self._check_issue_exists(args.project_version_id, args.issue_id)
+        self._require_write()
+        await self._current_at_revision(args.project_version_id, args.issue_id, args.revision)
         return ActionPlan(
             action="add_issue_comment",
             target_ref=f"fortify_ssc:issue:{args.project_version_id}:{args.issue_id}",
@@ -725,8 +1083,11 @@ class FortifySsc(Connector):
             changed=True,
             request={
                 "method": "POST",
-                "path": _as_path(f"/projectVersions/{args.project_version_id}/issues/{args.issue_id}/comments"),
-                "json": {"comment": args.comment, "revision": args.revision},
+                "path": _as_path(f"/projectVersions/{args.project_version_id}/issues/action/audit"),
+                "json": {
+                    "issues": [{"id": args.issue_id, "revision": args.revision}],
+                    "comment": args.comment,
+                },
             },
         )
 
@@ -734,7 +1095,7 @@ class FortifySsc(Connector):
     async def apply_add_issue_comment(self, plan: ActionPlan) -> ActionOutcome:
         await self._check_revision(plan)
         try:
-            await self.http.request(
+            result = await self.http.request(
                 "POST",
                 plan.request["path"],
                 json=plan.request["json"],
@@ -743,19 +1104,26 @@ class FortifySsc(Connector):
             )
         except OutcomeUnknown as exc:
             return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
-        return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+        vendor_error = _vendor_action_error(plan.target_ref, result.json())
+        if vendor_error is not None:
+            return vendor_error
+        prior = ActionOutcome(status="accepted_async", vendor_ref=plan.target_ref)
+        try:
+            return await self.reconcile_add_issue_comment(plan, prior)
+        except (OutcomeUnknown, TransientVendorError, RateLimited) as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
 
     @plan_add_issue_comment.reconcile
-    async def reconcile_add_issue_comment(self, plan: ActionPlan) -> ActionOutcome:
+    async def reconcile_add_issue_comment(
+        self, plan: ActionPlan, outcome: ActionOutcome
+    ) -> ActionOutcome:
         pv, issue = _ids_from_ref(plan.target_ref)
         wanted = plan.diff["comment"]["added"]
-        result = await self.http.request(
-            "GET",
-            _as_path(f"/projectVersions/{pv}/issues/{issue}/comments"),
-            params={"withoutCount": "true"},
+        comments = await self.list_comments(
+            IssueCommentArgs(project_version_id=pv, issue_id=issue)
         )
-        for comment in _data_list(result.json()):
-            if _digest(_str_required(comment, "comment")) == wanted:
+        for comment in comments.comments:
+            if _digest(comment.comment) == wanted:
                 return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"reconciled": True})
         return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="comment not found after write")
 
@@ -767,6 +1135,7 @@ class FortifySsc(Connector):
         idempotency="natural_key",
     )
     async def plan_upload_fpr(self, args: UploadFprArgs) -> ActionPlan:
+        self._require_write()
         try:
             raw_bytes = base64.b64decode(args.fpr_base64, validate=True)
         except (binascii.Error, ValueError) as exc:
@@ -777,54 +1146,104 @@ class FortifySsc(Connector):
             action="upload_fpr",
             target_ref=f"fortify_ssc:project_version:{args.project_version_id}",
             diff={"artifact": {"sha256": args.fpr_sha256, "bytes": len(raw_bytes)}},
-            preconditions={"sha256": args.fpr_sha256},
+            preconditions={
+                "sha256": args.fpr_sha256,
+                "bytes": len(raw_bytes),
+                "file_name": _upload_file_name(args.fpr_sha256),
+            },
             idempotency_key=f"upload:{args.project_version_id}:{args.fpr_sha256}",
             changed=True,
             request={
                 "method": "POST",
                 "path": _as_path(f"/projectVersions/{args.project_version_id}/artifacts"),
-                "json": {"sha256": args.fpr_sha256, "autoPublish": args.auto_publish, "fpr": args.fpr_base64},
+                "fpr_base64": args.fpr_base64,
             },
         )
 
     @plan_upload_fpr.apply
     async def apply_upload_fpr(self, plan: ActionPlan) -> ActionOutcome:
+        payload = base64.b64decode(plan.request["fpr_base64"], validate=True)
+        existing = await self._find_uploaded_artifact(
+            _pv_from_ref(plan.target_ref), plan.preconditions["file_name"], plan.preconditions["bytes"]
+        )
+        if existing is not None:
+            # Natural-key idempotency: an identical artifact already exists, so no second write.
+            prior = ActionOutcome(
+                status="accepted_async", vendor_ref=plan.target_ref, result={"artifact_id": existing.get("id")}
+            )
+            return await self._settle_upload(plan, prior)
         try:
             result = await self.http.request(
                 "POST",
                 plan.request["path"],
-                json=plan.request["json"],
+                files={"file": (plan.preconditions["file_name"], payload, "application/octet-stream")},
                 idempotency="non_idempotent",
                 expected=(200, 201, 202),
             )
         except OutcomeUnknown as exc:
             return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
-        body = result.json()
-        artifact_id = body.get("data", {}).get("id") if isinstance(body, dict) and isinstance(body.get("data"), dict) else None
-        return ActionOutcome(
-            status="accepted_async",
-            vendor_ref=plan.target_ref,
-            result={"artifact_id": artifact_id, "sha256": plan.preconditions["sha256"]},
+        artifact_id = _artifact_id_of(result.json())
+        if artifact_id is None:
+            return ActionOutcome(
+                status="outcome_unknown",
+                vendor_ref=plan.target_ref,
+                error="upload response carried no artifact id",
+            )
+        prior = ActionOutcome(
+            status="accepted_async", vendor_ref=plan.target_ref, result={"artifact_id": artifact_id}
         )
+        return await self._settle_upload(plan, prior)
+
+    async def _settle_upload(self, plan: ActionPlan, prior: ActionOutcome) -> ActionOutcome:
+        try:
+            return await self.reconcile_upload_fpr(plan, prior)
+        except (OutcomeUnknown, TransientVendorError, RateLimited) as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
 
     @plan_upload_fpr.reconcile
-    async def reconcile_upload_fpr(self, plan: ActionPlan) -> ActionOutcome:
-        pv = _pv_from_ref(plan.target_ref)
-        result = await self.http.request(
-            "GET",
-            _as_path(f"/projectVersions/{pv}/artifacts"),
-            params={"withoutCount": "true", "fields": "all"},
+    async def reconcile_upload_fpr(
+        self, plan: ActionPlan, outcome: ActionOutcome
+    ) -> ActionOutcome:
+        artifact = await self._uploaded_artifact(plan, outcome)
+        if artifact is None:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error="uploaded artifact not found yet")
+        if artifact.get("status") == "ERROR_PROCESSING":
+            return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="artifact processing failed")
+        indexed = artifact.get("indexed") is True
+        return ActionOutcome(
+            status="succeeded" if indexed else "accepted_async",
+            vendor_ref=plan.target_ref,
+            result={"artifact_id": artifact.get("id"), "indexed": indexed},
         )
-        wanted = plan.preconditions["sha256"]
-        for artifact in _data_list(result.json()):
-            if artifact.get("sha256") != wanted:
-                continue
-            if artifact.get("status") == "PROCESSING_ERROR":
-                return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="artifact processing failed")
-            if artifact.get("indexed") is True:
-                return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"indexed": True})
-            return ActionOutcome(status="accepted_async", vendor_ref=plan.target_ref, result={"indexed": False})
-        return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="uploaded artifact not found")
+
+    async def _uploaded_artifact(self, plan: ActionPlan, outcome: ActionOutcome) -> dict[str, Any] | None:
+        file_name = plan.preconditions["file_name"]
+        size = plan.preconditions["bytes"]
+        prior_id = _prior_artifact_id(outcome)
+        if prior_id is not None:
+            try:
+                artifact = await self._artifact_state(prior_id)
+            except (NotFound, VendorContractError):
+                artifact = None
+            if artifact is not None and _is_upload_of(artifact, file_name, size):
+                return artifact
+        return await self._find_uploaded_artifact(_pv_from_ref(plan.target_ref), file_name, size)
+
+    async def _find_uploaded_artifact(self, project_version_id: int, file_name: str, size: int) -> dict[str, Any] | None:
+        async for items, _result in offset_pages(
+            self.http,
+            _as_path(f"/projectVersions/{project_version_id}/artifacts"),
+            {"withoutCount": "true", "fields": "all"},
+            offset_param="start",
+            limit_param="limit",
+            limit=_PAGE_LIMIT,
+            items=_data_list,
+            max_pages=_MAX_PAGES,
+        ):
+            for artifact in items:
+                if _is_upload_of(artifact, file_name, size):
+                    return artifact
+        return None
 
     @action(
         "create_webhook",
@@ -834,23 +1253,27 @@ class FortifySsc(Connector):
         idempotency="none",
     )
     async def plan_create_webhook(self, args: CreateWebhookArgs) -> ActionPlan:
+        self._require_write()
+        payload = {
+            "url": args.url,
+            "contentType": args.content_type,
+            "objectVersion": args.object_version,
+            "active": args.active,
+            "allowInsecureTLS": args.allow_insecure_tls,
+            "monitorApps": args.monitor_apps,
+            "monitorEvents": args.monitor_events,
+            "monitoredAppVersionIds": args.monitored_app_version_ids,
+            "monitoredAppVersionEvents": args.monitored_app_version_events,
+            "monitoredGlobalEvents": args.monitored_global_events,
+        }
         return ActionPlan(
             action="create_webhook",
-            target_ref=f"fortify_ssc:webhook:{args.name}",
-            diff={"webhook": {"name": args.name, "events": args.event_types}},
+            target_ref=f"fortify_ssc:webhook:{_digest(args.url)}",
+            diff={"webhook": {"url_sha256": _digest(args.url), "monitorEvents": args.monitor_events}},
             preconditions={"object_version": args.object_version},
-            idempotency_key=f"webhook:{args.name}:{_digest(args.target_url)}",
+            idempotency_key=f"webhook:{_digest(args.url)}:{args.object_version}",
             changed=True,
-            request={
-                "method": "POST",
-                "path": _as_path("/webhooks"),
-                "json": {
-                    "name": args.name,
-                    "targetUrl": args.target_url,
-                    "eventTypes": args.event_types,
-                    "objectVersion": args.object_version,
-                },
-            },
+            request={"method": "POST", "path": _as_path("/webhooks"), "json": payload},
         )
 
     @plan_create_webhook.apply
@@ -865,16 +1288,54 @@ class FortifySsc(Connector):
             )
         except OutcomeUnknown as exc:
             return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
-        return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"status_code": result.status})
+        data = _data_object(result.json())
+        webhook_id = data.get("id")
+        if not isinstance(webhook_id, int) or isinstance(webhook_id, bool) or webhook_id < 1:
+            return ActionOutcome(
+                status="outcome_unknown",
+                vendor_ref=plan.target_ref,
+                error="webhook create response carried no valid id",
+            )
+        prior = ActionOutcome(
+            status="accepted_async", vendor_ref=plan.target_ref, result={"webhook_id": webhook_id}
+        )
+        try:
+            return await self.reconcile_create_webhook(plan, prior)
+        except (OutcomeUnknown, TransientVendorError, RateLimited) as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
 
     @plan_create_webhook.reconcile
-    async def reconcile_create_webhook(self, plan: ActionPlan) -> ActionOutcome:
-        name = plan.diff["webhook"]["name"]
-        result = await self.http.request("GET", _as_path("/webhooks"), params={"withoutCount": "true"})
-        for hook in _data_list(result.json()):
-            if hook.get("name") == name:
-                return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"reconciled": True})
-        return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="webhook not found after create")
+    async def reconcile_create_webhook(
+        self, plan: ActionPlan, outcome: ActionOutcome
+    ) -> ActionOutcome:
+        desired = plan.request["json"]
+        prior_id = outcome.result.get("webhook_id") if outcome.result else None
+        candidates: list[WebhookDefinitionRecord] = []
+        if isinstance(prior_id, int) and not isinstance(prior_id, bool):
+            try:
+                result = await self.http.request("GET", _as_path(f"/webhooks/{prior_id}"))
+            except NotFound:
+                pass
+            else:
+                candidates = [WebhookDefinitionRecord.model_validate(_data_object(result.json()))]
+        else:
+            candidates = (await self.list_webhooks(WebhookListArgs())).webhooks
+        matches = []
+        for candidate in candidates:
+            actual = candidate.model_dump(by_alias=True, mode="json")
+            if all(actual.get(key) == value for key, value in desired.items()):
+                matches.append(candidate)
+        if len(matches) == 1:
+            return ActionOutcome(
+                status="succeeded",
+                vendor_ref=plan.target_ref,
+                result={"reconciled": True, "webhook_id": matches[0].webhook_id},
+            )
+        return ActionOutcome(
+            status="outcome_unknown",
+            vendor_ref=plan.target_ref,
+            error=f"webhook read-back produced {len(matches)} matching definitions",
+        )
 
     @action(
         "purge_artifact",
@@ -893,25 +1354,66 @@ class FortifySsc(Connector):
             idempotency_key=f"purge-artifact:{args.artifact_id}:{args.version_number}",
             changed=True,
             request={
-                "method": "DELETE",
-                "path": _as_path(f"/artifacts/{args.artifact_id}"),
-                "params": {"versionNumber": args.version_number},
+                "method": "POST",
+                "path": _as_path("/artifacts/action/purge"),
+                "json": {"artifactIds": [args.artifact_id]},
             },
         )
 
     @plan_purge_artifact.apply
     async def apply_purge_artifact(self, plan: ActionPlan) -> ActionOutcome:
+        artifact_id = _ids_of_artifact_ref(plan.target_ref)
+        try:
+            current = await self._artifact_state(artifact_id)
+        except NotFound:
+            return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="artifact not found before purge")
+        if current.get("versionNumber") != plan.preconditions["version_number"]:
+            raise StalePlan(f"artifact {artifact_id} moved to version {current.get('versionNumber')} after planning")
+        prior = ActionOutcome(status="accepted_async", vendor_ref=plan.target_ref, result={"purged": False})
+        purge_started = ("PURGING", "ERROR_PURGING", "PURGED", "DELETED")
+        if current.get("purged") is True or current.get("status") in purge_started:
+            # A purge already ran or is running; re-sending it would be a second write.
+            return await self._settle_purge(plan, prior)
         try:
             await self.http.request(
-                "DELETE",
+                "POST",
                 plan.request["path"],
-                params=plan.request["params"],
+                json=plan.request["json"],
                 idempotency="non_idempotent",
-                expected=(200, 204),
+                expected=(200,),
             )
         except OutcomeUnknown as exc:
             return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
-        return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+        return await self._settle_purge(plan, prior)
+
+    async def _settle_purge(self, plan: ActionPlan, prior: ActionOutcome) -> ActionOutcome:
+        try:
+            return await self.reconcile_purge_artifact(plan, prior)
+        except (OutcomeUnknown, TransientVendorError, RateLimited) as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
+
+    @plan_purge_artifact.reconcile
+    async def reconcile_purge_artifact(
+        self, plan: ActionPlan, outcome: ActionOutcome
+    ) -> ActionOutcome:
+        artifact_id = _ids_of_artifact_ref(plan.target_ref)
+        try:
+            current = await self._artifact_state(artifact_id)
+        except NotFound:
+            # The plan confirmed the artifact existed, so a later 404 means the row is gone.
+            return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"purged": True})
+        status = current.get("status")
+        if current.get("purged") is True or status in ("PURGED", "DELETED"):
+            return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref, result={"purged": True})
+        if status == "PURGING":
+            return ActionOutcome(status="accepted_async", vendor_ref=plan.target_ref, result={"purged": False})
+        if status == "ERROR_PURGING":
+            return ActionOutcome(status="failed", vendor_ref=plan.target_ref, error="artifact purge reported an error")
+        return ActionOutcome(
+            status="outcome_unknown",
+            vendor_ref=plan.target_ref,
+            error="artifact still present after purge request",
+        )
 
     @action(
         "purge_project_version",
@@ -922,50 +1424,148 @@ class FortifySsc(Connector):
     )
     async def plan_purge_project_version(self, args: PurgeProjectVersionArgs) -> ActionPlan:
         self._require_destructive()
+        await self.http.request("GET", _as_path(f"/projectVersions/{args.project_version_id}"))
+        artifacts = await self._bounded_list(
+            _as_path(f"/projectVersions/{args.project_version_id}/artifacts"),
+            limit=_PAGE_LIMIT,
+            max_pages=_MAX_PAGES,
+            params={"fields": "all"},
+        )
+        artifact_ids = sorted(_int_required(artifact, "id") for artifact in artifacts)
         return ActionPlan(
             action="purge_project_version",
             target_ref=f"fortify_ssc:project_version:{args.project_version_id}",
-            diff={"purge": {"project_version_id": args.project_version_id}},
-            preconditions={"approval_ref": args.approval_ref},
+            diff={"purge": {"project_version_id": args.project_version_id, "artifact_ids": artifact_ids}},
+            preconditions={"approval_ref": args.approval_ref, "artifact_ids": artifact_ids},
             idempotency_key=f"purge-pv:{args.project_version_id}:{args.approval_ref}",
-            changed=True,
-            request={"method": "DELETE", "path": _as_path(f"/projectVersions/{args.project_version_id}")},
+            changed=bool(artifact_ids),
+            request={
+                "method": "POST",
+                "path": _as_path("/projectVersions/action/purge"),
+                "json": {"projectVersionIds": [args.project_version_id]},
+            },
         )
 
     @plan_purge_project_version.apply
     async def apply_purge_project_version(self, plan: ActionPlan) -> ActionOutcome:
+        if not plan.changed:
+            return ActionOutcome(status="no_op", vendor_ref=plan.target_ref, result={"purged": True})
+        artifact_ids = plan.preconditions["artifact_ids"]
+        prior = ActionOutcome(
+            status="accepted_async", vendor_ref=plan.target_ref, result={"artifact_ids": artifact_ids}
+        )
+        for artifact_id in artifact_ids:
+            try:
+                current = await self._artifact_state(artifact_id)
+            except NotFound:
+                continue
+            if current.get("purged") is True or current.get("status") in {
+                "PURGING",
+                "ERROR_PURGING",
+                "PURGED",
+                "DELETED",
+            }:
+                return await self._settle_project_version_purge(plan, prior)
         try:
             await self.http.request(
-                "DELETE",
+                "POST",
                 plan.request["path"],
+                json=plan.request["json"],
                 idempotency="non_idempotent",
-                expected=(200, 204),
+                expected=(200,),
             )
         except OutcomeUnknown as exc:
             return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
-        return ActionOutcome(status="succeeded", vendor_ref=plan.target_ref)
+        return await self._settle_project_version_purge(plan, prior)
+
+    async def _settle_project_version_purge(
+        self, plan: ActionPlan, prior: ActionOutcome
+    ) -> ActionOutcome:
+        try:
+            return await self.reconcile_purge_project_version(plan, prior)
+        except (OutcomeUnknown, TransientVendorError, RateLimited) as exc:
+            return ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error=str(exc))
+
+    @plan_purge_project_version.reconcile
+    async def reconcile_purge_project_version(
+        self, plan: ActionPlan, outcome: ActionOutcome
+    ) -> ActionOutcome:
+        artifact_ids = plan.preconditions["artifact_ids"]
+        pending = False
+        for artifact_id in artifact_ids:
+            try:
+                current = await self._artifact_state(artifact_id)
+            except NotFound:
+                continue
+            status = current.get("status")
+            if current.get("purged") is True or status in {"PURGED", "DELETED"}:
+                continue
+            if status == "ERROR_PURGING":
+                return ActionOutcome(
+                    status="failed",
+                    vendor_ref=plan.target_ref,
+                    error=f"artifact {artifact_id} purge reported an error",
+                )
+            if status == "PURGING":
+                pending = True
+                continue
+            return ActionOutcome(
+                status="outcome_unknown",
+                vendor_ref=plan.target_ref,
+                error=f"artifact {artifact_id} is not purged",
+            )
+        if pending:
+            return ActionOutcome(
+                status="accepted_async",
+                vendor_ref=plan.target_ref,
+                result={"artifact_ids": artifact_ids, "purged": False},
+            )
+        return ActionOutcome(
+            status="succeeded",
+            vendor_ref=plan.target_ref,
+            result={"artifact_ids": artifact_ids, "purged": True},
+        )
+
+    async def _artifact_state(self, artifact_id: int) -> dict[str, Any]:
+        result = await self.http.request("GET", _as_path(f"/artifacts/{artifact_id}"), params={"fields": "all"})
+        return _data_object(result.json())
 
     async def _issue_summary(self, project_version_id: int, issue_id: int) -> dict[str, Any]:
         result = await self.http.request(
             "GET",
-            _as_path(f"/projectVersions/{project_version_id}/issues/{issue_id}"),
-            params={"fields": "all", "withoutCount": "true"},
+            _as_path(f"/issueDetails/{issue_id}"),
+            params={"fields": "all"},
         )
-        body = result.json()
-        if not isinstance(body, dict) or not isinstance(body.get("data"), dict):
-            raise VendorContractError("issue response must carry a 'data' object")
-        raw = body["data"]
+        raw = _data_object(result.json())
+        if _int_required(raw, "id") != issue_id or _int_required(raw, "projectVersionId") != project_version_id:
+            raise VendorContractError("issue detail response has a different identity")
+        assigned = raw.get("assignedUser")
+        if assigned is not None and not isinstance(assigned, dict):
+            raise VendorContractError("assignedUser must be an object or null")
+        custom_tags = raw.get("customTagValues", [])
+        if not isinstance(custom_tags, list) or not all(isinstance(value, dict) for value in custom_tags):
+            raise VendorContractError("customTagValues must be an array of objects")
         return {
             "revision": _int_required(raw, "revision"),
-            "auditState": _audit_state(raw),
+            "customTagValues": custom_tags,
             "suppressed": bool(raw.get("suppressed", False)),
-            "assignee": _str_or_none(raw, "assignee"),
+            "assignee": _str_or_none(assigned, "userName") if isinstance(assigned, dict) else None,
         }
 
-    async def _check_issue_exists(self, project_version_id: int, issue_id: int) -> None:
-        await self._issue_summary(project_version_id, issue_id)
+    async def _current_at_revision(
+        self, project_version_id: int, issue_id: int, revision: int
+    ) -> dict[str, Any]:
+        current = await self._issue_summary(project_version_id, issue_id)
+        if current["revision"] != revision:
+            raise StalePlan(f"issue {issue_id} is at revision {current['revision']}, not {revision}")
+        return current
+
+    def _require_write(self) -> None:
+        if not isinstance(self.config, FortifySscConfig) or not self.config.write_enabled:
+            raise PermissionDenied("write", "write actions require write_enabled on this connection")
 
     def _require_destructive(self) -> None:
+        self._require_write()
         if not isinstance(self.config, FortifySscConfig) or not self.config.destructive_enabled:
             raise PermissionDenied("destructive", "purge actions require destructive_enabled on this connection")
 
@@ -990,15 +1590,29 @@ def _pv_from_ref(target_ref: str) -> int:
     return int(parts[2])
 
 
+def _ids_of_artifact_ref(target_ref: str) -> int:
+    parts = target_ref.split(":")
+    if len(parts) != 3 or parts[0] != "fortify_ssc" or parts[1] != "artifact":
+        raise VendorContractError(f"malformed artifact target_ref {target_ref!r}")
+    return int(parts[2])
+
+
 def _digest(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def _audit_outcome(target_ref: str, body: Any) -> ActionOutcome:
-    if not isinstance(body, dict) or not isinstance(body.get("data"), dict):
-        raise VendorContractError("audit response must carry a 'data' object")
-    return ActionOutcome(
-        status="succeeded",
-        vendor_ref=target_ref,
-        result={"auditState": _audit_state(body["data"])},
-    )
+def _custom_tag_index(values: list[dict[str, Any]], guid: str) -> int | None:
+    matches = [value for value in values if value.get("customTagGuid") == guid]
+    if len(matches) > 1:
+        raise VendorContractError("customTagValues contains duplicate tag GUIDs")
+    return _int_required(matches[0], "newCustomTagIndex") if matches else None
+
+
+def _vendor_action_error(target_ref: str, body: Any) -> ActionOutcome | None:
+    data = _data_object(body)
+    status = _str_required(data, "status")
+    if status in {"success", "created"}:
+        return None
+    message = data.get("message")
+    detail = message if isinstance(message, str) and message else f"vendor action status {status!r}"
+    return ActionOutcome(status="failed", vendor_ref=target_ref, error=detail)

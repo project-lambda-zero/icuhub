@@ -43,7 +43,7 @@ __all__ = [
 _FIXED_NOW = datetime(2026, 11, 9, 0, 0, 0, tzinfo=UTC)
 _GOLDEN_UPDATE_ENV = "ICUHUB_UPDATE_GOLDEN"
 _SECRET_NAME_HINTS = ("token", "secret", "password", "passwd", "credential", "private_key", "api_key")
-_BODY_KEYS = ("json", "text", "body_file")
+_BODY_KEYS = ("json", "text", "content", "body_file")
 _READ_METHODS = frozenset({"GET", "HEAD"})
 
 
@@ -238,7 +238,9 @@ def _check_response(spec: Mapping[str, Any], where: str, *, allow_body_file: boo
         raise ValueError(f"{where}: response needs 'status'")
     bodies = [key for key in _BODY_KEYS if key in spec]
     if len(bodies) > 1:
-        raise ValueError(f"{where}: response takes at most one of json, text, body_file")
+        raise ValueError(f"{where}: response takes at most one of json, text, content, body_file")
+    if "content" in spec and not isinstance(spec["content"], bytes):
+        raise TypeError(f"{where}: content must be bytes")
     if "body_file" in spec and not allow_body_file:
         raise ValueError(f"{where}: body_file needs a cassette file on disk")
 
@@ -251,6 +253,8 @@ def _build_response(spec: Mapping[str, Any], base_dir: Path | None, request: htt
         return httpx2.Response(status, headers=headers, json=spec["json"], request=request)
     if "text" in spec:
         return httpx2.Response(status, headers=headers, text=str(spec["text"]), request=request)
+    if "content" in spec:
+        return httpx2.Response(status, headers=headers, content=spec["content"], request=request)
     if "body_file" in spec and base_dir is not None:
         content = (base_dir / str(spec["body_file"])).read_bytes()
         return httpx2.Response(status, headers=headers, content=content, request=request)
@@ -361,6 +365,7 @@ class RouteTransport(httpx2.AsyncBaseTransport):
     """
 
     def __init__(self, routes: Mapping[tuple[str, str], Any]) -> None:
+        self.requests: list[httpx2.Request] = []
         self._routes: dict[tuple[str, str], Any] = {}
         for (method, path), value in routes.items():
             where = f"route {method.upper()} {path}"
@@ -371,6 +376,7 @@ class RouteTransport(httpx2.AsyncBaseTransport):
             self._routes[(method.upper(), path)] = value
 
     async def handle_async_request(self, request: httpx2.Request) -> httpx2.Response:
+        self.requests.append(request)
         key = (request.method.upper(), request.url.path)
         if key not in self._routes:
             raise AssertionError(f"no route for {request.method} {request.url.path}")

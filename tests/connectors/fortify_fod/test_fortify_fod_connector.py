@@ -12,15 +12,15 @@ from pydantic import ValidationError
 
 from icuhub.connectors.fortify_fod import FortifyFod
 from icuhub.connectors.fortify_fod.models import BulkAuditInput
-from icuhub.kit.cursors import SnapshotCursor
-from icuhub.kit.errors import StalePlan, VendorContractError
+from icuhub.kit.cursors import TimeIdCursor
+from icuhub.kit.errors import StalePlan, TransientVendorError, VendorContractError
 from icuhub.kit.testing import RouteTransport, collect_stream, conformance_problems, make_connector
-from icuhub.kit.types import Target
+from icuhub.kit.types import ActionOutcome, Target
 
 BASE = "https://api.ams.fortify.com"
 VULNS = "/api/v3/releases/42/vulnerabilities"
 BULK = "/api/v3/releases/42/vulnerabilities/bulk-edit"
-CONFIG = {"base_url": BASE, "client_id": "client-1", "client_secret": {"ref": "fod_secret"}}
+CONFIG = {"base_url": BASE, "client_id": "client-1", "client_secret": {"ref": "fod_secret"}, "write_enabled": True}
 SECRETS = {"fod_secret": b"not-a-real-secret"}
 TOKEN = {"status": 200, "json": {"access_token": "token-1", "expires_in": 3600}}
 TARGET = Target(id="release-42", source_uid="42", kind="release", display_name="Release 42", attributes={})
@@ -31,7 +31,9 @@ def _vuln(vuln_id: str, *, developer: str = "New", severity: str = "High") -> di
         "id": int(vuln_id),
         "vulnId": f"vuln-{vuln_id}",
         "instanceId": f"instance-{vuln_id}",
-        "severity": severity,
+        "severity": 4,
+        "severityString": severity,
+        "lastModifiedDate": "2026-11-09",
         "developerStatus": developer,
         "auditorStatus": "Unreviewed",
     }
@@ -78,8 +80,8 @@ def test_issues_snapshot_injects_release_scope() -> None:
     assert all(raw["_release_id"] == "42" for raw in records)
     assert items[0].get("_release_id") is None
     final = batches[-1].checkpoint
-    assert isinstance(final, SnapshotCursor)
-    assert final.targets_done == ["42"]
+    assert isinstance(final, TimeIdCursor)
+    assert final.ts == datetime(2026, 11, 9, tzinfo=UTC)
 
 
 def test_issues_pages_advance_by_returned_items() -> None:
@@ -136,23 +138,28 @@ def test_issues_offset_echo_mismatch_raises() -> None:
 def test_issues_accepted_202_fails_closed() -> None:
     connector = _connector({("GET", VULNS): {"status": 202, "json": {"state": "updating"}}})
 
-    with pytest.raises(VendorContractError):
+    with pytest.raises(TransientVendorError, match="repository is updating"):
         collect_stream(connector, "issues", target=TARGET, mode="full")
 
 
-def test_issues_completed_release_is_skipped_on_resume() -> None:
-    connector = _connector({})
-    started_at = datetime(2026, 11, 10, tzinfo=UTC)
-    checkpoint = SnapshotCursor(
-        snapshot_id=f"fortify_fod:issues:{started_at.isoformat()}",
-        started_at=started_at,
-        targets_done=["42"],
+def test_issues_incremental_reconciles_complete_release() -> None:
+    seen: list[Any] = []
+
+    def page(request: Any) -> dict[str, Any]:
+        seen.append(request)
+        return _page([_vuln("1")], offset=0, total=1)
+
+    connector = _connector({("GET", VULNS): page})
+    checkpoint = TimeIdCursor(ts=datetime(2026, 11, 8, tzinfo=UTC))
+    batches = collect_stream(connector, "issues", target=TARGET, checkpoint=checkpoint, mode="incremental")
+
+    assert [batch.complete for batch in batches] == [False, True]
+    assert batches[-1].checkpoint == TimeIdCursor(
+        ts=datetime(2026, 11, 9, tzinfo=UTC), last_ids_at_ts=["instance-1"]
     )
-
-    batches = collect_stream(connector, "issues", target=TARGET, checkpoint=checkpoint, mode="full")
-
-    assert [batch.records for batch in batches] == [[]]
-    assert batches[0].complete is True
+    assert "lastModifiedDate" not in seen[0].url.params
+    assert seen[0].url.params["includeFixed"] == "true"
+    assert seen[0].url.params["includeSuppressed"] == "true"
 
 
 def test_identity_lookup_multiple_records_raises() -> None:
@@ -183,7 +190,11 @@ def test_bulk_audit_success_applies_and_reads_back() -> None:
     outcome = asyncio.run(connector.apply_bulk_audit(plan))
 
     assert outcome.status == "succeeded"
-    assert outcome.result == {"entries": 1, "unverified_fields": []}
+    assert outcome.result == {
+        "entries": 1,
+        "item_results": [{"vulnerability_id": "10001", "errorCode": 0}],
+        "unverified_fields": [],
+    }
 
 
 def test_bulk_audit_nonzero_error_code_fails() -> None:
@@ -265,7 +276,8 @@ def test_bulk_audit_reconcile_mismatch_fails() -> None:
         connector.plan_bulk_audit(_resolve())
     )
 
-    outcome = asyncio.run(connector.reconcile_bulk_audit(plan))
+    prior = ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref)
+    outcome = asyncio.run(connector.reconcile_bulk_audit(plan, prior))
 
     assert outcome.status == "failed"
     assert "10001.developerStatus" in (outcome.error or "")
@@ -284,3 +296,20 @@ def test_bulk_audit_input_rejects_non_numeric_ids() -> None:
 def test_bulk_audit_input_rejects_non_numeric_release() -> None:
     with pytest.raises(ValidationError):
         BulkAuditInput(release_id="release-42", vulnerability_ids=["10001"], developer_status="Resolved")
+
+
+def test_bulk_audit_response_count_mismatch_is_outcome_unknown() -> None:
+    connector = _connector(
+        {
+            ("GET", VULNS): _queue(
+                [_page([_vuln("10001")], offset=0, total=1), _page([_vuln("10001")], offset=0, total=1)]
+            ),
+            ("POST", BULK): {"status": 200, "json": [{"errorCode": 0}, {"errorCode": 0}]},
+        }
+    )
+    plan = asyncio.run(connector.plan_bulk_audit(_resolve()))
+
+    outcome = asyncio.run(connector.apply_bulk_audit(plan))
+
+    assert outcome.status == "outcome_unknown"
+    assert "one integer errorCode per vulnerability" in (outcome.error or "")

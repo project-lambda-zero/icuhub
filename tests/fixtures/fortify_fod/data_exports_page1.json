@@ -1,0 +1,18 @@
+{
+  "items": [
+    {
+      "dataExportId": 301,
+      "dataExportType": "IssuesExport",
+      "dataExportStatusType": "Completed",
+      "lastActivityDate": "2026-11-09T11:00:00Z"
+    },
+    {
+      "dataExportId": 302,
+      "dataExportType": "ScansExport",
+      "dataExportStatusType": "Queued",
+      "lastActivityDate": "2026-11-10T08:00:00Z"
+    }
+  ],
+  "offset": 0,
+  "totalCount": 2
+}

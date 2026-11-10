@@ -6,13 +6,13 @@
       "projectVersionId": 42,
       "revision": 3,
       "primaryRuleGuid": "11111111-aaaa-4bbb-8ccc-000000000001",
-      "category": "SQL Injection",
-      "fileName": "src/app/Db.java",
+      "issueName": "SQL Injection",
+      "fullFileName": "src/app/Db.java",
       "lineNumber": 88,
-      "audit": {"auditState": "Unaudited"},
+      "issueStatus": "Unaudited",
       "suppressed": false,
       "removed": false,
-      "updated": "2026-03-01T10:00:00.000+0000"
+      "foundDate": "2026-03-01T10:00:00.000+0000"
     },
     {
       "id": 1002,
@@ -20,13 +20,13 @@
       "projectVersionId": 42,
       "revision": 1,
       "primaryRuleGuid": "11111111-aaaa-4bbb-8ccc-000000000002",
-      "category": "Path Manipulation",
-      "fileName": "src/app/Files.java",
+      "issueName": "Path Manipulation",
+      "fullFileName": "src/app/Files.java",
       "lineNumber": 17,
-      "audit": {"auditState": "Suppressed"},
+      "issueStatus": "Suppressed",
       "suppressed": true,
       "removed": false,
-      "updated": "2026-03-01T11:30:00.000+0000"
+      "foundDate": "2026-03-01T11:30:00.000+0000"
     }
   ],
   "count": 3

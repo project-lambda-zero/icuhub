@@ -267,10 +267,29 @@ class VendorHttp:
         headers: Mapping[str, str] | None = None,
     ) -> bytes:
         """Download a response body capped at ``max_bytes``. This path is not retried."""
+        result = await self.stream_download_result(method, url, max_bytes=max_bytes, headers=headers, expected=None)
+        return result.content
+
+    async def stream_download_result(
+        self,
+        method: str,
+        url: str,
+        *,
+        max_bytes: int,
+        params: Mapping[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
+        expected: Collection[int] | None = (200,),
+    ) -> HttpResult:
+        """Stream a bounded download while preserving its status for asynchronous vendor contracts.
+
+        ``expected=None`` retains the legacy behavior of accepting every 2xx response. Otherwise
+        only the listed statuses are accepted; a 202 can therefore be handled without mistaking its
+        JSON status body for a completed artifact.
+        """
         call = _Call(
             method=method,
             url=self._resolve(url),
-            params=None,
+            params=params,
             json=None,
             content=None,
             files=None,
@@ -283,7 +302,22 @@ class VendorHttp:
                 await response.aclose()
                 response, secrets = await self._send_once(call, stream=True)
             try:
-                return await self._read_capped(response, secrets, call, max_bytes)
+                if expected is not None and response.status_code not in expected:
+                    await response.aread()
+                    raise self._status_error(response, secrets, call, "safe_read")
+                content = await self._read_capped(response, secrets, call, max_bytes)
+                return HttpResult(
+                    status=response.status_code,
+                    headers=response.headers,
+                    url=str(response.url),
+                    links={
+                        rel: urljoin(str(response.url), info["url"])
+                        for rel, info in response.links.items()
+                        if rel is not None and "url" in info
+                    },
+                    encoding=response.encoding or "utf-8",
+                    content=content,
+                )
             finally:
                 await response.aclose()
         except httpx2.TransportError as exc:

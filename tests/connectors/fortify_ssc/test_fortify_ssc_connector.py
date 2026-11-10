@@ -7,9 +7,6 @@ streams, the mappers, and the ``get_issue`` operation. Requests are answered by
 Pagination note: the real fixture pages are short (2 and 1 items), so a single
 page ends the offset loop. The continuation test builds 200 synthetic issues
 in-test to force a second page request.
-
-Known mismatches between source and fixtures are asserted as they behave today
-and flagged in their docstrings; the source is not changed by these tests.
 """
 
 from __future__ import annotations
@@ -25,7 +22,7 @@ import pytest
 from icuhub.connectors.fortify_ssc import FortifySsc
 from icuhub.connectors.fortify_ssc.connector import ActivityRecord, ArtifactRecord, FindingRecord
 from icuhub.connectors.fortify_ssc.models import GetIssueArgs
-from icuhub.kit.cursors import TimeIdCursor
+from icuhub.kit.cursors import SequenceCursor, TimeIdCursor
 from icuhub.kit.errors import ConfigError, VendorContractError
 from icuhub.kit.testing import RouteTransport, collect_stream, make_connector, map_all
 from icuhub.kit.types import Target
@@ -80,13 +77,13 @@ def _issue_item(n: int) -> dict[str, Any]:
         "projectVersionId": 42,
         "revision": 1,
         "primaryRuleGuid": f"synthetic-rule-{n}",
-        "category": "Synthetic",
-        "fileName": "src/synthetic/Synthetic.java",
+        "issueName": "Synthetic",
+        "fullFileName": "src/synthetic/Synthetic.java",
         "lineNumber": n,
-        "auditState": "Unaudited",
+        "issueStatus": "Unaudited",
         "suppressed": False,
         "removed": False,
-        "updated": "2026-03-01T10:00:00.000+0000",
+        "foundDate": "2026-03-01T10:00:00.000+0000",
     }
 
 
@@ -147,7 +144,7 @@ def test_check_is_degraded_on_forbidden() -> None:
 # --- issues stream ---------------------------------------------------------
 
 
-def test_issues_incremental_single_page_yields_fixture_records() -> None:
+def test_issues_incremental_performs_complete_reconciliation() -> None:
     seen: list[Any] = []
     connector = _connector(
         {
@@ -158,14 +155,16 @@ def test_issues_incremental_single_page_yields_fixture_records() -> None:
     )
     batches = collect_stream(connector, "issues", target=PV)
 
-    assert len(batches) == 1
-    assert batches[0].complete is False
+    assert [b.complete for b in batches] == [False, True]
     assert [r["id"] for r in batches[0].records] == [1001, 1002]
 
     params = seen[0].url.params
     assert params["fields"] == "all"
-    assert params["orderby"] == "updated"
+    assert params["orderby"] == "foundDate"
     assert params["withoutCount"] == "true"
+    assert params["showhidden"] == "true"
+    assert params["showremoved"] == "true"
+    assert params["showsuppressed"] == "true"
     assert params["start"] == "0"
     assert params["limit"] == "200"
     assert "filter" not in params
@@ -186,7 +185,7 @@ def test_issues_incremental_checkpoint_advances_to_latest_updated() -> None:
     assert checkpoint.ts == datetime(2026, 3, 1, 11, 30, tzinfo=UTC)
 
 
-def test_issues_incremental_with_checkpoint_adds_updated_filter() -> None:
+def test_issues_incremental_with_checkpoint_still_reconciles_all_visibility() -> None:
     seen: list[Any] = []
     connector = _connector(
         {
@@ -195,14 +194,18 @@ def test_issues_incremental_with_checkpoint_adds_updated_filter() -> None:
             )
         }
     )
-    collect_stream(
+    batches = collect_stream(
         connector,
         "issues",
         target=PV,
         checkpoint=TimeIdCursor(ts=datetime(2026, 3, 1, 10, 0, tzinfo=UTC)),
     )
 
-    assert seen[0].url.params["filter"].startswith("updated:[")
+    assert "filter" not in seen[0].url.params
+    assert seen[0].url.params["showhidden"] == "true"
+    assert seen[0].url.params["showremoved"] == "true"
+    assert seen[0].url.params["showsuppressed"] == "true"
+    assert batches[-1].complete is True
 
 
 def test_issues_full_mode_ends_with_complete_batch() -> None:
@@ -234,7 +237,7 @@ def test_issues_paginates_until_a_short_page() -> None:
     )
     batches = collect_stream(connector, "issues", target=PV)
 
-    assert [len(b.records) for b in batches] == [200, 1]
+    assert [len(b.records) for b in batches] == [200, 1, 0]
     assert [r.url.params["start"] for r in seen] == ["0", "200"]
 
 
@@ -262,7 +265,14 @@ def test_issue_mapper_normalizes_fixture_items() -> None:
     assert first.suppressed is False
     assert first.removed is False
     assert first.updated_at == datetime(2026, 3, 1, 10, 0, tzinfo=UTC)
-    assert set(first.fingerprint_inputs) == {"primaryRuleGuid", "category", "fileName", "lineNumber"}
+    assert set(first.fingerprint_inputs) == {
+        "algorithmVersion",
+        "primaryRuleGuid",
+        "issueName",
+        "kingdom",
+        "fullFileName",
+        "lineNumber",
+    }
 
     assert second.issue_id == 1002
     assert second.revision == 1
@@ -270,17 +280,16 @@ def test_issue_mapper_normalizes_fixture_items() -> None:
     assert second.suppressed is True
 
 
-def test_audit_state_is_none_for_nested_fixture_shape() -> None:
-    """Known mismatch: the connector reads top-level ``auditState``; fixtures nest it under ``audit``."""
+def test_audit_state_reads_official_fixture_field() -> None:
     connector = _connector({})
     first, _ = _findings(connector, _load("issues_page1.json")["data"])
 
-    assert first.audit_state is None
+    assert first.audit_state == "Unaudited"
 
 
 def test_audit_state_reads_top_level_field() -> None:
     connector = _connector({})
-    (finding,) = _findings(connector, [_issue_item(7) | {"auditState": "Audited"}])
+    (finding,) = _findings(connector, [_issue_item(7) | {"issueStatus": "Audited"}])
 
     assert finding.audit_state == "Audited"
 
@@ -294,14 +303,15 @@ def test_issue_mapper_rejects_boolean_project_version() -> None:
 # --- artifacts stream ------------------------------------------------------
 
 
-def test_artifacts_full_stream_queries_by_project_version() -> None:
+def test_artifacts_full_stream_uses_project_version_collection() -> None:
     seen: list[Any] = []
     connector = _connector(
-        {("GET", f"{API}/artifacts"): _paged({"0": _load("artifacts.json")}, seen)}
+        {("GET", f"{API}/projectVersions/42/artifacts"): _paged({"0": _load("artifacts.json")}, seen)}
     )
     batches = collect_stream(connector, "artifacts", target=PV, mode="full")
 
-    assert seen[0].url.params["q"] == "projectVersionId:42"
+    assert "q" not in seen[0].url.params
+    assert seen[0].url.params["fields"] == "all"
     assert [b.complete for b in batches] == [False, True]
     assert len(batches[0].records) == 1
 
@@ -327,47 +337,42 @@ def test_artifacts_rejects_incremental_mode() -> None:
 # --- activity stream -------------------------------------------------------
 
 
-def test_activity_stream_orders_by_id_and_ends_complete() -> None:
+def test_activity_stream_uses_official_collection_and_ends_complete() -> None:
     seen: list[Any] = []
     connector = _connector(
-        {("GET", f"{API}/activities"): _paged({"0": _load("activities.json")}, seen)}
+        {("GET", f"{API}/activityFeedEvents"): _paged({"0": _load("activities.json")}, seen)}
     )
     batches = collect_stream(connector, "activity")
 
     params = seen[0].url.params
-    assert params["orderby"] == "id"
+    assert "orderby" not in params
     assert "q" not in params
     assert [b.complete for b in batches] == [False, True]
     assert [r["id"] for r in batches[0].records] == [9001, 9002]
 
 
-def test_activity_mapper_rejects_fixture_shape() -> None:
-    """Known mismatch: ``map_activity`` requires ``eventDate``; ``activities.json`` uses ``timestamp``."""
-    connector = _connector({})
-    with pytest.raises(VendorContractError, match="eventDate"):
-        map_all(connector, "activity", _load("activities.json")["data"])
-
-
-def test_activity_mapper_maps_event_date() -> None:
-    connector = _connector({})
-    (activity,) = map_all(
-        connector,
-        "activity",
-        [
-            {
-                "id": 9001,
-                "type": "AUDIT",
-                "projectVersionId": 42,
-                "eventDate": "2026-03-01T10:05:00.000+0000",
-            }
-        ],
+def test_activity_incremental_defers_checkpoint_and_filters_replayed_ids() -> None:
+    connector = _connector(
+        {("GET", f"{API}/activityFeedEvents"): _paged({"0": _load("activities.json")}, [])}
     )
-    activity = cast(ActivityRecord, activity)
+    batches = collect_stream(connector, "activity", checkpoint=SequenceCursor(seq=9001))
+
+    assert [r["id"] for r in batches[0].records] == [9002]
+    assert batches[0].checkpoint == SequenceCursor(seq=9001)
+    assert batches[-1].checkpoint == SequenceCursor(seq=9002)
+    assert batches[-1].complete is True
+
+
+def test_activity_mapper_maps_official_fixture() -> None:
+    connector = _connector({})
+    first, second = map_all(connector, "activity", _load("activities.json")["data"])
+    activity = cast(ActivityRecord, first)
 
     assert activity.event_id == 9001
     assert activity.project_version_id == 42
     assert activity.event_type == "AUDIT"
     assert activity.occurred_at == datetime(2026, 3, 1, 10, 5, tzinfo=UTC)
+    assert cast(ActivityRecord, second).event_type == "UPLOAD"
 
 
 # --- get_issue operation ---------------------------------------------------

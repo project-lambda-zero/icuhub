@@ -11,9 +11,11 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Core runtime: typed policy decisions, plan/approve/apply actions with SoD and stale-plan rejection, correlation cases, sync engine with target discovery and per-target checkpoints, ticket routing with echo suppression, verified webhook ingress with rotation windows, SMTP approval notifications, worker queues and scheduler, outbox relay, and system-lookup migrations.
 - REST `/v1` surface with service-account/OIDC auth, connector catalog, operations, actions, sync, report upload, approvals, policy, routes, webhooks, and audit verification; `/hooks/{endpoint_id}` ingress and MCP `/mcp`.
 - F7 signed evidence export: auditor-only case bundles with Ed25519 signatures, bounded secret-free references, embedded audit-chain verification, offline CLI verification, and cross-tenant denial.
-- Connectors: `fortify_ssc`, `fortify_fod`, `jira_dc`, `nessus` (scans, history exports, compliance, `.nessus` uploads), `prisma_cloud` (CSPM and Compute), `f5_bigip` (inventory and Enforcer block/unblock), `google_threat_intelligence` (lookup), `smtp` (notification send).
+- Connectors: `fortify_ssc`, `fortify_fod`, `jira_cloud`, `jira_dc`, `nessus` (scans, history exports, compliance, `.nessus` uploads), `prisma_cloud` (CSPM and Compute), `f5_bigip` (inventory and Enforcer block/unblock), `google_threat_intelligence` (lookup), `smtp` (notification send).
 - Invicti Enterprise REST sync, per-scan reports, bounded evidence, authenticated webhook reconciliation, and governed triage; Invicti Standard JSON report replay plus authenticated Send To Action ingestion.
 - Archer GRC session authentication, application/content/history/user/group sync, metadata reads, bounded evidence downloads, data-feed execution, and governed content and attachment actions with read-back verification.
+- Fortify SSC 25.4-aligned discovery, all-visibility reconciliation, activity replay, bounded issue/artifact/webhook reads, offline FPR and Fortify/WebInspect XML imports, custom-tag triage, upload dedupe, webhook registration, and explicitly gated purge actions.
+- Fortify on Demand v3 discovery, complete issue and scan reconciliation, downloaded data-export snapshots, bounded issue/report/FPR reads, governed bulk triage, scan start/import, report creation, and separately gated cancellation and deletion with async ID recovery.
 - Event and deterministic artifact-replay stream declarations, with hint-only webhooks able to enqueue canonical full or incremental reconciliation.
 - Integration inventory of the existing consumer platforms with an ICUHUB disposition per integration (`docs/INTEGRATION_INVENTORY.md`).
 - Technology options per design concern with licenses, air-gap fit, and sources (`docs/OPTIONS.md`).
@@ -41,6 +43,11 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - CI installs `icuhub-schemas`, compiles `src`, `packages`, and `tools`, and runs the license check.
 - HLD: ingestion capabilities are stream declarations driven by the sync engine; write and destructive operations are plan/apply actions; the `cursor` table is replaced by `stream_state`, with `target`, `sync_run`, `raw_batch`, `quarantine_item`, and `action_plan` added.
 - ROADMAP P2, P3, P4, P5, and P10 carry the connector framework tasks and tests; connector guide checklist follows the framework.
+
+### Fixed
+
+- Asynchronous actions now reconcile from the approved plan and persisted prior outcome without repeating the vendor write, including accepted-then-failed and bounded-poll paths.
+- OCSF `Resolved` status 4 now drives source resolution, and correlation cases reopen and resolve consistently as source members reappear or leave complete snapshots.
 
 ## [0.0.1] - 2026-11-05 -- design documents and repository setup
 
