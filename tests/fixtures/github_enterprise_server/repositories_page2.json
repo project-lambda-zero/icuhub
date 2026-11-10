@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1002,
+    "node_id": "MDEwOlJlcG9zaXRvcnkxMDAy",
+    "name": "example-repo-2",
+    "full_name": "example-org/example-repo-2",
+    "private": true,
+    "owner": {"login": "example-org", "id": 2001, "type": "Organization"},
+    "html_url": "https://ghes.example.test/example-org/example-repo-2",
+    "url": "https://ghes.example.test/api/v3/repos/example-org/example-repo-2",
+    "fork": false,
+    "archived": false,
+    "visibility": "private",
+    "default_branch": "main",
+    "updated_at": "2026-11-07T10:00:00Z"
+  }
+]

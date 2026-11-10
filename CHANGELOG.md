@@ -16,6 +16,7 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 - Archer GRC session authentication, application/content/history/user/group sync, metadata reads, bounded evidence downloads, data-feed execution, and governed content and attachment actions with read-back verification.
 - Fortify SSC 25.4-aligned discovery, all-visibility reconciliation, activity replay, bounded issue/artifact/webhook reads, offline FPR and Fortify/WebInspect XML imports, custom-tag triage, upload dedupe, webhook registration, and explicitly gated purge actions.
 - Fortify on Demand v3 discovery, complete issue and scan reconciliation, downloaded data-export snapshots, bounded issue/report/FPR reads, governed bulk triage, scan start/import, report creation, and separately gated cancellation and deletion with async ID recovery.
+- GitHub.com and GitHub Enterprise Server editions with 29 streams, 36 reads, SARIF and native security actions, PR governance, App/PAT authentication, hint-only signed webhooks, and edition-specific feature probes.
 - Event and deterministic artifact-replay stream declarations, with hint-only webhooks able to enqueue canonical full or incremental reconciliation.
 - Integration inventory of the existing consumer platforms with an ICUHUB disposition per integration (`docs/INTEGRATION_INVENTORY.md`).
 - Technology options per design concern with licenses, air-gap fit, and sources (`docs/OPTIONS.md`).

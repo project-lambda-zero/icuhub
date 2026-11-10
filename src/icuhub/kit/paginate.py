@@ -8,7 +8,7 @@ budget. Repeated continuation tokens or URLs raise ``PaginationLoop``.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Mapping
 from typing import TYPE_CHECKING, Any, TypeAlias
 
 from icuhub.kit.errors import BudgetExhausted, PaginationLoop, VendorContractError
@@ -42,15 +42,19 @@ async def link_header_pages(
     *,
     items: BodyItems,
     max_pages: int = 10_000,
+    headers: Mapping[str, str] | None = None,
 ) -> AsyncIterator[Page]:
-    """Follow RFC 8288 ``rel="next"`` links; each link is an absolute URL."""
+    """Follow RFC 8288 ``rel="next"`` links; each link is an absolute URL.
+
+    ``headers`` is sent on every page, including links followed from ``Link``.
+    """
     seen_urls: set[str] = {path}
     target = path
     query = params
     fetched = 0
     while True:
         _check_budget(fetched, max_pages, path)
-        result = await http.request("GET", target, params=query)
+        result = await http.request("GET", target, params=query, headers=headers)
         fetched += 1
         body = result.json()
         page = items(body)

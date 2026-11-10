@@ -67,6 +67,33 @@ def test_link_header_pages_follow_next_links_until_none_remain() -> None:
     assert pages == [[{"n": 1}], [{"n": 2}], [{"n": 3}]]
 
 
+def test_link_header_pages_send_headers_on_every_page() -> None:
+    seen: list[str | None] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        seen.append(request.headers.get("X-GitHub-Api-Version"))
+        page = int(request.url.params.get("page", "1"))
+        headers = {}
+        if page < 2:
+            headers["Link"] = f'<{BASE}/items?page={page + 1}>; rel="next"'
+        return httpx2.Response(200, json={"items": [{"n": page}]}, headers=headers)
+
+    http = _http(handler)
+    pages = _run(
+        http,
+        link_header_pages(
+            http,
+            "/items",
+            {"page": "1"},
+            items=_items,
+            headers={"X-GitHub-Api-Version": "2022-11-28"},
+        ),
+    )
+
+    assert pages == [[{"n": 1}], [{"n": 2}]]
+    assert seen == ["2022-11-28", "2022-11-28"]
+
+
 def test_link_header_pages_stop_on_an_empty_page() -> None:
     def handler(request: httpx2.Request) -> httpx2.Response:
         return httpx2.Response(200, json={"items": []})

@@ -4,6 +4,8 @@ from icuhub.connectors.archer import Archer
 from icuhub.connectors.f5_bigip import F5BigIp
 from icuhub.connectors.fortify_fod import FortifyFod
 from icuhub.connectors.fortify_ssc import FortifySsc
+from icuhub.connectors.github import GitHub
+from icuhub.connectors.github_enterprise_server import GitHubEnterpriseServer
 from icuhub.connectors.google_threat_intelligence import GoogleThreatIntelligence
 from icuhub.connectors.invicti_enterprise import InvictiEnterprise
 from icuhub.connectors.invicti_standard import InvictiStandard
@@ -20,6 +22,8 @@ CONNECTORS: dict[str, type[Connector]] = {
     Archer.kind: Archer,
     FortifySsc.kind: FortifySsc,
     FortifyFod.kind: FortifyFod,
+    GitHub.kind: GitHub,
+    GitHubEnterpriseServer.kind: GitHubEnterpriseServer,
     Smtp.kind: Smtp,
     Nessus.kind: Nessus,
     InvictiEnterprise.kind: InvictiEnterprise,

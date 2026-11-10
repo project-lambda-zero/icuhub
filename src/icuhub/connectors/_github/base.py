@@ -10,10 +10,17 @@ from __future__ import annotations
 
 import hashlib
 from abc import abstractmethod
+from collections.abc import AsyncIterator, Collection, Mapping
+from typing import Any
 
-from icuhub.connectors._github.models import GitHubConfig
+from pydantic import ValidationError
+
+from icuhub.connectors._github.models import GitHubConfig, RepoRef
 from icuhub.kit.connector import Connector
 from icuhub.kit.errors import ConfigError
+from icuhub.kit.http import HttpResult, IdempotencyMode
+from icuhub.kit.paginate import Page, link_header_pages
+from icuhub.kit.types import Target
 from icuhub.kit.webhook import HmacSignature, WebhookVerifier
 
 __all__ = ["GITHUB_EVENT_HEADER", "GITHUB_DELIVERY_HEADER", "GITHUB_SIGNATURE_HEADER", "GitHubBase"]
@@ -48,6 +55,61 @@ class GitHubBase(Connector):
             "Accept": "application/vnd.github+json",
             "X-GitHub-Api-Version": self.config.api_version,
         }
+
+    async def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        json: Any = None,
+        content: bytes | None = None,
+        headers: Mapping[str, str] | None = None,
+        idempotency: IdempotencyMode = "safe_read",
+        expected: Collection[int] = (200,),
+    ) -> HttpResult:
+        """Send one REST call under ``api_root()`` with the pinned GitHub headers merged in."""
+        merged = {**self.api_headers(), **(headers or {})}
+        return await self.http.request(
+            method,
+            self.rest_url(path),
+            params=params,
+            json=json,
+            content=content,
+            headers=merged,
+            idempotency=idempotency,
+            expected=expected,
+        )
+
+    def pages(
+        self,
+        path: str,
+        params: Mapping[str, Any] | None = None,
+        items_key: str | None = None,
+    ) -> AsyncIterator[Page]:
+        """Follow ``Link: rel="next"`` pages. ``items_key`` names the list in an object body, or None for a list body."""
+
+        def items(body: Any) -> list[dict[str, Any]]:
+            if items_key is None:
+                return body
+            return body[items_key]
+
+        return link_header_pages(
+            self.http,
+            self.rest_url(path),
+            None if params is None else dict(params),
+            items=items,
+            headers=self.api_headers(),
+        )
+
+    def target_repository(self, target: Target) -> RepoRef:
+        """Owner and repository name of a repository target. The numeric ID stays in ``target.id``."""
+        try:
+            return RepoRef.model_validate(
+                {"owner": target.attributes.get("owner"), "repo": target.attributes.get("repo")}
+            )
+        except ValidationError as exc:
+            raise ConfigError(f"GitHub target {target.source_uid!r} lacks a valid owner/repo") from exc
 
     def webhook_verifier(self, secret: bytes) -> WebhookVerifier | None:
         if not secret:

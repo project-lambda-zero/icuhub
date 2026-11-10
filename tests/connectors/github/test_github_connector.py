@@ -1,9 +1,10 @@
 """Connector-level tests for the github.com connector.
 
-Covers auth wiring and rejection of unsupported App configuration, health checks, the
-``code_scanning_alerts`` stream with ``Link``-header pagination and the permission-denied
-path, the OCSF 2002 mapper, the ``update_code_scanning_alert`` action (plan, apply,
-reconcile), and the HMAC webhook verifier and ``code_scanning_alert`` delivery parser.
+Covers auth wiring for personal access tokens and GitHub App installation tokens, health
+checks, the ``code_scanning_alerts`` stream with ``Link``-header pagination and the
+permission-denied path, the OCSF 2002 mapper, the ``update_code_scanning_alert`` action
+(plan, apply, reconcile), and the HMAC webhook verifier (per-secret verifiers for rotation,
+legacy SHA-1 rejection, verified delivery metadata) and ``code_scanning_alert`` delivery parser.
 Requests are answered by ``RouteTransport`` from the synthetic fixtures in
 ``tests/fixtures/github/``, which follow the documented GitHub REST shapes.
 """
@@ -15,29 +16,40 @@ import hashlib
 import hmac
 import json
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
 import httpx2
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 
-from icuhub.connectors._github.models import GitHubConfig, UpdateCodeScanningAlertArgs
-from icuhub.kit.auth import BearerToken
-from icuhub.kit.errors import AuthFailed, ConfigError, PermissionDenied, WebhookRejected
+from icuhub.connectors._github.actions import apply_merge_pull_request
+from icuhub.connectors._github.models import (
+    CheckRunArgs,
+    CreateCommitStatusArgs,
+    CreatePrCommentArgs,
+    CreatePullRequestArgs,
+    CreateReviewArgs,
+    GitHubConfig,
+    MergePullRequestArgs,
+    UpdateCodeScanningAlertArgs,
+)
+from icuhub.connectors._github.webhooks import hints_for_delivery
+from icuhub.connectors.github import GitHub
+from icuhub.kit.auth import BearerToken, GitHubAppAuth
+from icuhub.kit.errors import AuthFailed, ConfigError, PermissionDenied, StalePlan, VendorContractError, WebhookRejected
 from icuhub.kit.testing import RouteTransport, collect_stream, make_connector, map_all
-from icuhub.kit.types import Target, WebhookDelivery
+from icuhub.kit.types import ActionOutcome, ActionPlan, Target, WebhookDelivery
 from icuhub_schemas.ocsf import VulnerabilityFinding
 
-github_module = pytest.importorskip(
-    "icuhub.connectors.github", reason="github connector implementation is still in progress"
-)
-GitHub = github_module.GitHub
-
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "github"
-BASE = "https://api.github.test"
+BASE = "https://api.github.com"
 PAT_REF = "github-pat"
 SECRETS = {PAT_REF: b"synthetic-pat"}
 HMAC_SECRET = b"synthetic-webhook-secret"
+NOW = datetime(2026, 11, 9, 12, 0, 0, tzinfo=UTC)
 CONNECTION_ID = "test-connection"
 REPO_PATH = "/repos/example-org/example-repo"
 ALERTS_PATH = f"{REPO_PATH}/code-scanning/alerts"
@@ -72,9 +84,7 @@ def _recording(payload: Any, log: list[httpx2.Request], status: int = 200) -> Ca
 
 
 def _delivery(body: bytes, headers: dict[str, str]) -> WebhookDelivery:
-    from datetime import UTC, datetime  # noqa: PLC0415
-
-    return WebhookDelivery(headers=headers, body=body, received_at=datetime(2026, 11, 9, 12, 0, 0, tzinfo=UTC))
+    return WebhookDelivery(headers=headers, body=body, received_at=NOW)
 
 
 def _signature(body: bytes, secret: bytes = HMAC_SECRET) -> dict[str, str]:
@@ -94,16 +104,17 @@ def test_bearer_token_is_built_from_resolved_pat() -> None:
 
 
 def test_non_ascii_pat_is_rejected() -> None:
-    connector = cast(
-        GitHub,
-        make_connector(GitHub, _config(), RouteTransport({}), {PAT_REF: b"\xff\xfe"}),
+    with pytest.raises(ConfigError, match="must be ASCII"):
+        make_connector(GitHub, _config(), RouteTransport({}), {PAT_REF: b"\xff\xfe"})
+
+
+def test_github_app_configuration_builds_installation_token_auth() -> None:
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
     )
-
-    with pytest.raises(ConfigError):
-        asyncio.run(connector.build_auth())
-
-
-def test_github_app_configuration_is_rejected_until_app_auth_is_implemented() -> None:
     connector = cast(
         GitHub,
         make_connector(
@@ -115,12 +126,16 @@ def test_github_app_configuration_is_rejected_until_app_auth_is_implemented() ->
                 "installation_id": "67890",
             },
             RouteTransport({}),
-            {"github-app-key": b"synthetic-key"},
+            {"github-app-key": pem},
         ),
     )
 
-    with pytest.raises(ConfigError):
-        asyncio.run(connector.build_auth())
+    auth = asyncio.run(connector.build_auth())
+
+    assert isinstance(auth, GitHubAppAuth)
+    assert auth.app_id == "12345"
+    assert auth.installation_id == "67890"
+    assert auth.api_base == BASE
 
 
 def test_config_requires_exactly_one_auth_mode() -> None:
@@ -314,11 +329,19 @@ def test_plan_dismiss_of_already_dismissed_alert_is_a_no_op() -> None:
 
 def test_apply_patches_alert_and_reports_succeeded() -> None:
     patched: list[httpx2.Request] = []
+    current = {"alert": _load("alert_open.json")}
+
+    def read_alert(_request: Any) -> dict[str, Any]:
+        return {"status": 200, "json": current["alert"]}
+
+    def patch_alert(request: httpx2.Request) -> dict[str, Any]:
+        patched.append(request)
+        current["alert"] = _load("alert_dismissed.json")
+        return {"status": 200, "json": current["alert"]}
+
     connector = _connector(
-        {
-            ("GET", ALERT_PATH): {"status": 200, "json": _load("alert_open.json")},
-            ("PATCH", ALERT_PATH): _recording(_load("alert_dismissed.json"), patched),
-        }
+        {("GET", ALERT_PATH): read_alert, ("PATCH", ALERT_PATH): patch_alert},
+        write_enabled=True,
     )
     spec = GitHub.actions()["update_code_scanning_alert"]
     args = UpdateCodeScanningAlertArgs(
@@ -338,6 +361,36 @@ def test_apply_patches_alert_and_reports_succeeded() -> None:
     assert json.loads(patched[0].content) == plan.request["json"]
 
 
+def test_apply_alert_update_is_refused_when_writes_are_disabled() -> None:
+    connector = _connector({("GET", ALERT_PATH): {"status": 200, "json": _load("alert_open.json")}})
+    spec = GitHub.actions()["update_code_scanning_alert"]
+    args = UpdateCodeScanningAlertArgs(
+        owner="example-org",
+        repo="example-repo",
+        alert_number=4,
+        state="dismissed",
+        dismissed_reason="false positive",
+    )
+    plan = asyncio.run(spec.plan(connector, args))
+    with pytest.raises(ConfigError):
+        asyncio.run(spec.apply(connector, plan))
+
+
+def test_merge_is_refused_without_destructive_enabled() -> None:
+    connector = _connector({}, write_enabled=True)
+    plan = ActionPlan(
+        action="merge_pull_request",
+        target_ref="github:example-org/example-repo:pull:1",
+        diff={},
+        preconditions={},
+        idempotency_key="0" * 64,
+        changed=True,
+        request={},
+    )
+    with pytest.raises(ConfigError):
+        asyncio.run(apply_merge_pull_request(connector, plan))
+
+
 def test_reconcile_reports_succeeded_when_alert_is_dismissed() -> None:
     connector = _connector({("GET", ALERT_PATH): {"status": 200, "json": _load("alert_dismissed.json")}})
     spec = GitHub.actions()["update_code_scanning_alert"]
@@ -351,7 +404,9 @@ def test_reconcile_reports_succeeded_when_alert_is_dismissed() -> None:
     plan = asyncio.run(spec.plan(connector, args))
     assert spec.reconcile is not None
 
-    outcome = asyncio.run(spec.reconcile(connector, plan))
+    prior = ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error="timeout")
+
+    outcome = asyncio.run(spec.reconcile(connector, plan, prior))
 
     assert outcome.status == "succeeded"
 
@@ -370,7 +425,9 @@ def test_reconcile_reports_failed_when_alert_is_still_open() -> None:
     plan = asyncio.run(spec.plan(dismissed_connector, args))
     assert spec.reconcile is not None
 
-    outcome = asyncio.run(spec.reconcile(open_connector, plan))
+    prior = ActionOutcome(status="outcome_unknown", vendor_ref=plan.target_ref, error="timeout")
+
+    outcome = asyncio.run(spec.reconcile(open_connector, plan, prior))
 
     assert outcome.status == "failed"
 
@@ -384,8 +441,13 @@ def test_signed_code_scanning_delivery_verifies() -> None:
     verifier = connector.webhook_verifier(HMAC_SECRET)
     assert verifier is not None
 
-    result = verifier.verify(_delivery(body, {**_signature(body), "x-github-event": "code_scanning_alert",
-                                              "x-github-delivery": "delivery-1"}), now=None)
+    headers = {
+        **_signature(body),
+        "x-github-event": "code_scanning_alert",
+        "x-github-delivery": "delivery-1",
+    }
+
+    result = verifier.verify(_delivery(body, headers), now=NOW)
 
     assert result is not None
 
@@ -397,7 +459,59 @@ def test_delivery_with_wrong_signature_is_rejected() -> None:
     assert verifier is not None
 
     with pytest.raises(WebhookRejected):
-        verifier.verify(_delivery(body, _signature(body, secret=b"other-secret")), now=None)
+        verifier.verify(_delivery(body, _signature(body, secret=b"other-secret")), now=NOW)
+
+
+def test_verified_delivery_carries_github_delivery_id_and_event() -> None:
+    connector = _connector({})
+    body = (FIXTURES / "webhook_code_scanning_alert.json").read_bytes()
+    verifier = connector.webhook_verifier(HMAC_SECRET)
+    assert verifier is not None
+    headers = {
+        **_signature(body),
+        "x-github-event": "code_scanning_alert",
+        "x-github-delivery": "delivery-1",
+    }
+
+    verified = verifier.verify(_delivery(body, headers), now=NOW)
+
+    assert verified.delivery_id == "delivery-1"
+    assert verified.event_type == "code_scanning_alert"
+
+
+def test_each_rotation_secret_gets_its_own_verifier() -> None:
+    connector = _connector({})
+    body = (FIXTURES / "webhook_code_scanning_alert.json").read_bytes()
+    previous = connector.webhook_verifier(b"previous-secret")
+    current = connector.webhook_verifier(HMAC_SECRET)
+    assert previous is not None
+    assert current is not None
+    headers = {
+        **_signature(body, secret=b"previous-secret"),
+        "x-github-event": "code_scanning_alert",
+        "x-github-delivery": "delivery-3",
+    }
+    delivery = _delivery(body, headers)
+
+    assert previous.verify(delivery, now=NOW).delivery_id == "delivery-3"
+    with pytest.raises(WebhookRejected):
+        current.verify(delivery, now=NOW)
+
+
+def test_legacy_sha1_signature_is_rejected() -> None:
+    connector = _connector({})
+    body = (FIXTURES / "webhook_code_scanning_alert.json").read_bytes()
+    verifier = connector.webhook_verifier(HMAC_SECRET)
+    assert verifier is not None
+    digest = hmac.new(HMAC_SECRET, body, hashlib.sha1).hexdigest()
+    headers = {
+        "x-hub-signature": f"sha1={digest}",
+        "x-github-event": "code_scanning_alert",
+        "x-github-delivery": "delivery-4",
+    }
+
+    with pytest.raises(WebhookRejected, match="missing webhook header: x-hub-signature-256"):
+        verifier.verify(_delivery(body, headers), now=NOW)
 
 
 def test_webhook_secret_must_not_be_empty() -> None:
@@ -419,13 +533,305 @@ def test_code_scanning_alert_delivery_parses_to_stream_record() -> None:
 
     (record,) = records
     assert record.stream == "code_scanning_alerts"
-    assert record.raw["number"] == 4
-    assert record.raw["state"] == "fixed"
+    assert record.raw == {
+        "event": "code_scanning_alert",
+        "delivery_id": "delivery-1",
+        "repository_id": 1001,
+    }
+    assert record.reconcile == "incremental"
     assert record.event == "upsert"
 
 
 def test_unrelated_github_event_produces_no_records() -> None:
     connector = _connector({})
-    delivery = _delivery(b"{}", {"x-github-event": "push", "x-github-delivery": "delivery-2"})
+    delivery = _delivery(b"{}", {"x-github-event": "ping", "x-github-delivery": "delivery-2"})
 
     assert connector.receive_event(delivery) == []
+
+
+def test_delivery_without_github_delivery_id_is_rejected() -> None:
+    body = (FIXTURES / "webhook_code_scanning_alert.json").read_bytes()
+    delivery = _delivery(body, {"x-github-event": "code_scanning_alert"})
+
+    with pytest.raises(VendorContractError, match="lacks X-GitHub-Delivery"):
+        hints_for_delivery("code_scanning_alert", delivery)
+
+
+def test_non_json_delivery_body_is_rejected() -> None:
+    delivery = _delivery(
+        b"not json",
+        {"x-github-event": "code_scanning_alert", "x-github-delivery": "delivery-5"},
+    )
+
+    with pytest.raises(VendorContractError, match="must be JSON"):
+        hints_for_delivery("code_scanning_alert", delivery)
+
+
+# --- write actions: gates, reconcile, no-op planning, merge ----------------
+
+HEAD_SHA = "a1b2c3d4" * 5
+MERGE_SHA = "c3d4e5f6" * 5
+PULL_PATH = f"{REPO_PATH}/pulls/7"
+COMMENT_MARKER = "<!-- icuhub-action-key:icuhub:pr-comment-1 -->"
+
+
+def _pull(*, state: str = "open", merged: bool = False, head: str = HEAD_SHA, **extra: Any) -> dict[str, Any]:
+    return {"number": 7, "state": state, "merged": merged, "head": {"sha": head}, **extra}
+
+
+def _action(name: str) -> Any:
+    return GitHub.actions()[name]
+
+
+def _manual_plan(action: str, request: dict[str, Any] | None = None) -> ActionPlan:
+    return ActionPlan(
+        action=action,
+        target_ref="github:test",
+        diff={"manual": True},
+        preconditions={"owner": "example-org", "repo": "example-repo"},
+        idempotency_key="icuhub-test-key",
+        changed=True,
+        request=request or {"method": "POST", "path": f"{REPO_PATH}/test", "json": {}},
+    )
+
+
+def test_sarif_upload_is_refused_when_writes_are_disabled() -> None:
+    connector = _connector({})
+    plan = _manual_plan("upload_code_scanning_sarif")
+
+    with pytest.raises(ConfigError):
+        asyncio.run(_action("upload_code_scanning_sarif").apply(connector, plan))
+
+
+def test_commit_status_is_refused_when_writes_are_disabled() -> None:
+    connector = _connector({})
+    plan = _manual_plan("create_commit_status")
+
+    with pytest.raises(ConfigError):
+        asyncio.run(_action("create_commit_status").apply(connector, plan))
+
+
+def test_sarif_reconcile_reports_accepted_async_while_processing() -> None:
+    routes = {
+        ("GET", f"{REPO_PATH}/code-scanning/sarifs/abc123"): {"status": 200, "json": {"processing_status": "pending"}},
+    }
+    connector = _connector(routes)
+    plan = _manual_plan(
+        "upload_code_scanning_sarif",
+        {"sarif_id": "abc123", "analysis_id": None, "processing_status": "pending"},
+    )
+    plan.preconditions = {"owner": "example-org", "repo": "example-repo", "head_sha": HEAD_SHA, "ref": "refs/heads/main"}
+    prior = ActionOutcome(status="accepted_async", vendor_ref="abc123")
+
+    outcome = asyncio.run(_action("upload_code_scanning_sarif").reconcile(connector, plan, prior))
+
+    assert outcome.status == "accepted_async"
+    assert outcome.vendor_ref == "abc123"
+
+
+def test_pr_comment_plan_is_no_op_when_marked_comment_exists() -> None:
+    routes = {
+        ("GET", f"{REPO_PATH}/issues/7/comments"): {
+            "status": 200,
+            "json": [{"id": 11, "body": f"earlier text\n\n{COMMENT_MARKER}", "url": "https://api.github.com/c/11"}],
+        },
+    }
+    connector = _connector(routes)
+    args = CreatePrCommentArgs(
+        owner="example-org",
+        repo="example-repo",
+        pull_number=7,
+        body="earlier text",
+        action_key="icuhub:pr-comment-1",
+    )
+
+    plan = asyncio.run(_action("create_pr_comment").plan(connector, args))
+
+    assert plan.changed is False
+    assert plan.request["comment_id"] == 11
+
+
+def test_pr_comment_apply_posts_and_reads_back_marked_comment() -> None:
+    body = f"hello\n\n{COMMENT_MARKER}"
+    routes = {
+        ("GET", f"{REPO_PATH}/issues/7/comments"): {"status": 200, "json": []},
+        ("POST", f"{REPO_PATH}/issues/7/comments"): {"status": 201, "json": {"id": 12, "body": body}},
+        ("GET", f"{REPO_PATH}/issues/comments/12"): {"status": 200, "json": {"id": 12, "body": body}},
+    }
+    connector = _connector(routes, write_enabled=True)
+    args = CreatePrCommentArgs(
+        owner="example-org",
+        repo="example-repo",
+        pull_number=7,
+        body="hello",
+        action_key="icuhub:pr-comment-1",
+    )
+
+    plan = asyncio.run(_action("create_pr_comment").plan(connector, args))
+    outcome = asyncio.run(_action("create_pr_comment").apply(connector, plan))
+
+    assert plan.changed is True
+    assert outcome.status == "succeeded"
+    assert outcome.vendor_ref == "12"
+
+
+def test_review_plan_is_no_op_when_review_exists_at_head() -> None:
+    routes = {
+        ("GET", PULL_PATH): {"status": 200, "json": _pull()},
+        ("GET", f"{PULL_PATH}/reviews"): {
+            "status": 200,
+            "json": [{"id": 31, "commit_id": HEAD_SHA, "state": "APPROVED"}],
+        },
+    }
+    connector = _connector(routes)
+    args = CreateReviewArgs(owner="example-org", repo="example-repo", pull_number=7, event="APPROVE")
+
+    plan = asyncio.run(_action("create_review").plan(connector, args))
+
+    assert plan.changed is False
+    assert plan.request["review_id"] == 31
+
+
+def test_pull_request_plan_is_no_op_when_open_pull_matches() -> None:
+    repo = {"name": "example-repo", "owner": {"login": "example-org"}}
+    pull = {
+        "number": 3,
+        "state": "open",
+        "head": {"ref": "feature-branch", "repo": repo},
+        "base": {"ref": "main", "repo": repo},
+    }
+    routes = {("GET", f"{REPO_PATH}/pulls"): {"status": 200, "json": [pull]}}
+    connector = _connector(routes)
+    args = CreatePullRequestArgs(
+        owner="example-org",
+        repo="example-repo",
+        title="Feature",
+        head="feature-branch",
+        base="main",
+    )
+
+    plan = asyncio.run(_action("create_pull_request").plan(connector, args))
+
+    assert plan.changed is False
+    assert plan.request["pull_number"] == 3
+
+
+def test_commit_status_plan_is_no_op_when_latest_status_converged() -> None:
+    statuses = [
+        {
+            "id": 1,
+            "context": "icuhub/ci",
+            "state": "success",
+            "description": "ok",
+            "target_url": "https://ci.example.test/1",
+            "created_at": "2026-11-09T12:00:00Z",
+        }
+    ]
+    routes = {("GET", f"{REPO_PATH}/commits/{HEAD_SHA}/statuses"): {"status": 200, "json": statuses}}
+    connector = _connector(routes)
+    args = CreateCommitStatusArgs(
+        owner="example-org",
+        repo="example-repo",
+        sha=HEAD_SHA,
+        state="success",
+        context="icuhub/ci",
+        description="ok",
+        target_url="https://ci.example.test/1",
+    )
+
+    plan = asyncio.run(_action("create_commit_status").plan(connector, args))
+
+    assert plan.changed is False
+
+
+def test_check_run_plan_is_refused_with_personal_access_token() -> None:
+    connector = _connector({})
+    args = CheckRunArgs(
+        owner="example-org",
+        repo="example-repo",
+        sha=HEAD_SHA,
+        name="icuhub",
+        action_key="icuhub:check-1",
+        analysis_id=5,
+        status="completed",
+        conclusion="success",
+        title="Scan",
+        summary="Done",
+    )
+
+    with pytest.raises(ConfigError):
+        asyncio.run(_action("create_or_update_check_run").plan(connector, args))
+
+
+def test_merge_plan_raises_stale_plan_when_head_differs_from_expected() -> None:
+    routes = {("GET", PULL_PATH): {"status": 200, "json": _pull(head=HEAD_SHA)}}
+    connector = _connector(routes)
+    args = MergePullRequestArgs(
+        owner="example-org",
+        repo="example-repo",
+        pull_number=7,
+        expected_head_sha="b" * 40,
+    )
+
+    with pytest.raises(StalePlan):
+        asyncio.run(_action("merge_pull_request").plan(connector, args))
+
+
+def test_merge_plan_targets_merge_endpoint_when_head_matches() -> None:
+    routes = {("GET", PULL_PATH): {"status": 200, "json": _pull(head=HEAD_SHA)}}
+    connector = _connector(routes)
+    args = MergePullRequestArgs(
+        owner="example-org",
+        repo="example-repo",
+        pull_number=7,
+        expected_head_sha=HEAD_SHA,
+    )
+
+    plan = asyncio.run(_action("merge_pull_request").plan(connector, args))
+
+    assert plan.changed is True
+    assert plan.request["method"] == "PUT"
+    assert plan.request["path"] == f"{PULL_PATH}/merge"
+
+
+def test_merge_apply_merges_at_planned_head_when_destructive_enabled() -> None:
+    open_pull = _pull(head=HEAD_SHA)
+    merged_pull = _pull(state="closed", merged=True, head=HEAD_SHA, merge_commit_sha=MERGE_SHA)
+    pulls = iter([open_pull, open_pull, merged_pull])
+    routes: dict[tuple[str, str], Any] = {
+        ("GET", PULL_PATH): lambda _request: {"status": 200, "json": next(pulls)},
+        ("PUT", f"{PULL_PATH}/merge"): {"status": 200, "json": {"merged": True, "sha": MERGE_SHA}},
+    }
+    connector = _connector(routes, write_enabled=True, destructive_enabled=True)
+    args = MergePullRequestArgs(
+        owner="example-org",
+        repo="example-repo",
+        pull_number=7,
+        expected_head_sha=HEAD_SHA,
+    )
+
+    plan = asyncio.run(_action("merge_pull_request").plan(connector, args))
+    outcome = asyncio.run(_action("merge_pull_request").apply(connector, plan))
+
+    assert outcome.status == "succeeded"
+    assert outcome.vendor_ref == MERGE_SHA
+
+
+@pytest.mark.parametrize(
+    ("event", "streams"),
+    [
+        ("push", ["branches", "commits"]),
+        ("workflow_run", ["workflow_runs"]),
+        ("workflow_job", ["workflow_jobs"]),
+    ],
+)
+def test_repository_scoped_events_produce_incremental_hints(event: str, streams: list[str]) -> None:
+    delivery = _delivery(
+        b'{"repository": {"id": 99}}',
+        {"x-github-event": event, "x-github-delivery": f"delivery-{event}"},
+    )
+
+    hints = hints_for_delivery(event, delivery)
+
+    assert [hint.stream for hint in hints] == streams
+    assert all(hint.reconcile == "incremental" for hint in hints)

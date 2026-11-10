@@ -1,0 +1,8 @@
+{
+  "resources": {
+    "core": {"limit": 5000, "used": 12, "remaining": 4988, "reset": 1794240000},
+    "graphql": {"limit": 5000, "used": 0, "remaining": 5000, "reset": 1794240000},
+    "code_scanning_upload": {"limit": 1000, "used": 0, "remaining": 1000, "reset": 1794240000}
+  },
+  "rate": {"limit": 5000, "used": 12, "remaining": 4988, "reset": 1794240000}
+}

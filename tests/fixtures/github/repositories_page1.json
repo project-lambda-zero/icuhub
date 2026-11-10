@@ -1,0 +1,15 @@
+[
+  {
+    "id": 1001,
+    "node_id": "R_1001",
+    "name": "example-repo",
+    "full_name": "example-org/example-repo",
+    "private": false,
+    "owner": {
+      "login": "example-org",
+      "id": 501
+    },
+    "default_branch": "main",
+    "updated_at": "2026-11-09T10:00:00Z"
+  }
+]

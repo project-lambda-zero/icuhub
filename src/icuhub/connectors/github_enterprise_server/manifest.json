@@ -1,0 +1,3919 @@
+{
+  "actions": [
+    {
+      "capability": "SourceControl",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "context": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Context",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 140,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "sha": {
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Sha",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "error",
+              "failure",
+              "pending",
+              "success"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "target_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Target Url"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "sha",
+          "state",
+          "context"
+        ],
+        "title": "CreateCommitStatusArgs",
+        "type": "object"
+      },
+      "name": "create_commit_status",
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "write",
+      "idempotency": "key",
+      "input_schema": {
+        "$defs": {
+          "CheckAnnotation": {
+            "additionalProperties": false,
+            "properties": {
+              "annotation_level": {
+                "enum": [
+                  "notice",
+                  "warning",
+                  "failure"
+                ],
+                "title": "Annotation Level",
+                "type": "string"
+              },
+              "end_column": {
+                "anyOf": [
+                  {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "End Column"
+              },
+              "end_line": {
+                "minimum": 1,
+                "title": "End Line",
+                "type": "integer"
+              },
+              "message": {
+                "maxLength": 64000,
+                "minLength": 1,
+                "title": "Message",
+                "type": "string"
+              },
+              "path": {
+                "maxLength": 4096,
+                "minLength": 1,
+                "title": "Path",
+                "type": "string"
+              },
+              "raw_details": {
+                "anyOf": [
+                  {
+                    "maxLength": 64000,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Raw Details"
+              },
+              "start_column": {
+                "anyOf": [
+                  {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Start Column"
+              },
+              "start_line": {
+                "minimum": 1,
+                "title": "Start Line",
+                "type": "integer"
+              },
+              "title": {
+                "anyOf": [
+                  {
+                    "maxLength": 255,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Title"
+              }
+            },
+            "required": [
+              "path",
+              "start_line",
+              "end_line",
+              "annotation_level",
+              "message"
+            ],
+            "title": "CheckAnnotation",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "action_key": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$",
+            "title": "Action Key",
+            "type": "string"
+          },
+          "analysis_id": {
+            "minimum": 1,
+            "title": "Analysis Id",
+            "type": "integer"
+          },
+          "annotations": {
+            "items": {
+              "$ref": "#/$defs/CheckAnnotation"
+            },
+            "maxItems": 10000,
+            "title": "Annotations",
+            "type": "array"
+          },
+          "conclusion": {
+            "anyOf": [
+              {
+                "enum": [
+                  "action_required",
+                  "cancelled",
+                  "failure",
+                  "neutral",
+                  "success",
+                  "skipped",
+                  "stale",
+                  "timed_out"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Conclusion"
+          },
+          "details_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Details Url"
+          },
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "sha": {
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Sha",
+            "type": "string"
+          },
+          "status": {
+            "default": "completed",
+            "enum": [
+              "queued",
+              "in_progress",
+              "completed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 60000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 60000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          },
+          "title": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "sha",
+          "name",
+          "action_key",
+          "analysis_id",
+          "title",
+          "summary"
+        ],
+        "title": "CheckRunArgs",
+        "type": "object"
+      },
+      "name": "create_or_update_check_run",
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "write",
+      "idempotency": "key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "action_key": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$",
+            "title": "Action Key",
+            "type": "string"
+          },
+          "body": {
+            "maxLength": 60000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "pull_number": {
+            "minimum": 1,
+            "title": "Pull Number",
+            "type": "integer"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number",
+          "body",
+          "action_key"
+        ],
+        "title": "CreatePrCommentArgs",
+        "type": "object"
+      },
+      "name": "create_pr_comment",
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "base": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Base",
+            "type": "string"
+          },
+          "body": {
+            "anyOf": [
+              {
+                "maxLength": 60000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Body"
+          },
+          "draft": {
+            "default": true,
+            "title": "Draft",
+            "type": "boolean"
+          },
+          "head": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Head",
+            "type": "string"
+          },
+          "maintainer_can_modify": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Maintainer Can Modify"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "title",
+          "head",
+          "base"
+        ],
+        "title": "CreatePullRequestArgs",
+        "type": "object"
+      },
+      "name": "create_pull_request",
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "$defs": {
+          "ReviewComment": {
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "maxLength": 60000,
+                "minLength": 1,
+                "title": "Body",
+                "type": "string"
+              },
+              "line": {
+                "anyOf": [
+                  {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Line"
+              },
+              "path": {
+                "maxLength": 4096,
+                "minLength": 1,
+                "title": "Path",
+                "type": "string"
+              },
+              "side": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "LEFT",
+                      "RIGHT"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Side"
+              },
+              "start_line": {
+                "anyOf": [
+                  {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Start Line"
+              },
+              "start_side": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "LEFT",
+                      "RIGHT"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Start Side"
+              }
+            },
+            "required": [
+              "path",
+              "body"
+            ],
+            "title": "ReviewComment",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "maxLength": 60000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Body"
+          },
+          "comments": {
+            "items": {
+              "$ref": "#/$defs/ReviewComment"
+            },
+            "maxItems": 100,
+            "title": "Comments",
+            "type": "array"
+          },
+          "event": {
+            "enum": [
+              "APPROVE",
+              "REQUEST_CHANGES",
+              "COMMENT"
+            ],
+            "title": "Event",
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "pull_number": {
+            "minimum": 1,
+            "title": "Pull Number",
+            "type": "integer"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number",
+          "event"
+        ],
+        "title": "CreateReviewArgs",
+        "type": "object"
+      },
+      "name": "create_review",
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "destructive",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "commit_message": {
+            "anyOf": [
+              {
+                "maxLength": 60000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Commit Message"
+          },
+          "commit_title": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Commit Title"
+          },
+          "expected_head_sha": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-fA-F]{7,64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Head Sha"
+          },
+          "merge_method": {
+            "default": "merge",
+            "enum": [
+              "merge",
+              "squash",
+              "rebase"
+            ],
+            "title": "Merge Method",
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "pull_number": {
+            "minimum": 1,
+            "title": "Pull Number",
+            "type": "integer"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number"
+        ],
+        "title": "MergePullRequestArgs",
+        "type": "object"
+      },
+      "name": "merge_pull_request",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "alert_number": {
+            "minimum": 1,
+            "title": "Alert Number",
+            "type": "integer"
+          },
+          "dismissed_comment": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Dismissed Comment"
+          },
+          "dismissed_reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "false positive",
+                  "used in tests",
+                  "won't fix"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Dismissed Reason"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "open",
+              "dismissed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "alert_number",
+          "state"
+        ],
+        "title": "UpdateCodeScanningAlertArgs",
+        "type": "object"
+      },
+      "name": "update_code_scanning_alert",
+      "stability": "beta"
+    },
+    {
+      "capability": "CodeScanningSink",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "checkout_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Checkout Uri"
+          },
+          "commit_sha": {
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Commit Sha",
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "ref": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "sarif": {
+            "additionalProperties": true,
+            "title": "Sarif",
+            "type": "object"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Started At"
+          },
+          "tool_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tool Name"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "commit_sha",
+          "ref",
+          "sarif"
+        ],
+        "title": "UploadSarifArgs",
+        "type": "object"
+      },
+      "name": "upload_code_scanning_sarif",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "GitHubAppAuth",
+    "BearerToken"
+  ],
+  "capabilities": [
+    "SourceControl",
+    "CodeScanningSink",
+    "FindingSource",
+    "TelemetrySource"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "GHES configuration; requires a configured self-hosted host with the /api/v3 REST root.",
+    "properties": {
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "api_version": {
+        "default": "2022-11-28",
+        "title": "Api Version",
+        "type": "string"
+      },
+      "app_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "App Id"
+      },
+      "app_private_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "base_url": {
+        "default": "https://api.github.com",
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "destructive_enabled": {
+        "default": false,
+        "title": "Destructive Enabled",
+        "type": "boolean"
+      },
+      "enterprise": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Enterprise"
+      },
+      "installation_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Installation Id"
+      },
+      "max_download_bytes": {
+        "default": 8388608,
+        "maximum": 67108864,
+        "minimum": 1,
+        "title": "Max Download Bytes",
+        "type": "integer"
+      },
+      "max_file_bytes": {
+        "default": 262144,
+        "maximum": 4194304,
+        "minimum": 1,
+        "title": "Max File Bytes",
+        "type": "integer"
+      },
+      "max_repository_files": {
+        "default": 1000,
+        "maximum": 10000,
+        "minimum": 1,
+        "title": "Max Repository Files",
+        "type": "integer"
+      },
+      "max_sarif_bytes": {
+        "default": 16777216,
+        "maximum": 67108864,
+        "minimum": 1,
+        "title": "Max Sarif Bytes",
+        "type": "integer"
+      },
+      "max_sarif_results": {
+        "default": 25000,
+        "maximum": 25000,
+        "minimum": 1,
+        "title": "Max Sarif Results",
+        "type": "integer"
+      },
+      "max_skipped_items": {
+        "default": 1000,
+        "maximum": 10000,
+        "minimum": 1,
+        "title": "Max Skipped Items",
+        "type": "integer"
+      },
+      "organization": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Organization"
+      },
+      "personal_access_token": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "previous_webhook_secret": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "probe_repository": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Probe Repository"
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "webhook_secret": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "write_enabled": {
+        "default": false,
+        "title": "Write Enabled",
+        "type": "boolean"
+      }
+    },
+    "title": "GitHubEnterpriseServerConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-103"
+  ],
+  "format_version": 1,
+  "importers": [],
+  "kind": "github_enterprise_server",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "minimum": 1,
+            "title": "Artifact Id",
+            "type": "integer"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "artifact_id"
+        ],
+        "title": "ArtifactRef",
+        "type": "object"
+      },
+      "name": "get_artifact",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "branch": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Branch",
+            "type": "string"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "branch"
+        ],
+        "title": "BranchRef",
+        "type": "object"
+      },
+      "name": "get_branch_protection",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "check_run_id": {
+            "minimum": 1,
+            "title": "Check Run Id",
+            "type": "integer"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "check_run_id"
+        ],
+        "title": "CheckRunRef",
+        "type": "object"
+      },
+      "name": "get_check_run",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "alert_number": {
+            "minimum": 1,
+            "title": "Alert Number",
+            "type": "integer"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "alert_number"
+        ],
+        "title": "AlertRef",
+        "type": "object"
+      },
+      "name": "get_code_scanning_alert",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "analysis_id": {
+            "minimum": 1,
+            "title": "Analysis Id",
+            "type": "integer"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "analysis_id"
+        ],
+        "title": "AnalysisRef",
+        "type": "object"
+      },
+      "name": "get_code_scanning_analysis",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "username"
+        ],
+        "title": "CollaboratorRef",
+        "type": "object"
+      },
+      "name": "get_collaborator_permission",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "sha": {
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Sha",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "sha"
+        ],
+        "title": "CommitRef",
+        "type": "object"
+      },
+      "name": "get_commit",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ref"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "path"
+        ],
+        "title": "FileRef",
+        "type": "object"
+      },
+      "name": "get_file",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "organization": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Organization",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization",
+          "username"
+        ],
+        "title": "MembershipRef",
+        "type": "object"
+      },
+      "name": "get_membership",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "organization": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Organization",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization"
+        ],
+        "title": "OrgRef",
+        "type": "object"
+      },
+      "name": "get_organization",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "pull_number": {
+            "minimum": 1,
+            "title": "Pull Number",
+            "type": "integer"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number"
+        ],
+        "title": "PullRef",
+        "type": "object"
+      },
+      "name": "get_pull_request",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "EmptyArgs",
+        "type": "object"
+      },
+      "name": "get_rate_limit",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ],
+        "title": "RepoRef",
+        "type": "object"
+      },
+      "name": "get_repository",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "pull_number": {
+            "minimum": 1,
+            "title": "Pull Number",
+            "type": "integer"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "review_id": {
+            "minimum": 1,
+            "title": "Review Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number",
+          "review_id"
+        ],
+        "title": "ReviewRef",
+        "type": "object"
+      },
+      "name": "get_review",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "comment_id": {
+            "minimum": 1,
+            "title": "Comment Id",
+            "type": "integer"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "comment_id"
+        ],
+        "title": "ReviewCommentRef",
+        "type": "object"
+      },
+      "name": "get_review_comment",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "ruleset_id": {
+            "minimum": 1,
+            "title": "Ruleset Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "ruleset_id"
+        ],
+        "title": "RulesetRef",
+        "type": "object"
+      },
+      "name": "get_ruleset",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "CodeScanningSink",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "sarif_id": {
+            "pattern": "^[A-Za-z0-9._-]{1,128}$",
+            "title": "Sarif Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "sarif_id"
+        ],
+        "title": "SarifStatusRef",
+        "type": "object"
+      },
+      "name": "get_sarif_status",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "tag": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Tag",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "tag"
+        ],
+        "title": "TagRef",
+        "type": "object"
+      },
+      "name": "get_tag",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "organization": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Organization",
+            "type": "string"
+          },
+          "team_slug": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Team Slug",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization",
+          "team_slug"
+        ],
+        "title": "TeamRef",
+        "type": "object"
+      },
+      "name": "get_team",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "recursive": {
+            "default": false,
+            "title": "Recursive",
+            "type": "boolean"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "tree_sha": {
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Tree Sha",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "tree_sha"
+        ],
+        "title": "TreeRef",
+        "type": "object"
+      },
+      "name": "get_tree",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "username": {
+            "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$",
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username"
+        ],
+        "title": "UserRef",
+        "type": "object"
+      },
+      "name": "get_user",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "hook_id": {
+            "minimum": 1,
+            "title": "Hook Id",
+            "type": "integer"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "hook_id"
+        ],
+        "title": "WebhookRef",
+        "type": "object"
+      },
+      "name": "get_webhook",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "delivery_id": {
+            "minimum": 1,
+            "title": "Delivery Id",
+            "type": "integer"
+          },
+          "hook_id": {
+            "minimum": 1,
+            "title": "Hook Id",
+            "type": "integer"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "hook_id",
+          "delivery_id"
+        ],
+        "title": "WebhookDeliveryRef",
+        "type": "object"
+      },
+      "name": "get_webhook_delivery",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "workflow_id": {
+            "minimum": 1,
+            "title": "Workflow Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "workflow_id"
+        ],
+        "title": "WorkflowRef",
+        "type": "object"
+      },
+      "name": "get_workflow",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "minimum": 1,
+            "title": "Job Id",
+            "type": "integer"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "job_id"
+        ],
+        "title": "WorkflowJobRef",
+        "type": "object"
+      },
+      "name": "get_workflow_job",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          },
+          "run_id": {
+            "minimum": 1,
+            "title": "Run Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "run_id"
+        ],
+        "title": "WorkflowRunRef",
+        "type": "object"
+      },
+      "name": "get_workflow_run",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "TelemetrySource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "enterprise": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Enterprise",
+            "type": "string"
+          },
+          "phrase": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Phrase"
+          }
+        },
+        "required": [
+          "enterprise"
+        ],
+        "title": "EnterpriseRef",
+        "type": "object"
+      },
+      "name": "list_audit_events",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ],
+        "title": "RepoRef",
+        "type": "object"
+      },
+      "name": "list_branches",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "alert_number": {
+            "minimum": 1,
+            "title": "Alert Number",
+            "type": "integer"
+          },
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ref"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "alert_number"
+        ],
+        "title": "AlertInstancesRef",
+        "type": "object"
+      },
+      "name": "list_code_scanning_alert_instances",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ],
+        "title": "RepoRef",
+        "type": "object"
+      },
+      "name": "list_code_scanning_alerts",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ],
+        "title": "RepoRef",
+        "type": "object"
+      },
+      "name": "list_dependabot_alerts",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "EmptyArgs",
+        "type": "object"
+      },
+      "name": "list_installation_repositories",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "pull_number": {
+            "minimum": 1,
+            "title": "Pull Number",
+            "type": "integer"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number"
+        ],
+        "title": "PullRef",
+        "type": "object"
+      },
+      "name": "list_pull_request_reviews",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "pull_number": {
+            "minimum": 1,
+            "title": "Pull Number",
+            "type": "integer"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo",
+          "pull_number"
+        ],
+        "title": "PullRef",
+        "type": "object"
+      },
+      "name": "list_review_comments",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ],
+        "title": "RepoRef",
+        "type": "object"
+      },
+      "name": "list_secret_scanning_alerts",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "owner": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Owner",
+            "type": "string"
+          },
+          "repo": {
+            "maxLength": 100,
+            "pattern": "^[^/\\s]+$",
+            "title": "Repo",
+            "type": "string"
+          }
+        },
+        "required": [
+          "owner",
+          "repo"
+        ],
+        "title": "RepoRef",
+        "type": "object"
+      },
+      "name": "list_webhooks",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result that retains vendor-specific response data.",
+        "properties": {
+          "data": {
+            "additionalProperties": true,
+            "title": "Data",
+            "type": "object"
+          },
+          "status_code": {
+            "title": "Status Code",
+            "type": "integer"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Text"
+          }
+        },
+        "required": [
+          "status_code"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [
+    "comment",
+    "ticket"
+  ],
+  "scopes": [
+    {
+      "name": "metadata",
+      "probe": "GET /rate_limit",
+      "required_by": [
+        "SourceControl"
+      ]
+    },
+    {
+      "name": "installation_repositories",
+      "probe": "GET /installation/repositories",
+      "required_by": [
+        "SourceControl"
+      ]
+    },
+    {
+      "name": "code_scanning_read",
+      "probe": "GET /repos/{owner}/{repo}/code-scanning/alerts",
+      "required_by": [
+        "FindingSource"
+      ]
+    },
+    {
+      "name": "code_scanning_write",
+      "probe": "Approved SARIF upload or alert update with read-back",
+      "required_by": [
+        "CodeScanningSink"
+      ]
+    },
+    {
+      "name": "administration_read",
+      "probe": "GET /repos/{owner}/{repo}/branches/{branch}/protection",
+      "required_by": [
+        "FindingSource"
+      ]
+    },
+    {
+      "name": "enterprise_audit_read",
+      "probe": "GET /enterprises/{enterprise}/audit-log",
+      "required_by": [
+        "TelemetrySource"
+      ]
+    }
+  ],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "actions_caches",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "actions_runners",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "TelemetrySource",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "audit_events",
+      "ocsf_class": 6003,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "TelemetrySource",
+      "cursor": "sequence",
+      "mapper_version": 1,
+      "modes": [
+        "incremental"
+      ],
+      "name": "audit_stream_files",
+      "ocsf_class": 6003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "branch_protection",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "branches",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "check_runs",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "code_scanning_alerts",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "collaborators",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "commit_statuses",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "commits",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "dependabot_alerts",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "organization_external_identities",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "organizations",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "pull_requests",
+      "ocsf_class": null,
+      "record_type": "ticket",
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "repositories",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "repository_files",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "review_comments",
+      "ocsf_class": null,
+      "record_type": "comment",
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "reviews",
+      "ocsf_class": null,
+      "record_type": "comment",
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "secret_scanning_alerts",
+      "ocsf_class": 2004,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "tags",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "team_members",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "team_repositories",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "teams",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "users",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "workflow_artifacts",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "workflow_jobs",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "workflow_runs",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "workflows",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": [
+    {
+      "event_types": [
+        "branch_protection_rule",
+        "code_scanning_alert",
+        "dependabot_alert",
+        "member",
+        "organization",
+        "pull_request",
+        "pull_request_review",
+        "pull_request_review_comment",
+        "push",
+        "repository",
+        "secret_scanning_alert",
+        "team",
+        "workflow_job",
+        "workflow_run"
+      ],
+      "header_event": "x-github-event",
+      "name": "receive_event"
+    }
+  ]
+}

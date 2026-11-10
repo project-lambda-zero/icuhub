@@ -1,0 +1,8 @@
+{
+  "verifiable_password_authentication": false,
+  "installed_version": "3.14.0",
+  "hooks": ["192.0.2.0/24"],
+  "web": ["192.0.2.0/24"],
+  "api": ["192.0.2.0/24"],
+  "git": ["192.0.2.0/24"]
+}

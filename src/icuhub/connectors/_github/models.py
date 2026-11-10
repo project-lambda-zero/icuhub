@@ -27,10 +27,15 @@ class GitHubConfig(ConnectorConfig):
     enterprise: str | None = None
     probe_repository: str | None = None
     webhook_secret: SecretRef | None = None
+    previous_webhook_secret: SecretRef | None = None
+    write_enabled: bool = False
+    destructive_enabled: bool = False
     max_file_bytes: int = Field(default=256 * 1024, ge=1, le=4 * 1024 * 1024)
     max_repository_files: int = Field(default=1000, ge=1, le=10000)
     max_download_bytes: int = Field(default=8 * 1024 * 1024, ge=1, le=64 * 1024 * 1024)
     max_sarif_bytes: int = Field(default=16 * 1024 * 1024, ge=1, le=64 * 1024 * 1024)
+    max_sarif_results: int = Field(default=25000, ge=1, le=25000)
+    max_skipped_items: int = Field(default=1000, ge=1, le=10000)
 
     @field_validator("api_version")
     @classmethod
@@ -54,6 +59,11 @@ class GitHubConfig(ConnectorConfig):
             raise ValueError("app_id, app_private_key, and installation_id must be configured together")
         if app_complete == (self.personal_access_token is not None):
             raise ValueError("configure exactly one of GitHub App authentication or personal_access_token")
+        if self.previous_webhook_secret is not None:
+            if self.webhook_secret is None:
+                raise ValueError("webhook_secret is required when previous_webhook_secret is configured")
+            if self.webhook_secret.ref == self.previous_webhook_secret.ref:
+                raise ValueError("webhook secret rotation requires distinct current and previous references")
         return self
 
 
@@ -172,6 +182,36 @@ class WebhookRef(RepoRef):
     hook_id: int = Field(ge=1)
 
 
+class WebhookDeliveryRef(WebhookRef):
+    delivery_id: int = Field(ge=1)
+
+
+class UserRef(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(pattern=r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$")
+
+
+class RulesetRef(RepoRef):
+    ruleset_id: int = Field(ge=1)
+
+
+class WorkflowRef(RepoRef):
+    workflow_id: int = Field(ge=1)
+
+
+class CheckRunRef(RepoRef):
+    check_run_id: int = Field(ge=1)
+
+
+class SarifStatusRef(RepoRef):
+    sarif_id: str = Field(pattern=r"^[A-Za-z0-9._-]{1,128}$")
+
+
+class AuditDestinationRef(EnterpriseRef):
+    stream_id: int = Field(ge=1)
+
+
 class UploadSarifArgs(RepoRef):
     commit_sha: str = Field(pattern=_HEX_SHA)
     ref: str = Field(min_length=1, max_length=255)
@@ -179,7 +219,6 @@ class UploadSarifArgs(RepoRef):
     checkout_uri: str | None = None
     started_at: str | None = None
     tool_name: str | None = None
-    validate: bool | None = None
 
 
 class UpdateCodeScanningAlertArgs(AlertRef):
@@ -251,6 +290,7 @@ class CheckAnnotation(BaseModel):
 class CheckRunArgs(CommitRef):
     name: str = Field(min_length=1, max_length=100)
     action_key: str = Field(pattern=_ACTION_KEY)
+    analysis_id: int = Field(ge=1)
     status: Literal["queued", "in_progress", "completed"] = "completed"
     conclusion: Literal[
         "action_required", "cancelled", "failure", "neutral", "success", "skipped", "stale", "timed_out"
