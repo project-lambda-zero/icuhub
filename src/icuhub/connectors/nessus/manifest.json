@@ -1405,7 +1405,7 @@
       "name": "scan_runs",
       "ocsf_class": null,
       "record_type": "scan_run",
-      "requires_target": true,
+      "requires_target": false,
       "stability": "beta"
     }
   ],
