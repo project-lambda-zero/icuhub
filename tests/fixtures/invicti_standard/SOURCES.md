@@ -6,4 +6,4 @@ The JSON fixture is synthetic and follows the report shape documented for ICUHUB
 - https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/master/dojo/tools/invicti/parser.py -- field-shape reference only, BSD-3-Clause; no code copied.
 - NOTICE: synthetic fixture data is provided under the repository license; no vendor code or proprietary response bodies are copied.
 
-Native Standard and Netsparker desktop XML profiles are intentionally absent until a current real export is available, as required by `docs/MVP.md` section 4.12.
+Native Invicti Standard XML is intentionally absent until a current real export is available, as required by `docs/MVP.md` section 4.12. Legacy Netsparker desktop XML is out of scope.

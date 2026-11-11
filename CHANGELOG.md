@@ -48,8 +48,9 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Legacy Netsparker desktop/cloud XML profiles and their acceptance prerequisites are removed from scope. `GAP-INVICTI-001` now covers only current Invicti Standard XML; historical Netsparker parser citations remain research evidence, not supported profiles.
 - Coverage matrices now reflect generated manifests and current offline tests for GitHub, GitLab, Jira, OpenShift, Prisma Cloud, Fortify, Invicti, Mend, and Nessus. Original source-linked gap contracts remain unchanged, and partial or missing capabilities stay explicit.
-- Invicti Standard research now cites current official documentation for both XML vulnerability-list profiles. Native XML remains disabled because no genuine current export or element schema is available for golden parser validation.
+- Invicti Standard research now cites current official documentation for Standard XML vulnerability-list exports. Native Standard XML remains disabled because no genuine current export or element schema is available for golden parser validation.
 - Decisions table in BRD section 18 records outcomes and ADR links; BR-15, FR-RX-01..10, NFR-17, and R10 are withdrawn (ADR-0011) with their IDs reserved.
 - COMMATRIX event and secret flows describe Kafka and OpenBao Transit (ADR-0005, ADR-0006).
 - CI installs `icuhub-schemas`, compiles `src`, `packages`, and `tools`, and runs the license check.

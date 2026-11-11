@@ -1111,7 +1111,7 @@ Invicti Standard is the desktop edition with JSON report ingestion and outbound 
 | Comparable open-source integrations | DefectDojo maps Invicti JSON through the Netsparker parser: https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/master/dojo/tools/invicti/parser.py and https://raw.githubusercontent.com/DefectDojo/django-DefectDojo/master/dojo/tools/netsparker/parser.py. |
 | Gotchas | Manual and Auto Send To Actions produce configurable, non-versioned payloads. Reports may lack website UUIDs; retain report ID and use configured website mapping or canonical URL. Do not point the Enterprise client at Standard. |
 
-Current [Invicti list documentation](https://docs.invicti.com/ie-is/lists-invicti) confirms `Vulnerabilities List (XML)` and Standard-only detailed XML exports. The native XML profiles remain disabled until genuine current exports establish their element schemas and independent golden tests prove bounded parsing and snapshot identity. Current DefectDojo Invicti and Netsparker integrations document JSON imports and do not supply that XML evidence.
+Current [Invicti list documentation](https://docs.invicti.com/ie-is/lists-invicti) confirms Standard XML vulnerability-list exports. The native Standard XML profile remains disabled until a genuine current export establishes its element schema and independent golden tests prove bounded parsing and snapshot identity. Legacy Netsparker desktop XML is out of scope. Current DefectDojo Invicti and Netsparker integrations document JSON imports and do not supply current Standard XML evidence.
 
 #### Connector spec
 
