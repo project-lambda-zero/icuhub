@@ -1,0 +1,20 @@
+{
+  "vulnerabilities": [
+    {
+      "name": "CVE-2099-0001",
+      "project": "example-project-one",
+      "library": {
+        "name": "example-library-2.4.1",
+        "groupId": "com.example",
+        "artifactId": "example-library",
+        "version": "2.4.1"
+      },
+      "vulnerability": {
+        "description": "Synthetic vulnerability description.",
+        "score": 8.1,
+        "severity": "HIGH",
+        "publishDate": "2026-01-10"
+      }
+    }
+  ]
+}

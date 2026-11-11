@@ -1,0 +1,19 @@
+{
+  "data": [
+    {
+      "id": 1003,
+      "issueInstanceId": "a1b2c3d4-0003-4000-8000-000000000003",
+      "projectVersionId": 42,
+      "revision": 2,
+      "primaryRuleGuid": "11111111-aaaa-4bbb-8ccc-000000000003",
+      "category": "Cross-Site Scripting",
+      "fileName": "src/web/View.jsp",
+      "lineNumber": 5,
+      "audit": {"auditState": "Unaudited"},
+      "suppressed": false,
+      "removed": true,
+      "updated": "2026-03-02T08:15:00.000+0000"
+    }
+  ],
+  "count": 3
+}

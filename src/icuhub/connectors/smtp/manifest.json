@@ -1,0 +1,230 @@
+{
+  "actions": [
+    {
+      "capability": "Notifier",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "The ``send_notification`` action input used by core.notifier.",
+        "properties": {
+          "body": {
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "recipients": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Recipients",
+            "type": "array"
+          },
+          "subject": {
+            "maxLength": 998,
+            "minLength": 1,
+            "title": "Subject",
+            "type": "string"
+          },
+          "template": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Template"
+          }
+        },
+        "required": [
+          "recipients",
+          "subject",
+          "body"
+        ],
+        "title": "SendNotificationArgs",
+        "type": "object"
+      },
+      "name": "send_notification",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "optional_smtp_auth"
+  ],
+  "capabilities": [
+    "Notifier"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "Outbound SMTP connection. TLS certificate verification is always enabled.",
+    "properties": {
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "allowed_recipients": {
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "title": "Allowed Recipients",
+        "type": "array"
+      },
+      "base_url": {
+        "default": "",
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "from_address": {
+        "minLength": 3,
+        "title": "From Address",
+        "type": "string"
+      },
+      "host": {
+        "minLength": 1,
+        "title": "Host",
+        "type": "string"
+      },
+      "password": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "port": {
+        "default": 587,
+        "maximum": 65535,
+        "minimum": 1,
+        "title": "Port",
+        "type": "integer"
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "security": {
+        "default": "starttls",
+        "enum": [
+          "starttls",
+          "ssl"
+        ],
+        "title": "Security",
+        "type": "string"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "username": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      }
+    },
+    "required": [
+      "host",
+      "from_address"
+    ],
+    "title": "SmtpConfig",
+    "type": "object"
+  },
+  "flows": [],
+  "format_version": 1,
+  "importers": [],
+  "kind": "smtp",
+  "license": "AGPL-3.0-only",
+  "operations": [],
+  "owner": "@icuhub/maintainers",
+  "record_types": [],
+  "scopes": [],
+  "sdk": ">=1,<2",
+  "streams": [],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": []
+}

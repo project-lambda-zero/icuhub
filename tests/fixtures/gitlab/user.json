@@ -1,0 +1,7 @@
+{
+  "id": 11,
+  "username": "example.author",
+  "name": "Example Author",
+  "state": "active",
+  "web_url": "https://gitlab.example.test/example.author"
+}

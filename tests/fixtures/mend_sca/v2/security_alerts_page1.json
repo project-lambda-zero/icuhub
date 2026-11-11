@@ -1,0 +1,91 @@
+{
+  "additionalData": {
+    "totalItems": 3,
+    "isLastPage": false
+  },
+  "supportToken": "example-support-token",
+  "retVal": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000601",
+      "name": "CVE-2099-0001 in example-library",
+      "type": "SECURITY_VULNERABILITY",
+      "alertInfo": {
+        "status": "ACTIVE",
+        "comment": "",
+        "detectedAt": "2026-01-15T10:00:00Z",
+        "modifiedAt": "2026-01-15T10:00:00Z"
+      },
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000101",
+        "name": "example-project-one",
+        "path": "example-group/example-project-one",
+        "productName": "example-application",
+        "productUuid": "00000000-0000-4000-8000-000000000201"
+      },
+      "product": {
+        "uuid": "00000000-0000-4000-8000-000000000201",
+        "name": "example-application"
+      },
+      "component": {
+        "uuid": "00000000-0000-4000-8000-000000000301",
+        "name": "example-library-2.4.1",
+        "groupId": "com.example",
+        "artifactId": "example-library",
+        "version": "2.4.1",
+        "libraryLocations": []
+      },
+      "vulnerability": {
+        "name": "CVE-2099-0001",
+        "type": "CVE",
+        "description": "Synthetic vulnerability description for parser fixtures.",
+        "score": 8.1,
+        "severity": "HIGH",
+        "publishDate": "2026-01-10",
+        "modifiedDate": "2026-01-12",
+        "vulnerabilityScoring": [],
+        "references": []
+      }
+    },
+    {
+      "uuid": "00000000-0000-4000-8000-000000000602",
+      "name": "CVE-2099-0001 in example-library",
+      "type": "SECURITY_VULNERABILITY",
+      "alertInfo": {
+        "status": "IGNORED",
+        "comment": "Ignored for this synthetic cross-project alert.",
+        "detectedAt": "2026-01-15T10:05:00Z",
+        "modifiedAt": "2026-01-16T09:30:00Z"
+      },
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000102",
+        "name": "example-project-two",
+        "path": "example-group/example-project-two",
+        "productName": "example-application",
+        "productUuid": "00000000-0000-4000-8000-000000000201"
+      },
+      "product": {
+        "uuid": "00000000-0000-4000-8000-000000000201",
+        "name": "example-application"
+      },
+      "component": {
+        "uuid": "00000000-0000-4000-8000-000000000301",
+        "name": "example-library-2.4.1",
+        "groupId": "com.example",
+        "artifactId": "example-library",
+        "version": "2.4.1",
+        "libraryLocations": []
+      },
+      "vulnerability": {
+        "name": "CVE-2099-0001",
+        "type": "CVE",
+        "description": "Synthetic vulnerability description for parser fixtures.",
+        "score": 8.1,
+        "severity": "HIGH",
+        "publishDate": "2026-01-10",
+        "modifiedDate": "2026-01-12",
+        "vulnerabilityScoring": [],
+        "references": []
+      }
+    }
+  ]
+}

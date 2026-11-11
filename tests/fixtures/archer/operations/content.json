@@ -1,0 +1,14 @@
+{
+  "IsSuccessful": true,
+  "RequestedObject": {
+    "Id": 1001,
+    "LevelId": 401,
+    "Version": 7,
+    "FieldContents": {
+      "5001": {"Type": 1, "Value": "Risk A", "FieldId": 5001},
+      "5003": {"Type": 4, "Value": {"ValuesListIds": [9001]}, "FieldId": 5003},
+      "5009": {"Type": 19, "IpAddressBytes": "10.0.0.1", "FieldId": 5009}
+    }
+  },
+  "ValidationMessages": []
+}

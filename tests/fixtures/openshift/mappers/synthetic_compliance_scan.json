@@ -1,0 +1,20 @@
+{
+  "apiVersion": "compliance.openshift.io/v1alpha1",
+  "kind": "ComplianceScan",
+  "metadata": {
+    "name": "synthetic-worker-scan",
+    "namespace": "openshift-compliance",
+    "uid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa8",
+    "resourceVersion": "208"
+  },
+  "spec": {
+    "scanType": "Node",
+    "profile": "xccdf_org.ssgproject.content_profile_moderate",
+    "content": "ssg-rhcos4-ds.xml",
+    "contentImage": "registry.example.invalid/synthetic/compliance-content:latest"
+  },
+  "status": {
+    "phase": "RUNNING",
+    "result": "NOT-AVAILABLE"
+  }
+}

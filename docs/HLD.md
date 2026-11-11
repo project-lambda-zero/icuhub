@@ -130,34 +130,52 @@ flowchart TB
 
 ```
 icuhub/
-├── docs/                      # BRD.md, HLD.md, COMMATRIX.md
+├── docs/                      # BRD.md, HLD.md, COMMATRIX.md, ADRs
 ├── packages/
 │   ├── icuhub-schemas/        # OCSF models + SARIF codecs; published separately, used by consumers
-│   ├── icuhub-sdk/            # generated Python client from OpenAPI
-│   └── icuhub-connector-kit/  # capability protocols, HTTP toolkit, fixture/proof harness
+│   └── icuhub-sdk/            # generated Python client from OpenAPI
 ├── src/icuhub/
-│   ├── api/                   # FastAPI app: rest/, mcp/, hooks/, admin/
-│   ├── core/                  # resolver, policy, approvals, credentials, executor, audit, outbox
-│   ├── connectors/            # one package per vendor: github/, gitlab/, f5/, jira/, gti/, ...
-│   ├── parsers/               # report-file parsers: fortify_fpr/, nessus_xml/, sarif/, ...
-│   ├── collectors/            # s3_sqs/, pubsub/, event_hubs/, syslog_cef/
-│   ├── workers/               # scheduler, action runner, refresher, relay, exporter
-│   └── storage/               # SQL models + migrations
-├── fixtures/                  # vendor-shaped payloads per connector, with expected OCSF outputs
+│   ├── __init__.py            # package version
+│   ├── __main__.py            # CLI: api, worker, migrate, manifest
+│   ├── settings.py            # ICUHUB_* environment settings; the only environment reader
+│   ├── kit/                   # connector kit: errors, types, HTTP, auth, pagination, cursors,
+│   │                          # mapping, webhooks, XML, SOAP, query escaping, manifests, testing
+│   ├── connectors/            # explicit connector registry and one package per connector kind
+│   ├── storage/               # SQLAlchemy models, async engine/session, tenant GUC, Alembic migrations
+│   ├── core/                  # runtime, credentials, policy, actions, audit, queue, sync, outbox,
+│   │                          # relay, webhooks, imports, tickets, correlation, notifier, scheduler
+│   ├── api/                   # FastAPI app, auth, REST /v1, hooks, MCP /mcp, problem responses
+│   └── workers/               # worker entry point and job handlers
 ├── deploy/helm/icuhub/        # chart (Kubernetes + OpenShift values)
 └── tests/
+    ├── kit/                   # connector kit tests
+    ├── connectors/<kind>/     # connector tests
+    ├── core/                  # core service tests
+    ├── api/                   # API tests
+    └── fixtures/<kind>/       # vendor-shaped payloads and expected normalized outputs
 ```
 
-Stack (proposed, D1): Python 3.11+, FastAPI, SQLModel/SQLAlchemy + Alembic, httpx,
-official MCP Python SDK (server side), Postgres. Event backbone per D2, secret backend
-per D3.
+Stack: Python 3.11+ (ADR-0004); Postgres with a transactional outbox feeding Apache
+Kafka (ADR-0005); envelope-encrypted credentials with an OpenBao KEK (ADR-0006).
+The connector toolkit uses `httpx2`, `tenacity`, `aiolimiter`, `Authlib`, `asyncpg`,
+`jmespath`, `pydantic>=2.10`, and `jsonschema`. The service stack adds `fastapi` for
+REST `/v1`, webhook ingress, and OpenAPI 3.1; `uvicorn` as the ASGI server;
+`sqlalchemy[asyncio]` for typed ORM and SQL over `asyncpg`; `alembic` for migrations;
+`defusedxml` for guarded XML parsing; `cryptography` for AES-256-GCM envelope
+encryption and RS256 JWT; `aiokafka` for the outbox relay producer; and `mcp` for the
+MCP server with Streamable HTTP transport (ADR-0021). No additional runtime dependency
+is planned without a new ADR.
 
 ## 4. Data model
 
 ```mermaid
 erDiagram
   TENANT ||--o{ CONNECTION : owns
-  CONNECTION ||--o{ CURSOR : has
+  CONNECTION ||--o{ TARGET : discovers
+  CONNECTION ||--o{ STREAM_STATE : tracks
+  STREAM_STATE ||--o{ SYNC_RUN : runs
+  SYNC_RUN ||--o{ RAW_BATCH : fetches
+  ACTION_REQUEST ||--o| ACTION_PLAN : carries
   CONNECTION ||--o{ WEBHOOK_DELIVERY : receives
   CONNECTION ||--o{ ACTION_REQUEST : targets
   ACTION_REQUEST ||--o| APPROVAL : may_require
@@ -170,20 +188,40 @@ erDiagram
 
 | Table | Key columns | Notes |
 |---|---|---|
-| `tenant` | `id`, `slug`, `automation_enabled` (tenant switch), `created_at` | Tenant switch of the three switches |
-| `connection` | `id`, `tenant_id`, `kind` (registry key), `slug`, `display_name`, `base_url`, `credential_ref`, `settings_json`, `egress_class`, `allowed_operations` (null = all), `status` (`active`/`degraded`/`disabled`), `last_health_at`, `last_health_status` | `credential_ref` points into the secret backend; no secret in DB |
-| `policy_rule` | `id`, `tenant_id`, `priority`, `match_json` (caller, connection, operation glob, classification, egress class, argument predicates), `decision` (`allow`/`deny`/`require_approval`/`preview`), `auto_execute_enabled` (rule switch), `approver_group`, `approval_ttl_s` | First match by priority wins; default rule: reads allow, writes and destructive `require_approval` |
-| `action_request` | `id`, `tenant_id`, `connection_id`, `operation`, `classification`, `args_json` (encrypted at rest), `args_digest`, `caller_id`, `correlation_id`, `idempotency_key`, `mode` (`live`/`replay`), `state`, `decision`, `result_json`, `error_class`, timestamps | Unique `(tenant_id, caller_id, idempotency_key)` |
-| `approval` | `id`, `action_request_id`, `approver_group`, `evidence_json`, `expires_at`, `decided_by`, `decided_at`, `decision`, `reason` | Durable pause |
-| `audit_record` | `id`, `tenant_id`, `seq`, `prev_hash`, `hash`, `ts`, `caller_id`, `connection_id`, `operation`, `classification`, `decision`, `approval_id`, `args_digest`, `status`, `http_status`, `latency_ms`, `correlation_id`, `trace_id` | Hash chain per tenant: `hash = H(prev_hash || canonical(record))` |
-| `cursor` | `connection_id`, `stream`, `position`, `updated_at`, `last_batch_size`, `lag_estimate` | Resumable pulls |
-| `webhook_delivery` | `id`, `connection_id`, `vendor_delivery_id`, `received_at`, `signature_valid`, `event_type`, `payload_ref`, `processed_at`, `status` | Unique `(connection_id, vendor_delivery_id)` for dedupe |
-| `finding` | `id`, `tenant_id`, `connection_id`, `fingerprint`, `ocsf_class_uid`, `ocsf_json`, `raw_ref`, `first_seen`, `last_seen`, `status` | Unique `(tenant_id, fingerprint)`; optional cache, consumers own long-term storage |
-| `outbox_event` | `id`, `tenant_id`, `topic`, `event_json`, `created_at`, `relayed_at` | Transactional outbox |
-| `fixture_proof` | `connector_kind`, `fixture_id`, `mapping_version`, `last_run_at`, `passed`, `prove_gate_passed` | Earned-executable status (FR-CNR-07) |
+| `tenant` | `id`, `slug`, `display_name`, `automation_enabled` (tenant switch, 6.4), `created_at` | Root of tenancy; has no `tenant_id` column, so it is not under RLS |
+| `service_account` | `id`, `tenant_id`, `name`, `key_prefix`, `key_hash`, `oidc_issuer`, `oidc_subject`, `roles`, `groups`, `created_at`, `disabled_at` | Caller identity: hashed API key or OIDC subject with roles; unique `(tenant_id, name)` |
+| `credential` | `id`, `tenant_id`, `name`, `kek_id`, `dek_wrapped`, `nonce`, `ciphertext`, `created_at`, `rotated_at` | Envelope-encrypted secret (ADR-0006); `SecretRef.ref` is `cred:<id>`; no plaintext secret column |
+| `connection` | `id`, `tenant_id`, `kind`, `slug`, `display_name`, `config_json`, `egress_class`, `allowed_operations` (null = all), `status`, `last_health_at`, `last_health_json`, `created_at`, `updated_at` | Unique `(tenant_id, slug)`; config fields that hold secrets carry `SecretRef` values, never secret material |
+| `policy_rule` | `id`, `tenant_id`, `priority`, `name`, `match_json`, `decision`, `auto_execute_enabled` (rule switch), `approver_group`, `approval_ttl_s`, `created_at` | First match by priority wins; `decision` is `allow`, `deny`, `require_approval`, or `preview` |
+| `action_request` | `id`, `tenant_id`, `connection_id`, `action`, `classification`, `args_json`, `args_digest`, `caller_id`, `correlation_id`, `idempotency_key`, `mode` (`live`/`replay`), `state`, `decision`, `rule_id`, `result_json`, `error_class`, `created_at`, `updated_at` | Unique `(tenant_id, caller_id, idempotency_key)`; state machine in 6.3 |
+| `action_plan` | `action_request_id` (PK), `tenant_id`, `target_ref`, `diff_json`, `preconditions_json`, `request_json`, `idempotency_key`, `plan_hash`, `changed`, `created_at` | One plan per action request (FR-CNR-17); approval binds to `plan_hash` |
+| `approval` | `id`, `tenant_id`, `action_request_id`, `approver_group`, `plan_hash`, `expires_at`, `decision` (`approved`/`rejected`/`expired`), `decided_by`, `decided_at`, `reason`, `change_ref`, `created_at` | Durable pause; bound to the plan hash it approved |
+| `audit_record` | `id`, `tenant_id`, `seq`, `prev_hash`, `hash`, `ts`, `caller_id`, `connection_id`, `operation`, `classification`, `decision`, `approval_id`, `args_digest`, `status`, `correlation_id`, `detail_json` | Unique `(tenant_id, seq)`; hash chain per tenant: `hash = H(prev_hash \|\| canonical(record))` (FR-AUD-02) |
+| `target` | `id`, `tenant_id`, `connection_id`, `source_uid`, `kind`, `display_name`, `attributes_json`, `included`, `paused`, `last_seen_at`, `missing_since` | Discovered scope inside a connection (FR-ING-10); unique `(connection_id, source_uid)` |
+| `stream_state` | `id`, `tenant_id`, `connection_id`, `target_id`, `target_key`, `stream`, `partition`, `checkpoint_json`, `checkpoint_schema`, `version`, `lease_owner`, `lease_expires_at`, `health`, `last_success_at`, `last_full_at`, `lag_s`, `interval_s`, `full_interval_s`, `next_run_at`, `enabled` | Typed checkpoint and lease per `(connection_id, target_key, stream, partition)`; advanced in the outbox transaction with a version check (FR-ING-07) |
+| `sync_run` | `id`, `tenant_id`, `stream_state_id`, `connection_id`, `stream`, `mode`, `completeness` (default `partial`), `outcome` (default `running`), `counts_json`, `error_class`, `error_detail`, `started_at`, `finished_at` | One run (FR-ING-09, NFR-18) |
+| `raw_batch` | `id`, `tenant_id`, `connection_id`, `sync_run_id`, `origin` (`stream`/`webhook`/`import`/`operation`), `stream`, `digest`, `record_count`, `parser_version`, `kek_id`, `dek_wrapped`, `nonce`, `payload_enc`, `created_at`, `expires_at` | Encrypted raw payload with digest for evidence and mapping replay (FR-NRM-07, NFR-16) |
+| `quarantine_item` | `id`, `tenant_id`, `raw_batch_id`, `record_index`, `error_class`, `error_detail`, `mapper_version`, `created_at`, `replayed_at` | Rejected records (FR-ING-11) |
+| `finding` | `id`, `tenant_id`, `connection_id`, `target_id`, `stream`, `source_uid`, `fingerprint`, `ocsf_class_uid`, `severity_id`, `status`, `title`, `ocsf_json`, `revision_digest`, `raw_batch_id`, `mapper_version`, `correlation_key`, `first_seen`, `last_seen`, `resolved_at` | One source observation (FR-COR-01), never merged; unique `(connection_id, stream, source_uid)`; indexed on `(tenant_id, fingerprint)` and `(tenant_id, correlation_key)` |
+| `source_record` | `id`, `tenant_id`, `connection_id`, `stream`, `record_type`, `uid`, `revision`, `data_json`, `links_json`, `raw_batch_id`, `first_seen`, `last_seen`, `deleted_at` | Non-OCSF typed record: inventory, tickets, GRC records, scan runs; unique `(connection_id, record_type, uid)` |
+| `correlation_case` | `id`, `tenant_id`, `correlation_key`, `key_version`, `title`, `severity_id`, `detection_state`, `remediation_state`, `exception_state`, `exception_expires_at`, `merged_into`, `created_at`, `updated_at` | Hub-owned remediation problem linking observations (FR-COR-01..03); one open case per `(tenant_id, correlation_key)` while `merged_into` is null |
+| `case_member` | `finding_id` (PK), `tenant_id`, `case_id`, `reason` (`key_match`/`manual_merge`/`manual_split`/`own_case`), `linked_by`, `linked_at` | Finding-to-case membership |
+| `evidence_item` | `id`, `tenant_id`, `case_id`, `kind` (`raw_batch`/`file_import`/`action_plan`/`approval`/`outcome`), `digest`, `ref_table`, `ref_id`, `created_at` | Digest-addressed evidence manifest entry for a case (MVP.md section 3) |
+| `ticket_route` | `id`, `tenant_id`, `name`, `connection_id`, `action`, `enabled`, `match_json`, `template_json`, `status_policy_json`, `created_at` | Routes matching findings to a tracker create action (FR-TKT); unique `(tenant_id, name)` |
+| `ticket_link` | `id`, `tenant_id`, `route_id`, `case_id`, `connection_id`, `state`, `remote_key`, `remote_id`, `remote_url`, `remote_status`, `status_category`, `last_outbound_revision`, `last_inbound_revision`, `last_synced_at`, `action_request_id`, `created_at` | One external record per `(route, case)` (FR-COR-04); unique `(tenant_id, route_id, case_id)` |
+| `webhook_endpoint` | `id` (random string, PK), `tenant_id`, `connection_id`, `secret_ref`, `previous_secret_ref`, `previous_valid_until`, `created_at`, `disabled_at` | Random, unguessable ingress endpoint with dual-secret rotation (FR-CON-08) |
+| `webhook_delivery` | `id`, `tenant_id`, `connection_id`, `endpoint_id`, `vendor_delivery_id`, `event_type`, `raw_batch_id`, `status` (default `received`), `error`, `received_at`, `processed_at` | Unique `(connection_id, vendor_delivery_id)` for dedupe; only verified deliveries are persisted (7.4) |
+| `file_import` | `id`, `tenant_id`, `connection_id`, `importer`, `filename`, `digest`, `size_bytes`, `state`, `raw_batch_id`, `counts_json`, `error`, `created_at`, `finished_at` | Report-file import; unique `(connection_id, importer, digest)` |
+| `job` | `id`, `tenant_id` (nullable), `queue`, `kind`, `payload_json`, `priority`, `run_at`, `attempts`, `max_attempts`, `state`, `lease_id`, `lease_owner`, `lease_expires_at`, `dedupe_key`, `last_error`, `created_at`, `updated_at` | Postgres `SKIP LOCKED` queue with leases (ADR-0014); unique `dedupe_key` among `queued` and `running` jobs; not under RLS |
+| `outbox_event` | `id`, `tenant_id`, `event_id` (unique), `topic`, `event_json`, `created_at`, `relayed_at`, `attempts`, `last_error` | Transactional outbox relayed to Kafka (ADR-0005); `event_id` lets consumers dedupe |
+| `notification` | `id`, `tenant_id`, `connection_id`, `template`, `recipients`, `subject`, `body`, `state`, `error`, `created_at`, `sent_at` | SMTP notifier record (FR-NTF) |
 
-All tenant-scoped tables have Postgres row-level security keyed on a per-request
-`app.tenant_id` setting (NFR-04).
+Tables with a `tenant_id` column are under Postgres row-level security keyed on the
+per-request `app.tenant_id` setting (NFR-04). `TENANT_TABLES` in `models.py` is the
+authoritative list. `job` is excluded: workers claim jobs across tenants and set
+`app.tenant_id` from the claimed job before touching tenant data.
+
+Table count: 27 tables, matching `src/icuhub/storage/models.py`.
 
 ## 5. Connector framework
 
@@ -211,11 +249,15 @@ class SourceControl(Protocol):            # GitHub, GitLab, Bitbucket, Azure Dev
 class CodeScanningSink(Protocol):         # GitHub code scanning, GitLab security reports, Bitbucket Code Insights
     async def upload_sarif(self, repo: str, rev: str, sarif: dict) -> str: ...
 
-class FindingSource(Protocol):            # Fortify, Mend, Invicti, Nessus, Prisma, Wiz, SonarQube
-    async def pull_findings(self, cursor: str | None, budget: int) -> Page[VulnerabilityFinding | ComplianceFinding]: ...
+# Ingestion capabilities are stream declarations driven by the host sync engine
+# (CONNECTOR_FRAMEWORK.md sections 3 and 5); the connector yields raw batches and a
+# proposed checkpoint, the host commits.
+#   FindingSource    Fortify, Mend, Invicti, Nessus, Prisma, Wiz, SonarQube  -> @stream(ocsf_class=2002 | 2003 | 2007)
+#   TelemetrySource  SIEM, EDR                                             -> @stream(ocsf_class=2004)
+#   RiskRegister     RSA Archer and other GRC tools                        -> @stream(RiskRecord)
+#   VulnIntel        NVD, EPSS, KEV, OSV, advisories (ADR-0012), FR-FEED-*  -> @stream(AdvisoryRecord)
 
-class TelemetrySource(Protocol):          # SIEM, EDR
-    async def pull_events(self, cursor: str | None, budget: int) -> Page[DetectionFinding]: ...
+class TelemetrySearch(Protocol):          # SIEM, EDR (synchronous read)
     async def search(self, query: StructuredQuery) -> Page[dict]: ...           # closed schema, bound parameters
 
 class Enforcer(Protocol):                 # F5, Cloudflare, firewalls, EDR containment
@@ -226,10 +268,16 @@ class Containment(Protocol):              # EDR host isolation
     async def isolate_host(self, host_id: str, reason: str) -> str: ...
     async def release_host(self, host_id: str) -> None: ...
 
-class Tracker(Protocol):                  # Jira, ServiceNow
+class Tracker(Protocol):                  # Jira, ServiceNow, Service Manager, Maximo (SOAP)
     async def open_ticket(self, ticket: TicketDraft) -> TicketRef: ...
     async def update_ticket(self, ref: TicketRef, patch: TicketPatch) -> None: ...
     async def get_ticket(self, ref: TicketRef) -> Ticket: ...
+    async def search_tickets(self, query: TicketQuery, cursor: str | None) -> Page[Ticket]: ...
+    async def add_comment(self, ref: TicketRef, body: str) -> str: ...
+    async def transition(self, ref: TicketRef, to_state: str, comment: str | None) -> None: ...
+    async def list_fields(self, project: str, issue_type: str | None) -> list[TrackerField]: ...
+    # Routing, fingerprint dedupe, and status sync (FR-TKT-02..07) run in the core
+    # service on top of these primitives; connectors stay vendor-only.
 
 class BuildSystem(Protocol):              # Jenkins, GitLab CI, GitHub Actions, Azure Pipelines
     async def trigger(self, job: str, params: dict[str, str]) -> BuildRef: ...
@@ -242,9 +290,33 @@ class ClusterOps(Protocol):               # Kubernetes, OpenShift
 
 class ThreatIntel(Protocol):              # GTI, MISP, OpenCTI
     async def lookup(self, indicator: Indicator) -> IntelReport: ...
+
+# Added in BRD v0.2 from INTEGRATION_INVENTORY.md
+
+class Notifier(Protocol):                 # SMTP, Teams/Slack/Google Chat webhooks, FR-NTF-*
+    async def send(self, message: Notification) -> str: ...
+
+class Directory(Protocol):                # LDAPS, Microsoft Graph, FR-DIR-*
+    async def get_user(self, ref: PrincipalRef) -> Principal: ...
+    async def list_group_members(self, group: str) -> list[Principal]: ...
+    async def get_manager(self, ref: PrincipalRef) -> Principal | None: ...
+
+class SbomSink(Protocol):                 # OWASP Dependency-Track
+    async def upload_bom(self, project: ProjectRef, bom: dict) -> str: ...      # CycloneDX 1.7
+
+class KnowledgeBase(Protocol):            # Confluence Cloud, Confluence Data Center, FR-KB-*
+    async def get_page(self, ref: PageRef, body_format: str) -> KbPage: ...
+    async def search_pages(self, query: PageQuery, cursor: str | None) -> Page[PageSummary]: ...
+    async def publish_page(self, draft: PageDraft) -> PageRef: ...              # @action, keyed by natural key, version precondition
+
 ```
 
-Every method also exists as an **operation** with metadata (5.2). Vendor-specific
+`web.fetch` (FR-FET-*) is a core operation, not a connector capability: it has no
+vendor credential, only destination policy. Remote host execution (SSH/SFTP) is not a
+capability: it stays in consumers (ADR-0011, BRD NG13).
+
+Every method is declared as an `@operation` (read) or an `@action` with plan and apply
+(write, destructive), with metadata (5.2). Vendor-specific
 operations (for example `create_irule` on F5, `list_issue_templates` on Fortify) are
 declared on the connector in addition to the capability methods (FR-CNR-03).
 
@@ -252,37 +324,57 @@ declared on the connector in addition to the capability methods (FR-CNR-03).
 
 ```python
 @operation(
-    name="block",
+    name="get_block",
     capability="Enforcer",
-    classification="destructive",        # read | write | destructive
+    classification="read",               # read operations use @operation
     egress_class="vendor_tenant",        # internal | vendor_tenant | third_party_shared
-    idempotent=True,                     # executor may retry on transport errors
-    input_schema=BlockInput,             # pydantic model -> JSON Schema for REST and MCP
+    input_schema=BlockRef,               # pydantic model -> JSON Schema for REST and MCP
     output_schema=BlockResult,
 )
-async def block(self, indicator: Indicator, ttl_s: int, reason: str) -> str: ...
+async def get_block(self, ctx: OpContext, ref: BlockRef) -> BlockResult: ...
+
+@action(
+    name="block",
+    capability="Enforcer",
+    classification="destructive",        # write | destructive use @action: plan, then apply
+    egress_class="vendor_tenant",
+    idempotency="natural_key",           # none | key | natural_key; drives outcome_unknown reconciliation
+    input_schema=BlockInput,
+)
+class Block: ...                         # plan() and apply(), CONNECTOR_FRAMEWORK.md section 7
 ```
+
+Each member also carries `stability` (`experimental` / `beta` / `stable`); the manifest
+generated from these declarations is described in `CONNECTOR_FRAMEWORK.md` section 4.
 
 ### 5.3 Registry
 
-Plain dictionary, no reflection, no discovery magic (PR-Agent pattern):
+Plain dictionary, no reflection, no discovery magic (PR-Agent pattern). Only
+first-party connectors in this repository are registered; no connector package is
+loaded from outside it (ADR-0018). Each connector's manifest is generated from its code
+and committed (ADR-0017):
 
 ```python
 CONNECTORS: dict[str, type[Connector]] = {
     "github": GitHub,
+    "github_enterprise_server": GitHubEnterpriseServer,
     "gitlab": GitLab,
-    "bitbucket_cloud": BitbucketCloud,
-    "bitbucket_server": BitbucketServer,
-    "azure_devops": AzureDevOps,
-    "gitea": Gitea,
-    "jira": Jira,
-    "servicenow": ServiceNow,
-    "f5_bigip": F5BigIp,
-    "gti": GoogleThreatIntel,
+    "gitlab_self_managed": GitLabSelfManaged,
+    "jira_cloud": JiraCloud,
+    "jira_dc": JiraDataCenter,
     "fortify_ssc": FortifySsc,
-    "jenkins": Jenkins,
-    # MCP-backed connectors register the same way
-    "kubernetes_mcp": KubernetesMcp,
+    "fortify_fod": FortifyFod,
+    "nessus": Nessus,
+    "mend_sca": MendSca,
+    "invicti_enterprise": InvictiEnterprise,
+    "invicti_standard": InvictiStandard,
+    "kubernetes": Kubernetes,
+    "openshift": OpenShift,
+    "prisma_cloud": PrismaCloud,
+    "archer": Archer,
+    "f5_bigip": F5BigIp,
+    "google_threat_intelligence": GoogleThreatIntelligence,
+    "smtp": SmtpNotifier,
 }
 ```
 
@@ -302,7 +394,7 @@ classification and egress class in ICUHUB (unclassified upstream tools are hidde
 | Concern | Behaviour |
 |---|---|
 | Timeouts | Connect 5 s, read 30 s default; per operation override |
-| Retries | Exponential backoff with jitter on connect errors, 502/503/504; only for `idempotent=True` operations or reads |
+| Retries | Exponential backoff with jitter on connect errors, 502/503/504; only for reads and for actions whose `idempotency` is not `none`; an unretried send that times out ends `outcome_unknown` |
 | Rate limits | Honour `429` + `Retry-After`, vendor-specific headers (`X-RateLimit-*`), per-connection token bucket |
 | Pagination | Helpers for link-header, cursor, offset/limit, page-token styles |
 | Auth | Pluggable auth strategies fed by the credential broker (2.FR-CON-02) |
@@ -321,8 +413,8 @@ For every mapping:
 3. CI replays the fixture through the real connector + normalizer and diffs the output.
 4. Prove gate: CI runs again with the connector mapping reverted (mapping disabled) and
    asserts the expected output is no longer produced.
-5. `fixture_proof` rows record pass/fail; the admin surface shows a mapping as live only
-   when both checks pass.
+5. The pass/fail result of each check is recorded in `audit_record`; the admin surface
+   shows a mapping as live only when both checks pass.
 
 ## 6. Request pipeline
 
@@ -341,7 +433,7 @@ sequenceDiagram
   A->>A: authenticate, derive tenant, resolve connection
   A->>P: evaluate(caller, tenant, connection, op, args)
   P-->>A: allow
-  A->>B: get_auth(connection.credential_ref)
+  A->>B: resolve SecretRef values from connection config
   B-->>A: short-lived auth material
   A->>K: op(args)
   K->>V: HTTPS request (injected auth)
@@ -388,14 +480,27 @@ stateDiagram-v2
   pending_approval --> rejected: approver rejects
   pending_approval --> expired: ttl elapsed
   approved --> executing
+  approved --> stale_plan: precondition no longer holds
   executing --> succeeded
+  executing --> no_op
+  executing --> accepted_async
+  executing --> outcome_unknown
   executing --> failed
+  executing --> stale_plan: apply raises StalePlan
+  outcome_unknown --> reconciling: reconcile job
+  reconciling --> succeeded
+  reconciling --> no_op
+  reconciling --> failed
+  reconciling --> outcome_unknown: still unresolved
   denied --> [*]
   previewed --> [*]
   rejected --> [*]
   expired --> [*]
   succeeded --> [*]
+  no_op --> [*]
+  accepted_async --> [*]
   failed --> [*]
+  stale_plan --> [*]
 ```
 
 Rules:
@@ -403,6 +508,38 @@ Rules:
 - `mode=replay` requests can only reach `denied` or `previewed` for write/destructive
   operations (FR-POL-08).
 - Every transition writes an audit record and an outbox event.
+- Write and destructive actions go through plan and apply. The terminal results of
+  `apply` are the `ActionOutcome` statuses below, and `stale_plan` is the precondition
+  failure state. `CONNECTOR_FRAMEWORK.md` section 7.2 and FR-POL-09 govern plan and apply.
+
+Action outcomes (`ActionOutcome.status` in the kit, `icuhub/kit/types.py`):
+
+| Outcome | Meaning | Recorded result |
+|---|---|---|
+| `succeeded` | The vendor applied the change and the connector confirmed it with a definitive success response or a read-back. | `vendor_ref` and `result`; `icuhub.action.succeeded` event |
+| `no_op` | The current vendor state already matches the desired state, so no mutation was needed. A plan with `changed=false` is expected to resolve here. | `result` with the observed state; no vendor write |
+| `accepted_async` | The vendor accepted the request and completes it later (for example, an asynchronous export). | `vendor_ref` identifies the vendor job. The kit contract defines no automatic reconcile for this state; completion is observed through the connector's normal read streams or webhooks. |
+| `outcome_unknown` | A non-idempotent write was sent and the result is not known: a transport error or 5xx occurred after transmission. The kit raises `OutcomeUnknown` with the idempotency key and a hint. The action is neither confirmed nor failed. | Action stays unresolved; the reconcile path below applies. Apply MUST NOT resend the write. |
+| `failed` | Apply produced a definitive error and no change is confirmed. | `error_class` on the action request; `icuhub.action.failed` event |
+
+`stale_plan` is not an `ActionOutcome` status. It is the state entered when a
+current-state precondition (for example version, `resourceVersion`, or head `sha`) no
+longer holds at approval or apply time. The kit raises `StalePlan` before the write is
+sent; the request ends in `stale_plan` and a new plan must be requested.
+
+Reconcile path for `outcome_unknown`:
+1. The apply step records `outcome_unknown` and the idempotency key in the action
+   request, writes an audit record, and emits an outbox event.
+2. A reconcile job is enqueued on the job queue with the stored `ActionPlan`. Apply is
+   never retried for this request.
+3. The job calls the connector's `@action(...).reconcile` handler when one is declared.
+   The handler reads vendor state using the idempotency key or natural key and returns
+   `succeeded`, `no_op`, or `failed`.
+4. If the handler still cannot determine the outcome, the request stays
+   `outcome_unknown` and the job is rescheduled. Each reconcile attempt is audited.
+5. An action whose connector declares no reconcile handler remains `outcome_unknown`
+   until an operator resolves it. [INFERENCE: design choice; the kit contract makes
+   reconcile optional and does not specify this fallback.]
 
 ### 6.4 Three switches
 
@@ -485,7 +622,7 @@ Error model (RFC 9457 problem details):
 ### 7.3 Event stream
 
 Envelope: CloudEvents 1.0 (structured JSON) with OCSF payload where applicable
-**[decision D7]**. Backbone **[decision D2]**.
+(ADR-0009). Backbone: Postgres outbox relayed to Apache Kafka (ADR-0005).
 
 | Topic | Emitted when | Payload |
 |---|---|---|
@@ -507,7 +644,7 @@ Delivery: at-least-once from the transactional outbox; consumers dedupe by Cloud
 | Vendor | Verification |
 |---|---|
 | GitHub | `X-Hub-Signature-256` HMAC-SHA256 over body; `X-GitHub-Delivery` for dedupe |
-| GitLab | `X-Gitlab-Token` shared secret (constant-time compare); `X-Gitlab-Event-UUID` / idempotency key for dedupe |
+| GitLab | Standard Webhooks: `webhook-id`, `webhook-timestamp`, `webhook-signature` (`v1,{base64}`) over `{webhook-id}.{webhook-timestamp}.{raw body}`, HMAC-SHA256 with the `whsec_` signing token; `webhook-id` for dedupe. Legacy `X-Gitlab-Token` is not accepted for new connections (see below) |
 | Bitbucket Cloud | `X-Hub-Signature` HMAC; `X-Request-UUID` for dedupe |
 | Azure DevOps | Basic auth or custom header secret on the service hook |
 | Jira / ServiceNow | Shared secret header or JWT per vendor configuration |
@@ -515,60 +652,116 @@ Delivery: at-least-once from the transactional outbox; consumers dedupe by Cloud
 
 Pipeline: verify signature -> reject if timestamp outside window (where vendor provides
 one) -> insert `webhook_delivery` (unique constraint dedupes) -> 202 fast -> worker
-normalizes -> outbox event. Unknown or failed-signature deliveries are recorded with
-`signature_valid=false` and dropped. Exact header names must be confirmed per vendor
-version during connector implementation.
+normalizes -> outbox event. A verifier that raises `WebhookRejected` causes the endpoint
+to return an error without writing any row: `webhook_delivery` holds only verified
+deliveries, and the schema has no signature-validity column. Exact header names must be
+confirmed per vendor version during connector implementation.
+
+#### GitLab Standard Webhooks verification
+
+The GitLab connector uses the kit's `StandardWebhooks(secret_b64, tolerance_s=300)`
+verifier. Its `verify(delivery, *, now)` returns
+`VerifiedDelivery(delivery_id, event_type, occurred_at)` or raises
+`WebhookRejected(reason)`. Steps, in order:
+
+1. Read `webhook-id`, `webhook-timestamp`, and `webhook-signature` from the lower-cased
+   `WebhookDelivery.headers`. Any missing header raises `WebhookRejected`.
+2. Parse `webhook-timestamp` as integer seconds. Reject when it differs from the injected
+   `now` by more than `tolerance_s` (default 300 s). Timestamped schemes always enforce
+   the tolerance.
+3. Build the signed content as `{webhook-id}.{webhook-timestamp}.` followed by the exact
+   raw body bytes. The body is never re-serialized.
+4. Derive the key from the `whsec_` signing token: strip the prefix and base64-decode the
+   remainder. [INFERENCE: prefix stripping and base64 key decoding follow the Standard
+   Webhooks convention; the contract names only `whsec_` and `secret_b64`.]
+5. Compute HMAC-SHA256 over the signed content and base64-encode it. Split
+   `webhook-signature` on spaces and accept any `v1,` entry that matches. [INFERENCE:
+   multiple space-separated signatures during key rotation follow the Standard Webhooks
+   convention and are not stated in the contract.] Every comparison uses
+   `hmac.compare_digest`.
+6. Set `delivery_id` to `webhook-id`. The `webhook_delivery` unique key
+   `(connection_id, vendor_delivery_id)` then dedupes redelivery.
+7. Set `event_type` in the connector, not in the verifier. `StandardWebhooks` defines no
+   event header, so the GitLab connector derives the event type from the GitLab payload or
+   a GitLab event header. [INFERENCE: the derivation mechanism is not specified in the
+   inputs; it is set during connector implementation.]
+
+`SharedToken` (`X-Gitlab-Token`, constant-time compare) remains in the kit for other
+vendors that use it. New GitLab connections MUST NOT use it. Connections that still rely
+on `X-Gitlab-Token` do not accept new deliveries until they are reconfigured with a
+Standard Webhooks signing token.
+
+Reference: `https://docs.gitlab.com/user/project/integrations/webhooks/`.
 
 ## 8. Normalization (`icuhub-schemas`)
 
 - Published as its own package, versioned independently; consumers (AILA, posture
   console) import it to read and write the same models (BR-05).
-- OCSF version pinned **[decision D5]**; model source **[decision D6]**.
-- SARIF 2.1.0 import and export.
+- OCSF pinned to 1.9.0; ICUHUB-owned Pydantic models validated against the vendored
+  official per-class JSON schemas (ADR-0008).
+- SARIF 2.1.0 import and export; `findings_to_sarif` converts code-located findings and
+  returns the findings it skipped (FR-NRM-06).
+- CloudEvents 1.0 envelope model with `tenantid` and `correlationid` extensions (ADR-0009).
 - Activity projection on every event: `actor`, `action`, `resource`, `location`,
-  `outcome`; `actor.kind` taken from the vendor's documented field (FR-NRM-03).
-- Unmapped fields stay null and are listed in `unmapped[]` (FR-NRM-05).
-- `raw_ref` keeps the original vendor payload (bounded; large payloads go to object
-  storage) (FR-NRM-04).
-- Fingerprint: `sha256(connector_kind | rule_or_check_id | normalized_location | normalized_component)`.
+  `outcome`; `actor.kind` taken from the vendor's documented field (FR-NRM-03). Built by
+  connector mappers in P2 on top of these models.
+- Fields without a vendor source stay null and are omitted; vendor fields OCSF cannot
+  represent go to `unmapped` (FR-NRM-05).
+- `raw_data` (an OCSF string attribute) keeps the original vendor payload up to a bound;
+  larger payloads are stored by reference in object storage (P3) (FR-NRM-04).
+- Required by the 1.9.0 schema on finding classes and easy to miss: `metadata.product`,
+  `metadata.version`, `finding_info.uid`, `cloud` (with `provider`), and `osint` (array,
+  may be empty). Incident Finding (2005) uses `finding_info_list` instead of
+  `finding_info`; Compliance Finding (2003) requires `compliance`.
+- `type_uid` is always `class_uid * 100 + activity_id`; a different supplied value is
+  rejected.
+- Fingerprint: `fp_` + `sha256(connector_kind | rule_or_check_id | normalized_location | normalized_component)`;
+  kind lowercased, paths use `/` without a leading `./`, `None` becomes empty, a `|`
+  inside a field is rejected.
 
-Example: Fortify issue -> OCSF Vulnerability Finding (abbreviated):
+Example: Fortify issue -> OCSF Vulnerability Finding. This document passes
+`validate_ocsf` and round-trips through `VulnerabilityFinding`:
 
 ```json
 {
   "class_uid": 2002,
   "category_uid": 2,
   "activity_id": 1,
+  "type_uid": 200201,
   "severity_id": 4,
   "time": 1762300800000,
   "metadata": {
-    "version": "1.x (pinned)",
+    "version": "1.9.0",
     "product": {"name": "Fortify SSC", "vendor_name": "OpenText"},
     "uid": "fortify-ssc:issue:88213"
   },
+  "cloud": {"provider": "on-premises"},
+  "osint": [],
   "finding_info": {
-    "uid": "fp_9c1e...",
+    "uid": "fp_9c1e",
     "title": "SQL Injection",
     "types": ["SAST"],
     "first_seen_time": 1762200000000
   },
   "vulnerabilities": [{
     "cwe": {"uid": "89"},
-    "affected_code": [{"file": {"path": "src/orders/repo.py"}, "start_line": 41, "end_line": 44}]
+    "affected_code": [{
+      "file": {"name": "repo.py", "path": "src/orders/repo.py", "type_id": 1},
+      "start_line": 41,
+      "end_line": 44
+    }]
   }],
   "resources": [{"type": "repository", "name": "acme/orders"}],
+  "raw_data": "{\"issueInstanceId\": \"88213\"}",
   "unmapped": {"fortify_kingdom": "Input Validation and Representation"}
 }
 ```
-
-Field names above follow OCSF conventions; exact attribute names are validated against
-the pinned schema in Phase 1.
 
 ## 9. Ingestion
 
 | Mode | Mechanism | State | Backpressure |
 |---|---|---|---|
-| Scheduled pull | Worker schedule per connection/stream | `cursor` row | Per-poll budget (max records / max seconds); lag reported |
+| Scheduled pull | Sync engine per stream state (`CONNECTOR_FRAMEWORK.md` section 5) | `stream_state` row | Per-poll budget (max records / max seconds); lag reported |
 | Webhook push | `/hooks` | `webhook_delivery` | Fast 202, async normalize |
 | Streaming collectors | S3+SQS, Pub/Sub, Event Hubs consumers, syslog/CEF TCP/TLS listener | Consumer offsets / ack | Bounded in-flight, ack after outbox commit |
 | File parsers | Upload via REST | Parser job record | Size limits, async job |
@@ -636,7 +829,7 @@ flowchart TB
 | Vendor 429 | Respect `Retry-After`; per-connection token bucket |
 | Token refresh failure | Connection `degraded`; event `icuhub.connection.degraded`; calls return 503 with problem details |
 | Event backbone down | Outbox accumulates in Postgres; relay resumes; no event loss |
-| Worker crash mid-action | Action stays `executing` with lease; lease expiry re-queues only if operation is idempotent, otherwise marks `failed` with `interrupted` and requires human review |
+| Worker crash mid-action | Recovered apply does not repeat the vendor write. Persisted `executing` work becomes `outcome_unknown` and enters reconciliation by natural/key lookup and authoritative read-back; lease renewal covers both planning and vendor execution |
 | Approval never decided | Expires at TTL with `expired` outcome and event |
 | Duplicate webhook | Unique constraint dedupes; 200 returned |
 | Duplicate operation call | `Idempotency-Key` returns original result |
@@ -715,7 +908,7 @@ Approver approves -> event `icuhub.action.succeeded` with `correlation_id: inv_7
 
 ### 16.3 GitLab MR opened -> AILA investigation -> fix MR
 
-1. GitLab -> `POST /hooks/con_gitlab_main` (`X-Gitlab-Token`, `X-Gitlab-Event: Merge Request Hook`).
+1. GitLab -> `POST /hooks/con_gitlab_main` (`webhook-id`, `webhook-timestamp`, `webhook-signature`; event type `Merge Request Hook`).
 2. ICUHUB verifies, stores delivery, returns 202, publishes:
 ```json
 {"specversion": "1.0", "id": "evt_01JCA", "source": "icuhub/connections/con_gitlab_main",
@@ -745,14 +938,21 @@ rule allows draft MRs automatically.
 ```python
 class F5BigIp(Connector):
     kind = "f5_bigip"
-    capabilities = (Enforcer,)
-    auth = TokenAuth(login_path="/mgmt/shared/authn/login")   # iControl REST token auth
+    version = "0.1.0"
+    sdk = ">=1,<2"
+    owner = "@icuhub/network-connectors"
+    support = "core"
+    config = F5Config
+    auth = (TokenAuth(login_path="/mgmt/shared/authn/login"),)   # iControl REST token auth
 
-    @operation(name="block", capability="Enforcer", classification="destructive",
-               egress_class="vendor_tenant", idempotent=True,
-               input_schema=BlockInput, output_schema=BlockResult)
-    async def block(self, indicator: Indicator, ttl_s: int, reason: str) -> str:
-        ...  # add address to a managed address-list / data-group bound to the AFM/ASM policy
+    @action(name="block", capability="Enforcer", classification="destructive",
+            egress_class="vendor_tenant", idempotency="natural_key", partition_key="data_group",
+            input_schema=BlockInput, stability="beta")
+    class Block:
+        async def plan(self, ctx: PlanContext, args: BlockInput) -> ActionPlan:
+            ...  # read the managed data-group; diff adds the address; precondition: data-group generation
+        async def apply(self, ctx: ApplyContext, plan: ActionPlan) -> ActionOutcome:
+            ...  # PATCH the data-group bound to the AFM/ASM policy; outcome carries the new generation
 
     @operation(name="list_virtual_servers", classification="read", egress_class="vendor_tenant",
                idempotent=True, input_schema=Empty, output_schema=VirtualServerList)
@@ -767,9 +967,13 @@ class F5BigIp(Connector):
   "kind": "f5_bigip",
   "slug": "f5-prod",
   "display_name": "F5 BIG-IP production DMZ",
-  "base_url": "https://bigip-dmz.acme.internal",
-  "credential_ref": "vault:kv/icuhub/acme/f5-prod",
-  "settings": {"partition": "Common", "address_list": "icuhub_blocklist", "ca_bundle_ref": "vault:kv/pki/acme-root"},
+  "config": {
+    "base_url": "https://bigip-dmz.acme.internal",
+    "user": "icuhub-svc",
+    "password": {"ref": "cred:6f1c2a9e-4f0b-4d37-9a51-0c8e2b7d1a44"},
+    "partition": "Common",
+    "address_list": "icuhub_blocklist"
+  },
   "egress_class": "vendor_tenant",
   "allowed_operations": ["list_virtual_servers", "block", "unblock"]
 }
@@ -797,17 +1001,25 @@ class F5BigIp(Connector):
 | Fixture proof | Per connector mapping: replay + prove gate (5.6) in CI |
 | Contract | OpenAPI schema diff check; event schema check; SDK generation in CI |
 | Integration | Postgres + event backbone in CI; webhook signature tests per vendor |
-| Sandbox vendors | Optional nightly runs against vendor sandboxes where available (GitLab, GitHub, Jira Cloud) |
+| Connector conformance | Generic suite every connector inherits, manifest regeneration check, HTTP contract cassettes (`CONNECTOR_FRAMEWORK.md` section 10) |
+| Sandbox vendors | Live acceptance with `ICUHUB_ACC=1` against vendor sandboxes; required for `core` connectors before release (FR-CNR-16) |
 | Consumer contract | AILA CI runs its ICUHUB adapter tests against a pinned ICUHUB image |
 
 ## 18. Roadmap
 
+The delivery plan lives in `ROADMAP.md` (phases P0 to P10, each run as brainstorm,
+write, plan, implement, test). Summary:
+
 | Phase | Deliverable | Exit criteria |
 |---|---|---|
-| 0 | Decisions D1-D8 closed | Recorded in BRD |
-| 1 | `icuhub-schemas` (OCSF pin + SARIF codecs) | Round-trip tests; consumers can import |
-| 2 | Core: auth, tenancy/RLS, connection store, credential broker, policy, approvals, audit, outbox, REST, MCP, webhook ingress, admin API | Example 16.2 works end to end with a mock connector; audit chain verifies |
-| 3 | Wave-1 connectors: GitHub, GitLab, Jira, F5, GTI | Fixture proofs pass; examples 16.1-16.3 run against real or sandbox instances |
-| 4 | AILA consumer side (15.2) | AILA calls only ICUHUB for these vendors; boundary audit green |
-| 5 | Wave-2 connectors + collectors + file parsers | Per-connector fixture proofs |
-| 6 | Helm/OpenShift hardening, audit export to SIEM, HA | Install on OpenShift restricted SCC; failover test |
+| P0 | Decisions D1-D14 closed as ADRs; skeleton and CI | Recorded in BRD section 18 |
+| P1 | `icuhub-schemas` (OCSF pin, SARIF codec, CloudEvents envelope, fingerprint) | Round-trip and validation tests; consumers can import |
+| P2 | Connector kit (protocols, operations, registry, HTTP and SOAP toolkit, proof harness) | Reference connector live through the proof gate |
+| P3 | Core service (tenancy/RLS, connections, credentials, policy, approvals, audit, outbox, REST) | Example 16.2 end to end with the reference connector; audit chain verifies |
+| P4 | MCP endpoint, webhook ingress, event relay, SMTP notifier | Example 16.3 with recorded payloads |
+| P5 | Wave-1 connectors and ticket routing | Fixture proofs; examples 16.1-16.3 on sandboxes |
+| P6 | AILA consumer side (15.2) | Boundary audit green for wave-1 vendors |
+| P7 | Scan-platform migration (ticket routes, result-file ingestion) | Scan platform files tickets only through ICUHUB; no duplicates on re-run |
+| P8 | AppSec middleware parity connectors | Parity fixture per inventory row |
+| P9 | Governed fetch, MCP governance, vuln-intel mirror, directory | AILA fetch and MCP catalog through ICUHUB |
+| P10 | Collectors, wave 3, Helm/OpenShift hardening, HA, SIEM export | Restricted SCC install; failover and restore rehearsed |

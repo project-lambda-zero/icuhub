@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteSearchResponse xmlns="http://archer-tech.com/webservices/">
+      <ExecuteSearchResult>
+        <Records xmlns="">
+          <Record contentId="101" levelId="501">
+            <Field id="9001" type="3" xmlConvertedValue="2026-03-01T10:00:00Z">2026-03-01T10:00:00Z</Field>
+            <Field id="9002" type="1">Already committed</Field>
+            <Field id="9003" type="1">1</Field>
+          </Record>
+          <Record contentId="104" levelId="501">
+            <Field id="9001" type="3" xmlConvertedValue="2026-03-01T10:00:00Z">2026-03-01T10:00:00Z</Field>
+            <Field id="9002" type="1">Same timestamp</Field>
+            <Field id="9003" type="1">1</Field>
+          </Record>
+          <Record contentId="105" levelId="501">
+            <Field id="9001" type="3" xmlConvertedValue="bad-time">bad-time</Field>
+            <Field id="9002" type="1">Unparseable time</Field>
+            <Field id="9003" type="1">1</Field>
+          </Record>
+        </Records>
+      </ExecuteSearchResult>
+    </ExecuteSearchResponse>
+  </soap:Body>
+</soap:Envelope>

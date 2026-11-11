@@ -1,0 +1,29 @@
+{
+  "object_kind": "audit_event",
+  "object_attributes": {
+    "id": 440001,
+    "author_id": 1001,
+    "entity_id": 40123,
+    "entity_type": "Project",
+    "created_at": "2026-11-09T08:30:00.000Z",
+    "event_type": "user_updated",
+    "target_id": 1004,
+    "target_type": "User",
+    "details": {
+      "author_name": "Example User",
+      "author_email": "example-user@example.invalid",
+      "custom_message": "Synthetic audit message",
+      "target_id": 1004,
+      "target_type": "User",
+      "target_details": "example-member",
+      "ip_address": "192.0.2.10",
+      "entity_path": "example-group/example-project"
+    }
+  },
+  "project": {
+    "id": 40123,
+    "name": "example-project",
+    "web_url": "https://gitlab.com/example-group/example-project",
+    "path_with_namespace": "example-group/example-project"
+  }
+}

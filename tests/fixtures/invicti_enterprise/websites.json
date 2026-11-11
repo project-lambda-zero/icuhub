@@ -1,0 +1,19 @@
+{
+  "List": [
+    {
+      "Id": "6dc7a92f-94ab-4f7c-b60f-000000000101",
+      "RootUrl": "https://shop.example.test/",
+      "Name": "Shop",
+      "Groups": [{"Id": "6dc7a92f-94ab-4f7c-b60f-000000000201", "Name": "Production"}],
+      "Tags": ["public"],
+      "IsVerified": true,
+      "AgentMode": "Cloud"
+    }
+  ],
+  "PageNumber": 1,
+  "PageSize": 200,
+  "PageCount": 1,
+  "TotalItemCount": 1,
+  "HasNextPage": false,
+  "IsLastPage": true
+}

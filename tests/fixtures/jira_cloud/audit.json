@@ -1,0 +1,26 @@
+{
+  "offset": 0,
+  "limit": 100,
+  "total": 2,
+  "records": [
+    {
+      "id": 70001,
+      "summary": "Issue updated",
+      "created": "2026-11-01T10:05:00.000+0000",
+      "category": "issues",
+      "eventSource": "JIRA",
+      "remoteAddress": "192.0.2.10",
+      "author": {"accountId": "actor-1", "displayName": "Synthetic actor"},
+      "associatedItems": [{"id": "10001", "name": "PROJ-1", "typeName": "ISSUE"}],
+      "changedValues": [{"field": "status", "changedTo": "In Progress"}]
+    },
+    {
+      "id": "70002",
+      "summary": "Project viewed",
+      "created": "2026-11-01T10:05:00.000+0000",
+      "category": "projects",
+      "eventSource": "JIRA",
+      "associatedItems": []
+    }
+  ]
+}

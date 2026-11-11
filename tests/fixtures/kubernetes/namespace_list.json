@@ -1,0 +1,48 @@
+{
+  "kind": "NamespaceList",
+  "apiVersion": "v1",
+  "metadata": {
+    "resourceVersion": "9820"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "default",
+        "uid": "44444444-4444-4444-8444-444444444444",
+        "resourceVersion": "12",
+        "creationTimestamp": "2026-10-01T00:00:00Z",
+        "labels": {
+          "kubernetes.io/metadata.name": "default"
+        }
+      },
+      "spec": {
+        "finalizers": [
+          "kubernetes"
+        ]
+      },
+      "status": {
+        "phase": "Active"
+      }
+    },
+    {
+      "metadata": {
+        "name": "staging",
+        "uid": "55555555-5555-4555-8555-555555555555",
+        "resourceVersion": "401",
+        "creationTimestamp": "2026-10-15T08:30:00Z",
+        "labels": {
+          "kubernetes.io/metadata.name": "staging",
+          "environment": "staging"
+        }
+      },
+      "spec": {
+        "finalizers": [
+          "kubernetes"
+        ]
+      },
+      "status": {
+        "phase": "Active"
+      }
+    }
+  ]
+}

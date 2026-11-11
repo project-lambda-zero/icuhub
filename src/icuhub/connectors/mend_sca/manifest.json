@@ -1,0 +1,1669 @@
+{
+  "actions": [
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "filename": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Filename",
+            "type": "string"
+          },
+          "media_type": {
+            "default": "application/json",
+            "enum": [
+              "application/json",
+              "application/xml",
+              "text/xml",
+              "application/octet-stream"
+            ],
+            "title": "Media Type",
+            "type": "string"
+          },
+          "project_uuid": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Project Uuid",
+            "type": "string"
+          },
+          "sbom_base64": {
+            "minLength": 1,
+            "title": "Sbom Base64",
+            "type": "string"
+          },
+          "sbom_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sbom Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approved_plan_hash",
+          "project_uuid",
+          "filename",
+          "sbom_base64",
+          "sbom_sha256"
+        ],
+        "title": "ImportSbomArgs",
+        "type": "object"
+      },
+      "name": "import_sbom",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "alert_uuid": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Alert Uuid",
+            "type": "string"
+          },
+          "approved_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "desired_status": {
+            "enum": [
+              "ACTIVE",
+              "IGNORED"
+            ],
+            "title": "Desired Status",
+            "type": "string"
+          },
+          "expected_status": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Status"
+          },
+          "is_violating": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Is Violating"
+          },
+          "project_token": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Project Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approved_plan_hash",
+          "project_token",
+          "alert_uuid",
+          "desired_status"
+        ],
+        "title": "SetAlertStatusArgs",
+        "type": "object"
+      },
+      "name": "set_alert_status",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "desired_status": {
+            "enum": [
+              "UNREVIEWED",
+              "IN_REVIEW",
+              "SUPPRESSED"
+            ],
+            "title": "Desired Status",
+            "type": "string"
+          },
+          "expected_status": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Status"
+          },
+          "is_violating": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Is Violating"
+          },
+          "project_uuid": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Project Uuid",
+            "type": "string"
+          },
+          "root_library_uuid": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Root Library Uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "approved_plan_hash",
+          "project_uuid",
+          "root_library_uuid",
+          "desired_status"
+        ],
+        "title": "SetFindingStatusArgs",
+        "type": "object"
+      },
+      "name": "set_finding_status",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "SessionLogin"
+  ],
+  "capabilities": [
+    "FindingSource"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "One explicitly versioned Mend organization connection.\n\nAPI 2.0 and 3.0 tokens are intentionally never shared by this configuration. A\ndeployment covering the same organization through both APIs needs two connections.",
+    "properties": {
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "api_version": {
+        "enum": [
+          "3.0",
+          "2.0"
+        ],
+        "title": "Api Version",
+        "type": "string"
+      },
+      "base_url": {
+        "default": "https://api-saas.mend.io",
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "email": {
+        "maxLength": 320,
+        "minLength": 3,
+        "title": "Email",
+        "type": "string"
+      },
+      "max_pages": {
+        "default": 10000,
+        "maximum": 100000,
+        "minimum": 1,
+        "title": "Max Pages",
+        "type": "integer"
+      },
+      "max_report_bytes": {
+        "default": 33554432,
+        "maximum": 268435456,
+        "minimum": 1024,
+        "title": "Max Report Bytes",
+        "type": "integer"
+      },
+      "max_report_depth": {
+        "default": 64,
+        "maximum": 128,
+        "minimum": 4,
+        "title": "Max Report Depth",
+        "type": "integer"
+      },
+      "max_report_items": {
+        "default": 200000,
+        "maximum": 1000000,
+        "minimum": 1,
+        "title": "Max Report Items",
+        "type": "integer"
+      },
+      "max_report_string_chars": {
+        "default": 1048576,
+        "maximum": 16777216,
+        "minimum": 128,
+        "title": "Max Report String Chars",
+        "type": "integer"
+      },
+      "max_sbom_bytes": {
+        "default": 16777216,
+        "maximum": 67108864,
+        "minimum": 1024,
+        "title": "Max Sbom Bytes",
+        "type": "integer"
+      },
+      "org_token": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "org_uuid": {
+        "anyOf": [
+          {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Org Uuid"
+      },
+      "page_size": {
+        "default": 50,
+        "maximum": 10000,
+        "minimum": 1,
+        "title": "Page Size",
+        "type": "integer"
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "selected_projects": {
+        "items": {
+          "type": "string"
+        },
+        "maxItems": 100000,
+        "title": "Selected Projects",
+        "type": "array"
+      },
+      "stale_after_days": {
+        "default": 30,
+        "maximum": 3650,
+        "minimum": 1,
+        "title": "Stale After Days",
+        "type": "integer"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "user_key": {
+        "$ref": "#/$defs/SecretRef",
+        "writeOnly": true
+      },
+      "write_enabled": {
+        "default": false,
+        "title": "Write Enabled",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "api_version",
+      "email",
+      "user_key"
+    ],
+    "title": "MendSCAConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-217"
+  ],
+  "format_version": 1,
+  "importers": [
+    {
+      "extensions": [
+        ".json"
+      ],
+      "media_types": [
+        "application/json"
+      ],
+      "name": "mend_report",
+      "stream": "report_findings"
+    }
+  ],
+  "kind": "mend_sca",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "report_uuid": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Report Uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_uuid"
+        ],
+        "title": "DownloadReportArgs",
+        "type": "object"
+      },
+      "name": "download_report",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "Bounded report download. ``not_ready`` (vendor HTTP 202) carries no content.",
+        "properties": {
+          "content_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content Base64"
+          },
+          "media_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Media Type"
+          },
+          "report_uuid": {
+            "title": "Report Uuid",
+            "type": "string"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sha256"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Size Bytes"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "not_ready"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_uuid",
+          "status"
+        ],
+        "title": "MendDownload",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "finding_uuid": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Finding Uuid",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "finding_uuid"
+        ],
+        "title": "FindingRefArgs",
+        "type": "object"
+      },
+      "name": "get_dependency_paths",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "additional_data": {
+            "additionalProperties": true,
+            "title": "Additional Data",
+            "type": "object"
+          },
+          "api_version": {
+            "enum": [
+              "3.0",
+              "2.0"
+            ],
+            "title": "Api Version",
+            "type": "string"
+          },
+          "authoritative": {
+            "default": true,
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          }
+        },
+        "required": [
+          "data",
+          "api_version"
+        ],
+        "title": "MendReadResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "finding_uuid": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Finding Uuid",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "finding_uuid"
+        ],
+        "title": "FindingRefArgs",
+        "type": "object"
+      },
+      "name": "get_finding",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "additional_data": {
+            "additionalProperties": true,
+            "title": "Additional Data",
+            "type": "object"
+          },
+          "api_version": {
+            "enum": [
+              "3.0",
+              "2.0"
+            ],
+            "title": "Api Version",
+            "type": "string"
+          },
+          "authoritative": {
+            "default": true,
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          }
+        },
+        "required": [
+          "data",
+          "api_version"
+        ],
+        "title": "MendReadResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "library_uuid": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Library Uuid",
+            "type": "string"
+          },
+          "project_id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "library_uuid"
+        ],
+        "title": "LibraryRefArgs",
+        "type": "object"
+      },
+      "name": "get_library",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "additional_data": {
+            "additionalProperties": true,
+            "title": "Additional Data",
+            "type": "object"
+          },
+          "api_version": {
+            "enum": [
+              "3.0",
+              "2.0"
+            ],
+            "title": "Api Version",
+            "type": "string"
+          },
+          "authoritative": {
+            "default": true,
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          }
+        },
+        "required": [
+          "data",
+          "api_version"
+        ],
+        "title": "MendReadResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "scope": {
+            "enum": [
+              "org",
+              "product",
+              "project",
+              "byRole"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "scope_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scope Id"
+          }
+        },
+        "required": [
+          "scope"
+        ],
+        "title": "GetPermissionsArgs",
+        "type": "object"
+      },
+      "name": "get_permissions",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "additional_data": {
+            "additionalProperties": true,
+            "title": "Additional Data",
+            "type": "object"
+          },
+          "api_version": {
+            "enum": [
+              "3.0",
+              "2.0"
+            ],
+            "title": "Api Version",
+            "type": "string"
+          },
+          "authoritative": {
+            "default": true,
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          }
+        },
+        "required": [
+          "data",
+          "api_version"
+        ],
+        "title": "MendReadResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "policy_uuid": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Policy Uuid",
+            "type": "string"
+          },
+          "scope": {
+            "enum": [
+              "orgs",
+              "products",
+              "projects"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "scope_id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Scope Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "scope_id",
+          "policy_uuid"
+        ],
+        "title": "GetPolicyArgs",
+        "type": "object"
+      },
+      "name": "get_policy",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "additional_data": {
+            "additionalProperties": true,
+            "title": "Additional Data",
+            "type": "object"
+          },
+          "api_version": {
+            "enum": [
+              "3.0",
+              "2.0"
+            ],
+            "title": "Api Version",
+            "type": "string"
+          },
+          "authoritative": {
+            "default": true,
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          }
+        },
+        "required": [
+          "data",
+          "api_version"
+        ],
+        "title": "MendReadResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Project Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "title": "ProjectRefArgs",
+        "type": "object"
+      },
+      "name": "get_project",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "additional_data": {
+            "additionalProperties": true,
+            "title": "Additional Data",
+            "type": "object"
+          },
+          "api_version": {
+            "enum": [
+              "3.0",
+              "2.0"
+            ],
+            "title": "Api Version",
+            "type": "string"
+          },
+          "authoritative": {
+            "default": true,
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          }
+        },
+        "required": [
+          "data",
+          "api_version"
+        ],
+        "title": "MendReadResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "finding_uuid": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Finding Uuid"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Project Id"
+          },
+          "vulnerability_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Vulnerability Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vulnerability_id"
+        ],
+        "title": "RemediationArgs",
+        "type": "object"
+      },
+      "name": "get_remediation",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "additional_data": {
+            "additionalProperties": true,
+            "title": "Additional Data",
+            "type": "object"
+          },
+          "api_version": {
+            "enum": [
+              "3.0",
+              "2.0"
+            ],
+            "title": "Api Version",
+            "type": "string"
+          },
+          "authoritative": {
+            "default": true,
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          }
+        },
+        "required": [
+          "data",
+          "api_version"
+        ],
+        "title": "MendReadResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "report_uuid": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Report Uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_uuid"
+        ],
+        "title": "ReportRefArgs",
+        "type": "object"
+      },
+      "name": "get_report_status",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "additional_data": {
+            "additionalProperties": true,
+            "title": "Additional Data",
+            "type": "object"
+          },
+          "api_version": {
+            "enum": [
+              "3.0",
+              "2.0"
+            ],
+            "title": "Api Version",
+            "type": "string"
+          },
+          "authoritative": {
+            "default": true,
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          }
+        },
+        "required": [
+          "data",
+          "api_version"
+        ],
+        "title": "MendReadResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "finding_uuid": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Finding Uuid"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Project Id"
+          },
+          "vulnerability_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "title": "Vulnerability Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "vulnerability_id"
+        ],
+        "title": "VulnerabilityRefArgs",
+        "type": "object"
+      },
+      "name": "get_vulnerability_profile",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "additional_data": {
+            "additionalProperties": true,
+            "title": "Additional Data",
+            "type": "object"
+          },
+          "api_version": {
+            "enum": [
+              "3.0",
+              "2.0"
+            ],
+            "title": "Api Version",
+            "type": "string"
+          },
+          "authoritative": {
+            "default": true,
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          }
+        },
+        "required": [
+          "data",
+          "api_version"
+        ],
+        "title": "MendReadResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "max_pages": {
+            "anyOf": [
+              {
+                "maximum": 100000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Max Pages"
+          },
+          "modified_after": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Modified After"
+          },
+          "modified_before": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Modified Before"
+          },
+          "page_size": {
+            "anyOf": [
+              {
+                "maximum": 10000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Page Size"
+          },
+          "project_token": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Project Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_token"
+        ],
+        "title": "ListSecurityAlertsArgs",
+        "type": "object"
+      },
+      "name": "list_security_alerts",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "authoritative": {
+            "default": true,
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Cursor"
+          },
+          "pages": {
+            "minimum": 0,
+            "title": "Pages",
+            "type": "integer"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Total"
+          }
+        },
+        "required": [
+          "complete",
+          "pages"
+        ],
+        "title": "MendListResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate_only": {
+            "default": false,
+            "title": "Candidate Only",
+            "type": "boolean"
+          },
+          "candidate_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Candidate Since"
+          },
+          "cursor": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cursor"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "maximum": 10000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Limit"
+          },
+          "max_pages": {
+            "anyOf": [
+              {
+                "maximum": 100000,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Max Pages"
+          },
+          "project_uuid": {
+            "pattern": "^[A-Za-z0-9_.:-]{1,256}$",
+            "title": "Project Uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_uuid"
+        ],
+        "title": "ListSecurityFindingsArgs",
+        "type": "object"
+      },
+      "name": "list_security_findings",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "authoritative": {
+            "default": true,
+            "title": "Authoritative",
+            "type": "boolean"
+          },
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Next Cursor"
+          },
+          "pages": {
+            "minimum": 0,
+            "title": "Pages",
+            "type": "integer"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Total"
+          }
+        },
+        "required": [
+          "complete",
+          "pages"
+        ],
+        "title": "MendListResult",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [
+    "audit_event",
+    "library",
+    "project"
+  ],
+  "scopes": [
+    {
+      "name": "projects",
+      "probe": "GET /api/v3.0/orgs/{orgUuid}/projects (v2.0 projects on 2.0 tenants)",
+      "required_by": [
+        "FindingSource"
+      ]
+    },
+    {
+      "name": "security_findings",
+      "probe": "GET /api/v3.0/projects/{uuid}/dependencies/findings/security",
+      "required_by": [
+        "FindingSource"
+      ]
+    },
+    {
+      "name": "security_alerts",
+      "probe": "GET /api/v2.0/projects/{token}/alerts/security",
+      "required_by": [
+        "FindingSource"
+      ]
+    },
+    {
+      "name": "write",
+      "probe": "PUT alert status / finding status / SBOM import (gated by write_enabled)",
+      "required_by": [
+        "FindingSource"
+      ]
+    }
+  ],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "FindingSource",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "activity",
+      "ocsf_class": null,
+      "record_type": "audit_event",
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "legal_alerts",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "legal_violations",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "libraries",
+      "ocsf_class": null,
+      "record_type": "library",
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "projects",
+      "ocsf_class": null,
+      "record_type": "project",
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "report_findings",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "security_alerts",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "security_findings",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": []
+}

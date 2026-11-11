@@ -1,0 +1,23 @@
+{
+  "items": [
+    {
+      "scanId": 501,
+      "releaseId": 42,
+      "analysisStatusType": "Completed",
+      "scanType": "Static",
+      "modifiedDate": "2026-11-09T10:30:00Z",
+      "startedDateTime": "2026-11-09T10:00:00Z",
+      "completedDateTime": "2026-11-09T10:30:00Z"
+    },
+    {
+      "scanId": 502,
+      "releaseId": 42,
+      "analysisStatusType": "InProgress",
+      "scanType": "Static",
+      "modifiedDate": "2026-11-10T09:00:00Z",
+      "startedDateTime": "2026-11-10T09:00:00Z"
+    }
+  ],
+  "offset": 0,
+  "totalCount": 2
+}

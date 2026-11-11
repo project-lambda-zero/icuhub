@@ -1,0 +1,24 @@
+{
+  "apiVersion": "route.openshift.io/v1",
+  "kind": "Route",
+  "metadata": {
+    "name": "synthetic-checkout",
+    "namespace": "orders",
+    "uid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4",
+    "resourceVersion": "204"
+  },
+  "spec": {
+    "host": "checkout.apps.example.invalid",
+    "to": {
+      "kind": "Service",
+      "name": "synthetic-checkout"
+    },
+    "tls": {
+      "termination": "edge",
+      "insecureEdgeTerminationPolicy": "Allow",
+      "key": "SYNTHETIC_ROUTE_PRIVATE_KEY_VALUE",
+      "certificate": "SYNTHETIC_ROUTE_CERTIFICATE_VALUE",
+      "caCertificate": "SYNTHETIC_ROUTE_CA_CERTIFICATE_VALUE"
+    }
+  }
+}

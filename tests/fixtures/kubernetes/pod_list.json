@@ -1,0 +1,62 @@
+{
+  "kind": "PodList",
+  "apiVersion": "v1",
+  "metadata": {
+    "resourceVersion": "10420",
+    "continue": "eyJ2IjoibWV0YS5rOHMuaW8vdjEiLCJydiI6MTA0MjAsInN0YXJ0Ijoic3RhZ2luZy9hcHAtMDJcdTAwMDAifQ",
+    "remainingItemCount": 1
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "app-01",
+        "namespace": "staging",
+        "uid": "11111111-1111-4111-8111-111111111111",
+        "resourceVersion": "10401",
+        "creationTimestamp": "2026-11-01T09:00:00Z",
+        "labels": {
+          "app": "example-app"
+        }
+      },
+      "spec": {
+        "containers": [
+          {
+            "name": "app",
+            "image": "registry.example.test/example/app:1.4.0",
+            "ports": [
+              {
+                "containerPort": 8080,
+                "protocol": "TCP"
+              }
+            ],
+            "resources": {
+              "requests": {
+                "cpu": "100m",
+                "memory": "128Mi"
+              }
+            }
+          }
+        ],
+        "serviceAccountName": "app-reader",
+        "nodeName": "worker-01"
+      },
+      "status": {
+        "phase": "Running",
+        "podIP": "10.42.0.15",
+        "hostIP": "10.10.0.15",
+        "startTime": "2026-11-01T09:01:00Z",
+        "containerStatuses": [
+          {
+            "name": "app",
+            "ready": true,
+            "restartCount": 0,
+            "image": "registry.example.test/example/app:1.4.0",
+            "imageID": "registry.example.test/example/app@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "containerID": "containerd://1111111111111111111111111111111111111111111111111111111111111111",
+            "started": true
+          }
+        ]
+      }
+    }
+  ]
+}

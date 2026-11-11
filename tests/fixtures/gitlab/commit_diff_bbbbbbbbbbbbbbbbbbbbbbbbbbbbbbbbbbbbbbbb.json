@@ -1,0 +1,11 @@
+[
+  {
+    "old_path": "notes.txt",
+    "new_path": "notes.txt",
+    "new_file": true,
+    "renamed_file": false,
+    "deleted_file": false,
+    "generated_file": false,
+    "diff": "+notes"
+  }
+]

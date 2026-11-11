@@ -1,0 +1,50 @@
+{
+  "interactions": [
+    {
+      "request": {"method": "POST", "path": "/login"},
+      "response": {"status": 200, "json": {"token": "cspm-jwt", "expires_in": 600}}
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/alert/alert-100",
+        "headers": {"x-redlock-auth": "cspm-jwt"}
+      },
+      "response": {
+        "status": 200,
+        "json": {"id": "alert-100", "time": 1794150000000, "status": "open", "policy": {"policyType": "config"}}
+      }
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/alert/alert-100",
+        "headers": {"x-redlock-auth": "cspm-jwt"}
+      },
+      "response": {
+        "status": 200,
+        "json": {"id": "alert-100", "time": 1794150000000, "status": "open", "policy": {"policyType": "config"}}
+      }
+    },
+    {
+      "request": {
+        "method": "POST",
+        "path": "/alert/dismiss",
+        "headers": {"x-redlock-auth": "cspm-jwt"},
+        "json": {"alerts": ["alert-100"], "dismissalNote": "approved"}
+      },
+      "response": {"status": 200, "json": {}}
+    },
+    {
+      "request": {
+        "method": "GET",
+        "path": "/alert/alert-100",
+        "headers": {"x-redlock-auth": "cspm-jwt"}
+      },
+      "response": {
+        "status": 200,
+        "json": {"id": "alert-100", "time": 1794150000000, "status": "dismissed", "policy": {"policyType": "config"}}
+      }
+    }
+  ]
+}

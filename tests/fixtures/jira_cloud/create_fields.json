@@ -1,0 +1,15 @@
+{
+  "startAt": 0,
+  "maxResults": 100,
+  "total": 7,
+  "isLast": true,
+  "values": [
+    {"fieldId": "project", "name": "Project", "required": true, "schema": {"type": "project"}, "operations": ["set"]},
+    {"fieldId": "issuetype", "name": "Issue type", "required": true, "schema": {"type": "issuetype"}, "operations": ["set"]},
+    {"fieldId": "summary", "name": "Summary", "required": true, "schema": {"type": "string"}, "operations": ["set"]},
+    {"fieldId": "description", "name": "Description", "required": false, "schema": {"type": "textarea"}, "operations": ["set"]},
+    {"fieldId": "labels", "name": "Labels", "required": false, "schema": {"type": "array", "items": "string"}, "operations": ["set"]},
+    {"fieldId": "priority", "name": "Priority", "required": false, "schema": {"type": "priority"}, "operations": ["set"], "allowedValues": [{"id": "1", "name": "High"}, {"id": "2", "name": "Medium"}]},
+    {"fieldId": "customfield_10001", "name": "Details", "required": false, "schema": {"type": "textarea", "custom": "com.atlassian.jira.plugin.system.customfieldtypes:textarea"}, "operations": ["set"]}
+  ]
+}

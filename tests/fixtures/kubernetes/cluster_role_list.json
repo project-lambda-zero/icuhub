@@ -1,0 +1,73 @@
+{
+  "kind": "ClusterRoleList",
+  "apiVersion": "rbac.authorization.k8s.io/v1",
+  "metadata": {
+    "resourceVersion": "7350"
+  },
+  "items": [
+    {
+      "metadata": {
+        "name": "system:discovery",
+        "uid": "66666666-6666-4666-8666-666666666666",
+        "resourceVersion": "30",
+        "creationTimestamp": "2026-10-01T00:00:00Z",
+        "labels": {
+          "kubernetes.io/bootstrapping": "rbac-defaults"
+        },
+        "annotations": {
+          "rbac.authorization.kubernetes.io/autoupdate": "true"
+        }
+      },
+      "rules": [
+        {
+          "nonResourceURLs": [
+            "/api",
+            "/apis",
+            "/version"
+          ],
+          "verbs": [
+            "get"
+          ]
+        }
+      ]
+    },
+    {
+      "metadata": {
+        "name": "example-resource-reader",
+        "uid": "77777777-7777-4777-8777-777777777777",
+        "resourceVersion": "7001",
+        "creationTimestamp": "2026-10-20T14:00:00Z"
+      },
+      "rules": [
+        {
+          "apiGroups": [
+            ""
+          ],
+          "resources": [
+            "pods",
+            "namespaces",
+            "events"
+          ],
+          "verbs": [
+            "get",
+            "list",
+            "watch"
+          ]
+        },
+        {
+          "apiGroups": [
+            "wgpolicyk8s.io"
+          ],
+          "resources": [
+            "policyreports",
+            "clusterpolicyreports"
+          ],
+          "verbs": [
+            "get",
+            "list"
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "data": {
+    "id": "example",
+    "type": "domain",
+    "links": {"self": "https://www.virustotal.com/api/v3/domains/example"},
+    "attributes": {
+      "reputation": -3,
+      "last_analysis_date": 1762732800,
+      "categories": {"Forcepoint": "Malicious Websites"},
+      "tags": ["phishing"],
+      "last_analysis_stats": {
+        "malicious": 7,
+        "suspicious": 2,
+        "harmless": 60,
+        "undetected": 20,
+        "timeout": 1
+      }
+    }
+  }
+}

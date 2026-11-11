@@ -1,0 +1,1428 @@
+{
+  "actions": [],
+  "auth": [
+    "api_keys",
+    "username_password_session"
+  ],
+  "capabilities": [
+    "FindingSource"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "Nessus connection settings. Export jobs are transient read-oriented jobs.",
+    "properties": {
+      "access_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "auth_mode": {
+        "default": "api_keys",
+        "enum": [
+          "api_keys",
+          "username_password_session"
+        ],
+        "title": "Auth Mode",
+        "type": "string"
+      },
+      "base_url": {
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "export_poll_interval_s": {
+        "default": 0.5,
+        "maximum": 30,
+        "minimum": 0,
+        "title": "Export Poll Interval S",
+        "type": "number"
+      },
+      "export_timeout_s": {
+        "default": 300,
+        "exclusiveMinimum": 0,
+        "maximum": 3600,
+        "title": "Export Timeout S",
+        "type": "number"
+      },
+      "max_depth": {
+        "default": 64,
+        "maximum": 128,
+        "minimum": 8,
+        "title": "Max Depth",
+        "type": "integer"
+      },
+      "max_plugin_output_chars": {
+        "default": 32768,
+        "maximum": 1048576,
+        "minimum": 256,
+        "title": "Max Plugin Output Chars",
+        "type": "integer"
+      },
+      "max_report_bytes": {
+        "default": 67108864,
+        "maximum": 268435456,
+        "minimum": 1024,
+        "title": "Max Report Bytes",
+        "type": "integer"
+      },
+      "max_report_hosts": {
+        "default": 10000,
+        "maximum": 100000,
+        "minimum": 1,
+        "title": "Max Report Hosts",
+        "type": "integer"
+      },
+      "max_report_items": {
+        "default": 200000,
+        "maximum": 1000000,
+        "minimum": 1,
+        "title": "Max Report Items",
+        "type": "integer"
+      },
+      "password": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "secret_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "username": {
+        "anyOf": [
+          {
+            "maxLength": 256,
+            "minLength": 1,
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Username"
+      }
+    },
+    "required": [
+      "base_url"
+    ],
+    "title": "NessusConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-001"
+  ],
+  "format_version": 1,
+  "importers": [
+    {
+      "extensions": [
+        ".nessus",
+        ".xml"
+      ],
+      "media_types": [
+        "application/xml",
+        "text/xml"
+      ],
+      "name": "nessus_xml",
+      "stream": "export_findings"
+    },
+    {
+      "extensions": [
+        ".nessus",
+        ".xml"
+      ],
+      "media_types": [
+        "application/xml",
+        "text/xml"
+      ],
+      "name": "nessus_xml_compliance",
+      "stream": "compliance_findings"
+    }
+  ],
+  "kind": "nessus",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "history_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "History Id"
+          },
+          "scan_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "title": "Scan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scan_id"
+        ],
+        "title": "CreateExportArgs",
+        "type": "object"
+      },
+      "name": "create_export",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "export_kind": {
+            "enum": [
+              "file",
+              "token"
+            ],
+            "title": "Export Kind",
+            "type": "string"
+          },
+          "file_id": {
+            "title": "File Id",
+            "type": "string"
+          },
+          "history_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "History Id"
+          },
+          "scan_id": {
+            "title": "Scan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scan_id",
+          "file_id",
+          "export_kind",
+          "created_at",
+          "expires_at"
+        ],
+        "title": "NessusExport",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "export_kind": {
+            "default": "file",
+            "enum": [
+              "file",
+              "token"
+            ],
+            "title": "Export Kind",
+            "type": "string"
+          },
+          "file_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "title": "File Id",
+            "type": "string"
+          },
+          "history_id": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9_.:-]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "History Id"
+          },
+          "scan_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "title": "Scan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scan_id",
+          "file_id"
+        ],
+        "title": "DownloadExportArgs",
+        "type": "object"
+      },
+      "name": "download_export",
+      "output_schema": {
+        "$defs": {
+          "NessusFindingRecord": {
+            "additionalProperties": false,
+            "properties": {
+              "event_uid": {
+                "title": "Event Uid",
+                "type": "string"
+              },
+              "host": {
+                "$ref": "#/$defs/NessusHost"
+              },
+              "item": {
+                "$ref": "#/$defs/NessusItem"
+              },
+              "report": {
+                "$ref": "#/$defs/NessusReportContext"
+              }
+            },
+            "required": [
+              "event_uid",
+              "report",
+              "host",
+              "item"
+            ],
+            "title": "NessusFindingRecord",
+            "type": "object"
+          },
+          "NessusHost": {
+            "additionalProperties": false,
+            "properties": {
+              "ended_at": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Ended At"
+              },
+              "fqdn": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Fqdn"
+              },
+              "ip": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Ip"
+              },
+              "key": {
+                "title": "Key",
+                "type": "string"
+              },
+              "mac": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Mac"
+              },
+              "name": {
+                "title": "Name",
+                "type": "string"
+              },
+              "os": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Os"
+              },
+              "properties": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "title": "Properties",
+                "type": "object"
+              },
+              "started_at": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Started At"
+              },
+              "uid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Uid"
+              }
+            },
+            "required": [
+              "key",
+              "name"
+            ],
+            "title": "NessusHost",
+            "type": "object"
+          },
+          "NessusItem": {
+            "additionalProperties": false,
+            "properties": {
+              "attributes": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "title": "Attributes",
+                "type": "object"
+              },
+              "compliance": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "title": "Compliance",
+                "type": "object"
+              },
+              "cves": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Cves",
+                "type": "array"
+              },
+              "cwes": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Cwes",
+                "type": "array"
+              },
+              "description": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Description"
+              },
+              "fields": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "title": "Fields",
+                "type": "object"
+              },
+              "ordinal": {
+                "minimum": 0,
+                "title": "Ordinal",
+                "type": "integer"
+              },
+              "output_bounded": {
+                "default": false,
+                "title": "Output Bounded",
+                "type": "boolean"
+              },
+              "plugin_family": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Plugin Family"
+              },
+              "plugin_id": {
+                "title": "Plugin Id",
+                "type": "string"
+              },
+              "plugin_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Plugin Name"
+              },
+              "plugin_output": {
+                "default": "",
+                "title": "Plugin Output",
+                "type": "string"
+              },
+              "plugin_output_sha256": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Plugin Output Sha256"
+              },
+              "plugin_output_size": {
+                "default": 0,
+                "title": "Plugin Output Size",
+                "type": "integer"
+              },
+              "port": {
+                "anyOf": [
+                  {
+                    "maximum": 65535,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Port"
+              },
+              "protocol": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Protocol"
+              },
+              "references": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "References",
+                "type": "array"
+              },
+              "risk_factor": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Risk Factor"
+              },
+              "service": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Service"
+              },
+              "severity": {
+                "anyOf": [
+                  {
+                    "maximum": 4,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Severity"
+              },
+              "solution": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Solution"
+              },
+              "synopsis": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Synopsis"
+              },
+              "truncated": {
+                "default": false,
+                "title": "Truncated",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "ordinal",
+              "plugin_id"
+            ],
+            "title": "NessusItem",
+            "type": "object"
+          },
+          "NessusReportContext": {
+            "additionalProperties": false,
+            "properties": {
+              "archived": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Archived"
+              },
+              "file_sha256": {
+                "pattern": "^[0-9a-f]{64}$",
+                "title": "File Sha256",
+                "type": "string"
+              },
+              "history_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "History Id"
+              },
+              "history_status": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "History Status"
+              },
+              "incomplete_targets": {
+                "default": null,
+                "title": "Incomplete Targets"
+              },
+              "report_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Report Name"
+              },
+              "run_uid": {
+                "title": "Run Uid",
+                "type": "string"
+              },
+              "scan_id": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Scan Id"
+              },
+              "source": {
+                "enum": [
+                  "live",
+                  "upload"
+                ],
+                "title": "Source",
+                "type": "string"
+              },
+              "targets": {
+                "default": null,
+                "title": "Targets"
+              },
+              "targets_complete": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Targets Complete"
+              }
+            },
+            "required": [
+              "run_uid",
+              "file_sha256",
+              "source"
+            ],
+            "title": "NessusReportContext",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "file_sha256": {
+            "title": "File Sha256",
+            "type": "string"
+          },
+          "output_bounded": {
+            "title": "Output Bounded",
+            "type": "boolean"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/$defs/NessusFindingRecord"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "report": {
+            "$ref": "#/$defs/NessusReportContext"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "report",
+          "records",
+          "file_sha256",
+          "size_bytes",
+          "truncated",
+          "output_bounded"
+        ],
+        "title": "NessusExportDownload",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created At"
+          },
+          "export_kind": {
+            "default": "file",
+            "enum": [
+              "file",
+              "token"
+            ],
+            "title": "Export Kind",
+            "type": "string"
+          },
+          "file_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "title": "File Id",
+            "type": "string"
+          },
+          "poll_interval_s": {
+            "default": 0.5,
+            "maximum": 30,
+            "minimum": 0,
+            "title": "Poll Interval S",
+            "type": "number"
+          },
+          "scan_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "title": "Scan Id",
+            "type": "string"
+          },
+          "timeout_s": {
+            "default": 300,
+            "exclusiveMinimum": 0,
+            "maximum": 3600,
+            "title": "Timeout S",
+            "type": "number"
+          }
+        },
+        "required": [
+          "scan_id",
+          "file_id"
+        ],
+        "title": "GetExportStatusArgs",
+        "type": "object"
+      },
+      "name": "get_export_status",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "chunks_cancelled": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Chunks Cancelled",
+            "type": "array"
+          },
+          "chunks_failed": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Chunks Failed",
+            "type": "array"
+          },
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "ready"
+        ],
+        "title": "NessusExportStatus",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "exclude_rollover": {
+            "const": true,
+            "default": true,
+            "title": "Exclude Rollover",
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 50,
+            "maximum": 200,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "maximum": 1000000,
+            "minimum": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "scan_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9_.:-]+$",
+            "title": "Scan Id",
+            "type": "string"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "pattern": "^[A-Za-z_][A-Za-z0-9_:-]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "time_end",
+            "title": "Sort"
+          }
+        },
+        "required": [
+          "scan_id"
+        ],
+        "title": "ListHistoryArgs",
+        "type": "object"
+      },
+      "name": "list_history",
+      "output_schema": {
+        "$defs": {
+          "NessusHistory": {
+            "additionalProperties": true,
+            "description": "One immutable history run. ``id`` is accepted for editions using that response spelling.",
+            "properties": {
+              "history_id": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "History Id"
+              },
+              "incomplete_targets": {
+                "default": null,
+                "title": "Incomplete Targets"
+              },
+              "is_archived": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Is Archived"
+              },
+              "status": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Status"
+              },
+              "targets": {
+                "default": null,
+                "title": "Targets"
+              },
+              "time_end": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Time End"
+              },
+              "time_start": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Time Start"
+              },
+              "uuid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Uuid"
+              }
+            },
+            "required": [
+              "history_id"
+            ],
+            "title": "NessusHistory",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "exclude_rollover": {
+            "const": true,
+            "default": true,
+            "title": "Exclude Rollover",
+            "type": "boolean"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/$defs/NessusHistory"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "limit": {
+            "default": 50,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Total"
+          }
+        },
+        "title": "NessusHistoryList",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "folder_id": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Folder Id"
+          },
+          "last_modification_date": {
+            "anyOf": [
+              {
+                "minimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Last Modification Date"
+          }
+        },
+        "title": "ListScansArgs",
+        "type": "object"
+      },
+      "name": "list_scans",
+      "output_schema": {
+        "$defs": {
+          "NessusScan": {
+            "additionalProperties": true,
+            "description": "Vendor scan entry, retaining fields added by different Nessus editions.",
+            "properties": {
+              "folder_id": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Folder Id"
+              },
+              "id": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ],
+                "title": "Id"
+              },
+              "last_modification_date": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Last Modification Date"
+              },
+              "name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Name"
+              },
+              "schedule_uuid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Schedule Uuid"
+              },
+              "status": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Status"
+              },
+              "uuid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Uuid"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "title": "NessusScan",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "folders": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Folders",
+            "type": "array"
+          },
+          "scans": {
+            "items": {
+              "$ref": "#/$defs/NessusScan"
+            },
+            "title": "Scans",
+            "type": "array"
+          }
+        },
+        "title": "NessusScanList",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [
+    "scan_run"
+  ],
+  "scopes": [
+    {
+      "name": "scans",
+      "probe": "GET /scans",
+      "required_by": [
+        "FindingSource"
+      ]
+    },
+    {
+      "name": "export",
+      "probe": "POST /scans/{id}/export",
+      "required_by": [
+        "FindingSource"
+      ]
+    }
+  ],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "compliance_findings",
+      "ocsf_class": 2003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "export_findings",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "scan_runs",
+      "ocsf_class": null,
+      "record_type": "scan_run",
+      "requires_target": false,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": []
+}

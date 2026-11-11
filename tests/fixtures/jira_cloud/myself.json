@@ -1,0 +1,7 @@
+{
+  "accountId": "service-account-1",
+  "accountType": "atlassian",
+  "active": true,
+  "displayName": "Synthetic automation",
+  "emailAddress": "automation@example.test"
+}

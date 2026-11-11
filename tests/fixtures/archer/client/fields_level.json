@@ -1,0 +1,5 @@
+[
+  {"IsSuccessful": true, "RequestedObject": {"Id": 5001, "Type": 1, "Name": "Title", "IsRequired": true, "RelatedValuesListId": null, "LevelId": 401}, "ValidationMessages": []},
+  {"IsSuccessful": true, "RequestedObject": {"Id": 5002, "Type": 22, "Name": "LastUpdated", "IsRequired": false, "RelatedValuesListId": null, "LevelId": 401}, "ValidationMessages": []},
+  {"IsSuccessful": true, "RequestedObject": {"Id": 5003, "Type": 4, "Name": "Status", "IsRequired": false, "RelatedValuesListId": 701, "LevelId": 401}, "ValidationMessages": []}
+]

@@ -1,0 +1,22 @@
+# Optional and NOT part of kustomization.yaml. Apply only after replacing the documentation-reserved
+# address with the OIDC issuer's environment-specific address. Never widen this to 0.0.0.0/0.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-oidc-https-egress
+  namespace: icuhub
+  labels:
+    app.kubernetes.io/part-of: icuhub
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: api
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.0.2.10/32
+      ports:
+        - protocol: TCP
+          port: 443

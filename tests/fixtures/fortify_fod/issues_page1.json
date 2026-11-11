@@ -1,0 +1,58 @@
+{
+  "items": [
+    {
+      "id": 10001,
+      "vulnId": "vuln-10001",
+      "instanceId": "instance-0001",
+      "releaseId": 42,
+      "category": "SQL Injection",
+      "kingdom": "Input Validation and Representation",
+      "severity": 4,
+      "severityString": "Critical",
+      "primaryLocation": "Db.java",
+      "primaryLocationFull": "src/app/Db.java",
+      "lineNumber": 88,
+      "cwe": "89",
+      "developerStatus": "New",
+      "auditorStatus": "Unreviewed",
+      "isSuppressed": false,
+      "closedStatus": false,
+      "lastModifiedDate": "2026-11-09T10:00:00Z",
+      "introducedDate": "2026-11-01T09:00:00Z"
+    },
+    {
+      "id": 10002,
+      "vulnId": "vuln-10002",
+      "instanceId": "instance-0002",
+      "releaseId": 42,
+      "category": "Path Manipulation",
+      "severity": 2,
+      "severityString": "Medium",
+      "primaryLocationFull": "src/app/Files.java",
+      "lineNumber": 17,
+      "cwe": "22",
+      "developerStatus": "Resolved",
+      "auditorStatus": "Approved",
+      "isSuppressed": false,
+      "closedStatus": true,
+      "closedDate": "2026-11-08T12:00:00Z",
+      "lastModifiedDate": "2026-11-08T12:00:00Z"
+    },
+    {
+      "id": 10003,
+      "vulnId": "vuln-10003",
+      "instanceId": "instance-0003",
+      "releaseId": 42,
+      "category": "Weak Cryptographic Hash",
+      "severity": 3,
+      "severityString": "High",
+      "developerStatus": "New",
+      "auditorStatus": "Suppressed",
+      "isSuppressed": true,
+      "closedStatus": false,
+      "lastModifiedDate": "2026-11-07"
+    }
+  ],
+  "offset": 0,
+  "totalCount": 3
+}

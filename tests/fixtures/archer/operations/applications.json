@@ -1,0 +1,22 @@
+[
+  {
+    "IsSuccessful": true,
+    "RequestedObject": {
+      "Id": 101,
+      "Name": "Risk Management",
+      "Guid": "00000000-0000-0000-0000-000000000101"
+    }
+  },
+  {
+    "IsSuccessful": false,
+    "RequestedObject": {
+      "Id": 102,
+      "Name": "Restricted Application"
+    },
+    "ValidationMessages": [
+      {
+        "ResourcedMessage": "Read permission is required"
+      }
+    ]
+  }
+]

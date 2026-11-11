@@ -1,0 +1,13 @@
+{
+  "kind": "Status",
+  "apiVersion": "v1",
+  "metadata": {},
+  "status": "Failure",
+  "message": "policyreports.wgpolicyk8s.io is forbidden: User \"system:serviceaccount:automation:resource-reader\" cannot list resource \"policyreports\" in API group \"wgpolicyk8s.io\" in the namespace \"staging\"",
+  "reason": "Forbidden",
+  "details": {
+    "group": "wgpolicyk8s.io",
+    "kind": "policyreports"
+  },
+  "code": 403
+}

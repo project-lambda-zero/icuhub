@@ -1,0 +1,32 @@
+{
+  "apiVersion": "wgpolicyk8s.io/v1alpha2",
+  "kind": "PolicyReport",
+  "metadata": {
+    "name": "synthetic-policy-report",
+    "namespace": "default",
+    "uid": "11111111-1111-4111-8111-111111111111",
+    "resourceVersion": "101"
+  },
+  "results": [
+    {
+      "policy": "require-labels",
+      "rule": "check-owner",
+      "result": "fail",
+      "severity": "high",
+      "message": "synthetic missing owner label",
+      "category": "Best Practices",
+      "resources": [
+        {
+          "kind": "Pod",
+          "name": "synthetic-api",
+          "namespace": "default",
+          "uid": "22222222-2222-4222-8222-222222222222"
+        }
+      ],
+      "timestamp": {
+        "seconds": 1700000000,
+        "nanos": 0
+      }
+    }
+  ]
+}

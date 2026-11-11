@@ -1,0 +1,1 @@
+"""Shared GitLab connector family."""

@@ -1,0 +1,82 @@
+[
+  {
+    "number": 4,
+    "created_at": "2026-10-01T08:00:00Z",
+    "updated_at": "2026-11-08T10:00:00Z",
+    "url": "https://api.github.com/repos/example-org/example-repo/code-scanning/alerts/4",
+    "html_url": "https://github.com/example-org/example-repo/security/code-scanning/4",
+    "state": "open",
+    "fixed_at": null,
+    "dismissed_by": null,
+    "dismissed_at": null,
+    "dismissed_reason": null,
+    "dismissed_comment": null,
+    "rule": {
+      "id": "py/sql-injection",
+      "severity": "error",
+      "security_severity_level": "high",
+      "description": "Database query built from user-controlled sources",
+      "name": "sql-injection",
+      "tags": ["security", "external/cwe/cwe-089"]
+    },
+    "tool": {"name": "CodeQL", "guid": null, "version": "2.20.0"},
+    "most_recent_instance": {
+      "ref": "refs/heads/main",
+      "analysis_key": ".github/workflows/codeql.yml:analyze",
+      "category": ".github/workflows/codeql.yml:analyze",
+      "environment": "{}",
+      "state": "open",
+      "commit_sha": "0123456789abcdef0123456789abcdef01234567",
+      "message": {"text": "Database query built from user-controlled sources"},
+      "location": {"path": "src/app.py", "start_line": 12, "end_line": 12, "start_column": 5, "end_column": 40},
+      "classifications": ["source code"]
+    },
+    "instances_url": "https://api.github.com/repos/example-org/example-repo/code-scanning/alerts/4/instances",
+    "repository": {
+      "id": 1001,
+      "name": "example-repo",
+      "full_name": "example-org/example-repo",
+      "owner": {"login": "example-org"}
+    }
+  },
+  {
+    "number": 5,
+    "created_at": "2026-10-02T09:00:00Z",
+    "updated_at": "2026-11-08T11:00:00Z",
+    "url": "https://api.github.com/repos/example-org/example-lib/code-scanning/alerts/5",
+    "html_url": "https://github.com/example-org/example-lib/security/code-scanning/5",
+    "state": "dismissed",
+    "fixed_at": null,
+    "dismissed_by": {"login": "example-reviewer"},
+    "dismissed_at": "2026-11-08T11:00:00Z",
+    "dismissed_reason": "false positive",
+    "dismissed_comment": "Input is a constant in tests",
+    "rule": {
+      "id": "js/unused-local-variable",
+      "severity": "note",
+      "security_severity_level": null,
+      "description": "Unused local variable",
+      "name": "unused-local-variable",
+      "tags": ["maintainability"]
+    },
+    "tool": {"name": "CodeQL", "guid": null, "version": "2.20.0"},
+    "most_recent_instance": {
+      "ref": "refs/heads/main",
+      "analysis_key": ".github/workflows/codeql.yml:analyze",
+      "category": ".github/workflows/codeql.yml:analyze",
+      "environment": "{}",
+      "state": "dismissed",
+      "commit_sha": "89abcdef0123456789abcdef0123456789abcdef",
+      "message": {"text": "Unused local variable"},
+      "location": {"path": "lib/util.js", "start_line": 40, "end_line": 40, "start_column": 9, "end_column": 14},
+      "classifications": []
+    },
+    "instances_url": "https://api.github.com/repos/example-org/example-lib/code-scanning/alerts/5/instances",
+    "repository": {
+      "id": 1002,
+      "name": "example-lib",
+      "full_name": "example-org/example-lib",
+      "owner": {"login": "example-org"}
+    }
+  }
+]

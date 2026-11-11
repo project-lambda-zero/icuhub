@@ -1,0 +1,15 @@
+{
+  "id": 7007,
+  "number": 7,
+  "state": "open",
+  "merged": false,
+  "title": "Synthetic change",
+  "head": {
+    "ref": "feature-branch",
+    "sha": "a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4"
+  },
+  "base": {
+    "ref": "main"
+  },
+  "updated_at": "2026-11-09T12:00:00Z"
+}

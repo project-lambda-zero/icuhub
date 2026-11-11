@@ -1,0 +1,22 @@
+{
+  "List": [
+    {
+      "Id": "6dc7a92f-94ab-4f7c-b60f-000000000401",
+      "WebsiteId": "6dc7a92f-94ab-4f7c-b60f-000000000101",
+      "WebsiteName": "Shop",
+      "TargetUrl": "https://shop.example.test/",
+      "State": "Complete",
+      "IsCompleted": true,
+      "Initiated": "2026-11-01T10:00:00Z",
+      "StateChanged": "2026-11-01T11:00:00Z",
+      "ScanTaskProfileId": "6dc7a92f-94ab-4f7c-b60f-000000000501",
+      "TotalVulnerabilityCount": 1
+    }
+  ],
+  "PageNumber": 1,
+  "PageSize": 200,
+  "PageCount": 1,
+  "TotalItemCount": 1,
+  "HasNextPage": false,
+  "IsLastPage": true
+}

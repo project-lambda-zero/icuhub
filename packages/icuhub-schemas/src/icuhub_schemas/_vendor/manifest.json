@@ -1,0 +1,44 @@
+{
+  "resources": {
+    "ocsf/1.9.0/classes/api_activity.json": {
+      "source_url": "https://schema.ocsf.io/schema/1.9.0/classes/api_activity",
+      "version": "1.9.0",
+      "sha256": "41d7c109cd1b63f7558b79a4dd553b36568b9465b14bd2b70ad23dedbceae4c4"
+    },
+    "ocsf/1.9.0/classes/application_security_posture_finding.json": {
+      "source_url": "https://schema.ocsf.io/schema/1.9.0/classes/application_security_posture_finding",
+      "version": "1.9.0",
+      "sha256": "4e9ee7acb7f84600707650c8f10d11fddd009c0ab5b2e6d4dd7269bc3fe7aaf6"
+    },
+    "ocsf/1.9.0/classes/compliance_finding.json": {
+      "source_url": "https://schema.ocsf.io/schema/1.9.0/classes/compliance_finding",
+      "version": "1.9.0",
+      "sha256": "2f6e79a02e08e9e394584ec684c50304e61b15e7579abe853f0f9ac725f09c67"
+    },
+    "ocsf/1.9.0/classes/data_security_finding.json": {
+      "source_url": "https://schema.ocsf.io/schema/1.9.0/classes/data_security_finding",
+      "version": "1.9.0",
+      "sha256": "5963d09163bad5635f796f532a4f2ff2a1f19dc6f8ef19b93ff6b72733ffb0b4"
+    },
+    "ocsf/1.9.0/classes/detection_finding.json": {
+      "source_url": "https://schema.ocsf.io/schema/1.9.0/classes/detection_finding",
+      "version": "1.9.0",
+      "sha256": "a2c8201bf107f161a5fd89716e8f34ef39eff2bf1ff585b0fa8edab64c52cd62"
+    },
+    "ocsf/1.9.0/classes/incident_finding.json": {
+      "source_url": "https://schema.ocsf.io/schema/1.9.0/classes/incident_finding",
+      "version": "1.9.0",
+      "sha256": "b9c2337b8956be128d16e3763219578dfcb701d6c02fb164e73a47c39a0f242c"
+    },
+    "ocsf/1.9.0/classes/vulnerability_finding.json": {
+      "source_url": "https://schema.ocsf.io/schema/1.9.0/classes/vulnerability_finding",
+      "version": "1.9.0",
+      "sha256": "8029415ae1440899f5aaeba85a74c3494cef8b0f9a4f9614578fe5f32554ea01"
+    },
+    "sarif/sarif-schema-2.1.0.json": {
+      "source_url": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+      "version": "2.1.0",
+      "sha256": "c3b4bb2d6093897483348925aaa73af03b3e3f4bd4ca38cef26dcb4212a2682e"
+    }
+  }
+}

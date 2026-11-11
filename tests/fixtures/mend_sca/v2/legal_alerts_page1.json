@@ -1,0 +1,36 @@
+{
+  "additionalData": {
+    "totalItems": 1,
+    "isLastPage": true
+  },
+  "supportToken": "example-support-token",
+  "retVal": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000604",
+      "name": "Example-License-1.0 on example-library",
+      "type": "LEGAL",
+      "alertInfo": {
+        "status": "ACTIVE",
+        "comment": "",
+        "detectedAt": "2026-01-15T10:20:00Z",
+        "modifiedAt": "2026-01-15T10:20:00Z"
+      },
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000101",
+        "name": "example-project-one",
+        "path": "example-group/example-project-one"
+      },
+      "component": {
+        "uuid": "00000000-0000-4000-8000-000000000301",
+        "name": "example-library-2.4.1",
+        "groupId": "com.example",
+        "artifactId": "example-library",
+        "version": "2.4.1"
+      },
+      "license": {
+        "name": "Example-License-1.0",
+        "type": "COPYLEFT"
+      }
+    }
+  ]
+}

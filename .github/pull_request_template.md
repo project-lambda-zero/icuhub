@@ -9,12 +9,13 @@
 ## Checklist
 
 - [ ] `python -m ruff check .`
-- [ ] `python -m compileall -q src`
-- [ ] `python -m pytest -q`
+- [ ] `python -m compileall -q src packages tools`
+- [ ] `python -m pytest -q packages/icuhub-schemas/tests tests`
+- [ ] `python tools/license_check.py`
 - [ ] No credentials in code, fixtures, logs, or tests
 - [ ] Every new operation declares classification, egress class, idempotency, schemas
 - [ ] New network traffic has `docs/COMMATRIX.md` rows
-- [ ] No new dependency or open-decision choice without maintainer approval
+- [ ] No dependency outside accepted ADRs and no open-decision choice without maintainer approval
 - [ ] `CHANGELOG.md` updated under `Unreleased` (observable changes)
 
 ## Not verified

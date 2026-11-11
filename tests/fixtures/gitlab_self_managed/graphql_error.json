@@ -1,0 +1,8 @@
+{
+  "data": null,
+  "errors": [
+    {
+      "message": "Argument 'first' on Project.vulnerabilities is too large"
+    }
+  ]
+}

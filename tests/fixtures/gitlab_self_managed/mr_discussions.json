@@ -1,0 +1,32 @@
+[
+  {
+    "id": "9d1e4b3a2c0f5e6d7a8b9c0d1e2f3a4b5c6d7e8f",
+    "individual_note": false,
+    "notes": [
+      {
+        "id": 311,
+        "type": "DiffNote",
+        "body": "Parser call site still uses the unpatched signature.\n\n<!-- icuhub-action-key:review-note-0001 -->",
+        "author": {
+          "id": 49,
+          "name": "Integration Bot",
+          "username": "icuhub-integration"
+        },
+        "created_at": "2026-11-09T12:30:00.000Z",
+        "system": false,
+        "resolvable": true,
+        "resolved": false,
+        "position": {
+          "base_sha": "aaaa1111bbbb2222cccc3333dddd4444eeee5555",
+          "start_sha": "aaaa1111bbbb2222cccc3333dddd4444eeee5555",
+          "head_sha": "1111222233334444555566667777888899990000",
+          "old_path": "src/parser.py",
+          "new_path": "src/parser.py",
+          "position_type": "text",
+          "old_line": null,
+          "new_line": 14
+        }
+      }
+    ]
+  }
+]

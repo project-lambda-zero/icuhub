@@ -1,0 +1,33 @@
+{
+  "apiVersion": "compliance.openshift.io/v1alpha1",
+  "kind": "ComplianceSuite",
+  "metadata": {
+    "name": "synthetic-suite",
+    "namespace": "openshift-compliance",
+    "uid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa7",
+    "resourceVersion": "207"
+  },
+  "spec": {
+    "autoApplyRemediations": false,
+    "scans": [
+      {
+        "name": "synthetic-worker-scan",
+        "scanType": "Node",
+        "profile": "xccdf_org.ssgproject.content_profile_moderate",
+        "content": "ssg-rhcos4-ds.xml",
+        "contentImage": "registry.example.invalid/synthetic/compliance-content:latest"
+      }
+    ]
+  },
+  "status": {
+    "phase": "DONE",
+    "result": "NON-COMPLIANT",
+    "scanStatuses": [
+      {
+        "name": "synthetic-worker-scan",
+        "phase": "DONE",
+        "result": "NON-COMPLIANT"
+      }
+    ]
+  }
+}

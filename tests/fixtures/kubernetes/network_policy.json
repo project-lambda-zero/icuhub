@@ -1,0 +1,60 @@
+{
+  "kind": "NetworkPolicy",
+  "apiVersion": "networking.k8s.io/v1",
+  "metadata": {
+    "name": "app-default-deny",
+    "namespace": "staging",
+    "uid": "88888888-8888-4888-8888-888888888888",
+    "resourceVersion": "9120",
+    "creationTimestamp": "2026-11-03T11:00:00Z"
+  },
+  "spec": {
+    "podSelector": {
+      "matchLabels": {
+        "app": "example-app"
+      }
+    },
+    "policyTypes": [
+      "Ingress",
+      "Egress"
+    ],
+    "ingress": [
+      {
+        "from": [
+          {
+            "podSelector": {
+              "matchLabels": {
+                "app": "example-client"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "TCP",
+            "port": 8080
+          }
+        ]
+      }
+    ],
+    "egress": [
+      {
+        "to": [
+          {
+            "namespaceSelector": {
+              "matchLabels": {
+                "kubernetes.io/metadata.name": "kube-system"
+              }
+            }
+          }
+        ],
+        "ports": [
+          {
+            "protocol": "UDP",
+            "port": 53
+          }
+        ]
+      }
+    ]
+  }
+}

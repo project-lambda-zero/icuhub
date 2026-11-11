@@ -1,0 +1,9 @@
+{
+  "id": 91,
+  "state": "success",
+  "context": "icuhub/ci",
+  "description": "Synthetic checks passed",
+  "target_url": "https://ci.example.test/runs/91",
+  "created_at": "2026-11-09T12:01:00Z",
+  "updated_at": "2026-11-09T12:01:00Z"
+}

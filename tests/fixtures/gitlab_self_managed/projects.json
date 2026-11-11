@@ -1,0 +1,11 @@
+[
+  {
+    "id": 42,
+    "name": "example-project",
+    "path": "example-project",
+    "path_with_namespace": "example-group/example-project",
+    "description": "Example project used by connector tests.",
+    "web_url": "https://gitlab.example.test/example-group/example-project",
+    "last_activity_at": "2026-11-03T10:00:00.000Z"
+  }
+]

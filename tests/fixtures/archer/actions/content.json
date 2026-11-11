@@ -1,0 +1,20 @@
+{
+  "IsSuccessful": true,
+  "RequestedObject": {
+    "Id": 42,
+    "LevelId": 8,
+    "Version": 3,
+    "FieldContents": {
+      "101": {
+        "Type": 1,
+        "Value": "case-1",
+        "FieldId": 101
+      },
+      "102": {
+        "Type": 1,
+        "Value": "Before",
+        "FieldId": 102
+      }
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "issues": [
+    {
+      "id": "10002",
+      "key": "PROJ-2",
+      "self": "https://jira.example.test/rest/api/3/issue/10002",
+      "fields": {
+        "summary": "Second synthetic issue",
+        "description": null,
+        "status": {"name": "Done", "statusCategory": {"key": "done"}},
+        "updated": "2026-11-01T10:00:00.000+0000",
+        "resolution": {"name": "Done"},
+        "labels": [],
+        "project": {"id": "20001", "key": "PROJ", "name": "Synthetic project"},
+        "issuetype": {"id": "30001", "name": "Bug"},
+        "assignee": null,
+        "reporter": {"accountId": "reporter-1", "displayName": "Synthetic reporter"},
+        "attachment": []
+      }
+    }
+  ]
+}

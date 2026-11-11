@@ -1,0 +1,6 @@
+{
+  "id": 42,
+  "name": "demo-service",
+  "path_with_namespace": "example-group/demo-service",
+  "web_url": "https://gitlab.example.test/example-group/demo-service"
+}

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteSearchResponse xmlns="http://archer-tech.com/webservices/">
+      <ExecuteSearchResult>
+        <Records xmlns="">
+          <Record contentId="201" levelId="502">
+            <Field id="9101" type="3" xmlConvertedValue="2026-03-02T11:00:00Z">2026-03-02T11:00:00Z</Field>
+            <Field id="9102" type="1">Snapshot parent</Field>
+          </Record>
+        </Records>
+      </ExecuteSearchResult>
+    </ExecuteSearchResponse>
+  </soap:Body>
+</soap:Envelope>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <ExecuteSearchResponse xmlns="http://archer-tech.com/webservices/">
+      <ExecuteSearchResult>
+        <Records>
+          <Record contentId="1001" levelId="401">
+            <Field id="5001" type="1">Risk A</Field>
+            <Field id="5002" type="3" xmlConvertedValue="2026-01-02T03:04:05Z">02/01/2026 03:04</Field>
+          </Record>
+        </Records>
+      </ExecuteSearchResult>
+    </ExecuteSearchResponse>
+  </soap:Body>
+</soap:Envelope>

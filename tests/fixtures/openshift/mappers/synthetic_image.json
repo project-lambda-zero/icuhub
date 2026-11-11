@@ -1,0 +1,10 @@
+{
+  "apiVersion": "image.openshift.io/v1",
+  "kind": "Image",
+  "metadata": {
+    "name": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "uid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2",
+    "resourceVersion": "202"
+  },
+  "dockerImageReference": "image-registry.example.invalid/payments/synthetic-api@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+}

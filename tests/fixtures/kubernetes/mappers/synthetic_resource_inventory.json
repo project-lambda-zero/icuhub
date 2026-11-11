@@ -1,0 +1,21 @@
+{
+  "apiVersion": "v1",
+  "kind": "Pod",
+  "metadata": {
+    "name": "synthetic-api",
+    "namespace": "default",
+    "uid": "44444444-4444-4444-8444-444444444444",
+    "resourceVersion": "42",
+    "labels": {
+      "app": "synthetic-api"
+    }
+  },
+  "spec": {
+    "containers": [
+      {
+        "name": "api",
+        "image": "registry.example.invalid/synthetic/api:1"
+      }
+    ]
+  }
+}

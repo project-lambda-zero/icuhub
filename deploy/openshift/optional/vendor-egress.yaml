@@ -1,0 +1,27 @@
+# Optional and NOT part of kustomization.yaml. Operator-controlled seam for connector vendor API egress
+# that cannot be expressed by namespace. OIDC has a separate API-only policy in oidc-egress.yaml.
+# Apply only after replacing the CIDR placeholder with the real, narrow destination ranges.
+# The placeholder uses the TEST-NET-1 documentation range (192.0.2.0/24) and matches no real host.
+# Never widen this to 0.0.0.0/0.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-vendor-https-egress
+  namespace: icuhub
+  labels:
+    app.kubernetes.io/part-of: icuhub
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app.kubernetes.io/component
+        operator: In
+        values: ["api", "worker"]
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.0.2.0/24
+      ports:
+        - protocol: TCP
+          port: 443

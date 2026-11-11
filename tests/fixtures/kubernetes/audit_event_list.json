@@ -1,0 +1,77 @@
+{
+  "kind": "EventList",
+  "apiVersion": "audit.k8s.io/v1",
+  "metadata": {},
+  "items": [
+    {
+      "kind": "Event",
+      "apiVersion": "audit.k8s.io/v1",
+      "level": "RequestResponse",
+      "auditID": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      "stage": "ResponseComplete",
+      "requestURI": "/api/v1/namespaces/staging/pods/app-02",
+      "verb": "patch",
+      "user": {
+        "username": "system:serviceaccount:automation:resource-writer",
+        "uid": "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        "groups": [
+          "system:serviceaccounts",
+          "system:serviceaccounts:automation",
+          "system:authenticated"
+        ]
+      },
+      "sourceIPs": [
+        "10.20.0.25"
+      ],
+      "userAgent": "example-client/v1.0",
+      "objectRef": {
+        "resource": "pods",
+        "namespace": "staging",
+        "name": "app-02",
+        "uid": "22222222-2222-4222-8222-222222222222",
+        "apiVersion": "v1",
+        "resourceVersion": "10425"
+      },
+      "responseStatus": {
+        "metadata": {},
+        "status": "Success",
+        "code": 200
+      },
+      "requestReceivedTimestamp": "2026-11-04T12:10:00.100000Z",
+      "stageTimestamp": "2026-11-04T12:10:00.250000Z"
+    },
+    {
+      "kind": "Event",
+      "apiVersion": "audit.k8s.io/v1",
+      "level": "Metadata",
+      "auditID": "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      "stage": "ResponseComplete",
+      "requestURI": "/apis/rbac.authorization.k8s.io/v1/clusterroles",
+      "verb": "list",
+      "user": {
+        "username": "system:serviceaccount:automation:resource-reader",
+        "groups": [
+          "system:serviceaccounts",
+          "system:serviceaccounts:automation",
+          "system:authenticated"
+        ]
+      },
+      "sourceIPs": [
+        "10.20.0.26"
+      ],
+      "userAgent": "example-client/v1.0",
+      "objectRef": {
+        "resource": "clusterroles",
+        "apiGroup": "rbac.authorization.k8s.io",
+        "apiVersion": "v1"
+      },
+      "responseStatus": {
+        "metadata": {},
+        "status": "Success",
+        "code": 200
+      },
+      "requestReceivedTimestamp": "2026-11-04T12:11:00.100000Z",
+      "stageTimestamp": "2026-11-04T12:11:00.180000Z"
+    }
+  ]
+}

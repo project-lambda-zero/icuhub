@@ -1,0 +1,601 @@
+{
+  "actions": [
+    {
+      "capability": "Enforcer",
+      "classification": "destructive",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "indicator": {
+            "description": "IP address or CIDR to block",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Indicator",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "ttl_s": {
+            "exclusiveMinimum": 0,
+            "maximum": 31536000,
+            "title": "Ttl S",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "indicator",
+          "ttl_s",
+          "reason"
+        ],
+        "title": "BlockArgs",
+        "type": "object"
+      },
+      "name": "block",
+      "stability": "beta"
+    },
+    {
+      "capability": "Enforcer",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "Create one iRule without updating an object that already exists.",
+        "properties": {
+          "apiAnonymous": {
+            "minLength": 1,
+            "title": "Apianonymous",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "partition": {
+            "default": "Common",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Partition",
+            "type": "string"
+          },
+          "subPath": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subpath"
+          }
+        },
+        "required": [
+          "name",
+          "apiAnonymous"
+        ],
+        "title": "CreateIruleArgs",
+        "type": "object"
+      },
+      "name": "create_irule",
+      "stability": "beta"
+    },
+    {
+      "capability": "Enforcer",
+      "classification": "destructive",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "block_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Block Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "block_id"
+        ],
+        "title": "UnblockArgs",
+        "type": "object"
+      },
+      "name": "unblock",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "icontrol_token"
+  ],
+  "capabilities": [
+    "Enforcer",
+    "TelemetrySource"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "iControl REST connection; credentials are exchanged for an X-F5-Auth-Token.",
+    "properties": {
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "base_url": {
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "data_group": {
+        "default": "icuhub_blocked",
+        "title": "Data Group",
+        "type": "string"
+      },
+      "partition": {
+        "default": "Common",
+        "title": "Partition",
+        "type": "string"
+      },
+      "password": {
+        "$ref": "#/$defs/SecretRef",
+        "writeOnly": true
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "username": {
+        "$ref": "#/$defs/SecretRef",
+        "writeOnly": true
+      },
+      "write_enabled": {
+        "default": false,
+        "title": "Write Enabled",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "base_url",
+      "username",
+      "password"
+    ],
+    "title": "F5Config",
+    "type": "object"
+  },
+  "flows": [
+    "F-035"
+  ],
+  "format_version": 1,
+  "importers": [],
+  "kind": "f5_bigip",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "Enforcer",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "block_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Block Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "block_id"
+        ],
+        "title": "UnblockArgs",
+        "type": "object"
+      },
+      "name": "get_block",
+      "output_schema": {
+        "properties": {
+          "block_id": {
+            "title": "Block Id",
+            "type": "string"
+          },
+          "data_group": {
+            "title": "Data Group",
+            "type": "string"
+          },
+          "generation": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Generation"
+          },
+          "present": {
+            "title": "Present",
+            "type": "boolean"
+          },
+          "record": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Record"
+          }
+        },
+        "required": [
+          "block_id",
+          "data_group",
+          "present"
+        ],
+        "title": "BlockRecordResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Enforcer",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "F5 iRule natural key: name, partition, and optional nested subPath.",
+        "properties": {
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "partition": {
+            "default": "Common",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Partition",
+            "type": "string"
+          },
+          "subPath": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Subpath"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "IruleQuery",
+        "type": "object"
+      },
+      "name": "get_irule",
+      "output_schema": {
+        "$defs": {
+          "Irule": {
+            "description": "An iRule as read from the vendor: identity plus the definition used for exact verification.\n\nVendor responses carry many more keys than these; they are ignored. The definition is not\nbyte-capped on read, so one oversized rule created outside ICUHUB cannot break a collection read.",
+            "properties": {
+              "apiAnonymous": {
+                "title": "Apianonymous",
+                "type": "string"
+              },
+              "definitionChecksum": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Definitionchecksum"
+              },
+              "fullPath": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "title": "Fullpath",
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 255,
+                "minLength": 1,
+                "title": "Name",
+                "type": "string"
+              },
+              "partition": {
+                "default": "Common",
+                "maxLength": 255,
+                "minLength": 1,
+                "title": "Partition",
+                "type": "string"
+              },
+              "subPath": {
+                "anyOf": [
+                  {
+                    "maxLength": 1024,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Subpath"
+              }
+            },
+            "required": [
+              "name",
+              "fullPath",
+              "apiAnonymous"
+            ],
+            "title": "Irule",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "present": {
+            "title": "Present",
+            "type": "boolean"
+          },
+          "rule": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/Irule"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          }
+        },
+        "required": [
+          "present"
+        ],
+        "title": "IruleResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "Enforcer",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "InventoryQuery",
+        "type": "object"
+      },
+      "name": "list_irules",
+      "output_schema": {
+        "$defs": {
+          "Irule": {
+            "description": "An iRule as read from the vendor: identity plus the definition used for exact verification.\n\nVendor responses carry many more keys than these; they are ignored. The definition is not\nbyte-capped on read, so one oversized rule created outside ICUHUB cannot break a collection read.",
+            "properties": {
+              "apiAnonymous": {
+                "title": "Apianonymous",
+                "type": "string"
+              },
+              "definitionChecksum": {
+                "anyOf": [
+                  {
+                    "maxLength": 512,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Definitionchecksum"
+              },
+              "fullPath": {
+                "maxLength": 2048,
+                "minLength": 1,
+                "title": "Fullpath",
+                "type": "string"
+              },
+              "name": {
+                "maxLength": 255,
+                "minLength": 1,
+                "title": "Name",
+                "type": "string"
+              },
+              "partition": {
+                "default": "Common",
+                "maxLength": 255,
+                "minLength": 1,
+                "title": "Partition",
+                "type": "string"
+              },
+              "subPath": {
+                "anyOf": [
+                  {
+                    "maxLength": 1024,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Subpath"
+              }
+            },
+            "required": [
+              "name",
+              "fullPath",
+              "apiAnonymous"
+            ],
+            "title": "Irule",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/$defs/Irule"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "IruleListResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "TelemetrySource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "InventoryQuery",
+        "type": "object"
+      },
+      "name": "list_virtual_servers",
+      "output_schema": {
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "VirtualServersResult",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [],
+  "scopes": [
+    {
+      "name": "inventory",
+      "probe": "GET /mgmt/tm/sys/version",
+      "required_by": [
+        "TelemetrySource"
+      ]
+    },
+    {
+      "name": "data_group",
+      "probe": "GET /mgmt/tm/ltm/data-group/internal",
+      "required_by": [
+        "Enforcer"
+      ]
+    }
+  ],
+  "sdk": ">=1,<2",
+  "streams": [],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": []
+}

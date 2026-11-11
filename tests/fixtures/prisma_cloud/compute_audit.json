@@ -1,0 +1,17 @@
+{
+  "id": "audit-1",
+  "cloudType": "aws",
+  "time": 1794150100000,
+  "type": "runtime",
+  "category": "exec",
+  "severity": "high",
+  "status": "open",
+  "acknowledged": false,
+  "ruleName": "Unexpected process",
+  "message": "Unexpected process started",
+  "hostname": "node-1",
+  "imageName": "registry.example/team/service@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "containerID": "container-1",
+  "collections": ["production"],
+  "forensicLink": "https://console.example.invalid/audits/audit-1"
+}

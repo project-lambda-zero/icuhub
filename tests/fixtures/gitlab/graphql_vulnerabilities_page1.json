@@ -1,0 +1,35 @@
+{
+  "data": {
+    "project": {
+      "vulnerabilities": {
+        "pageInfo": {
+          "hasNextPage": true,
+          "endCursor": "cursor-page-2"
+        },
+        "nodes": [
+          {
+            "id": "gid://gitlab/Vulnerability/7001",
+            "uuid": "b4a7e3c2-1d6f-4a8b-9c0e-2f3a4b5c6d7e",
+            "state": "DETECTED",
+            "severity": "HIGH",
+            "reportType": "SAST",
+            "updatedAt": "2026-11-09T10:00:00Z",
+            "identifiers": [
+              {
+                "name": "CVE-2024-12345",
+                "externalType": "cve",
+                "externalId": "CVE-2024-12345",
+                "url": "https://nvd.nist.gov/vuln/detail/CVE-2024-12345"
+              }
+            ],
+            "location": {
+              "file": "src/parser/read.c",
+              "startLine": 14,
+              "endLine": 16
+            }
+          }
+        ]
+      }
+    }
+  }
+}

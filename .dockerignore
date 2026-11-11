@@ -1,0 +1,42 @@
+# Default-deny: exclude everything, then re-include only build inputs.
+**
+
+# Build inputs: root metadata referenced by pyproject.toml, the source package,
+# and the local icuhub-schemas package installed alongside it.
+!pyproject.toml
+!README.md
+!LICENSE
+!src
+!src/**
+!packages
+!packages/icuhub-schemas
+!packages/icuhub-schemas/**
+
+# Explicit exclusions, applied after the allowlist so they win inside it.
+# VCS and CI metadata
+**/.git
+**/.github
+**/.gitignore
+# Tests, docs, deployment, agent tooling
+**/tests
+**/docs
+**/deploy
+**/.claude
+**/.cursor
+# Secrets and local runtime state
+**/.env
+**/.env.*
+**/.run
+**/*.pem
+**/*.key
+# Caches, bytecode, build metadata, and local artifacts
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.egg-info
+**/*.egg
+**/build
+**/dist
+**/.pytest_cache
+**/.ruff_cache
+**/.mypy_cache

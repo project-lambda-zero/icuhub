@@ -1,0 +1,10 @@
+{
+  "IsSuccessful": true,
+  "RequestedObject": {
+    "Id": 1001,
+    "History": [
+      {"Version": 6, "Modified": "2026-01-01T00:00:00Z", "User": "auditor"}
+    ]
+  },
+  "ValidationMessages": []
+}

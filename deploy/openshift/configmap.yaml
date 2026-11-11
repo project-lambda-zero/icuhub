@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: icuhub-config
+  namespace: icuhub
+  labels:
+    app.kubernetes.io/part-of: icuhub
+data:
+  ICUHUB_AUTOMATION_ENABLED: "false"
+  ICUHUB_RAW_RETENTION_DAYS: "30"
+  ICUHUB_WEBHOOK_MAX_BODY_BYTES: "10485760"
+  ICUHUB_WEBHOOK_ROTATION_WINDOW_S: "300"
+  ICUHUB_PUBLIC_BASE_URL: "https://icuhub.apps.example.com"
+  ICUHUB_KEK_PROVIDER: "openbao"
+  ICUHUB_OPENBAO_URL: "https://openbao.openbao.svc.cluster.local:8200"
+  ICUHUB_OPENBAO_TOKEN_FILE: "/var/run/icuhub/runtime/openbao-token"
+  ICUHUB_OPENBAO_TRANSIT_KEY: "icuhub-{tenant_id}"
+  ICUHUB_EVIDENCE_SIGNING_KEY_FILE: "/var/run/icuhub/evidence/signing-key.pem"
+  ICUHUB_EVIDENCE_VERIFICATION_KEY_FILE: "/var/run/icuhub/evidence/verification-key.pem"
+  ICUHUB_KAFKA_BOOTSTRAP: "kafka.kafka.svc.cluster.local:9092"
+  ICUHUB_KAFKA_TOPIC_PREFIX: "icuhub"
+  # TLS-only: plaintext is not a supported profile. The CA bundle comes from the icuhub-kafka-ca Secret.
+  ICUHUB_KAFKA_SECURITY: "sasl_ssl"
+  ICUHUB_KAFKA_CA_FILE: "/var/run/icuhub/kafka/ca.pem"
+  ICUHUB_KAFKA_SASL_MECHANISM: "SCRAM-SHA-512"
+  # SecretRef forms accepted by the worker: env:NAME or file:/absolute/path. Mounted Secret files use file:.
+  ICUHUB_KAFKA_SASL_USERNAME_REF: "file:/var/run/icuhub/kafka-sasl/username"
+  ICUHUB_KAFKA_SASL_PASSWORD_REF: "file:/var/run/icuhub/kafka-sasl/password"
+  ICUHUB_RELAY_BATCH_SIZE: "100"
+  ICUHUB_OIDC_ISSUER: "https://sso.example.com/realms/icuhub"
+  ICUHUB_OIDC_AUDIENCE: "icuhub"
+  ICUHUB_OIDC_JWKS_URL: "https://sso.example.com/realms/icuhub/protocol/openid-connect/certs"
+  ICUHUB_SMTP_HOST: "smtp.smtp.svc.cluster.local"
+  ICUHUB_SMTP_PORT: "587"
+  ICUHUB_SMTP_FROM: "icuhub@example.com"

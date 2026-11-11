@@ -6,6 +6,76 @@ Versioning follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Core runtime: typed policy decisions, plan/approve/apply actions with SoD and stale-plan rejection, correlation cases, sync engine with target discovery and per-target checkpoints, ticket routing with echo suppression, verified webhook ingress with rotation windows, SMTP approval notifications, worker queues and scheduler, outbox relay, and system-lookup migrations.
+- REST `/v1` surface with service-account/OIDC auth, connector catalog, operations, actions, sync, report upload, approvals, policy, routes, webhooks, and audit verification; `/hooks/{endpoint_id}` ingress and MCP `/mcp`.
+- F7 signed evidence export: auditor-only case bundles with Ed25519 signatures, bounded secret-free references, embedded audit-chain verification, offline CLI verification, and cross-tenant denial.
+- Connectors: `fortify_ssc`, `fortify_fod`, `jira_cloud`, `jira_dc`, `nessus` (scans, history exports, compliance, `.nessus` uploads), `prisma_cloud` (CSPM and Compute), `f5_bigip` (inventory and Enforcer block/unblock), `google_threat_intelligence` (lookup), `smtp` (notification send).
+- Invicti Enterprise REST sync, per-scan reports, bounded evidence, authenticated webhook reconciliation, and governed triage; Invicti Standard JSON report replay plus authenticated Send To Action ingestion.
+- Archer GRC session authentication, application/content/history/user/group sync, metadata reads, bounded evidence downloads, data-feed execution, and governed content and attachment actions with read-back verification.
+- Fortify SSC 25.4-aligned discovery, all-visibility reconciliation, activity replay, bounded issue/artifact/webhook reads, offline FPR and Fortify/WebInspect XML imports, custom-tag triage, upload dedupe, webhook registration, and explicitly gated purge actions.
+- Fortify on Demand v3 discovery, complete issue and scan reconciliation, downloaded data-export snapshots, bounded issue/report/FPR reads, governed bulk triage, scan start/import, report creation, and separately gated cancellation and deletion with async ID recovery.
+- GitHub.com and GitHub Enterprise Server editions with 29 streams, 36 reads, SARIF and native security actions, PR governance, App/PAT authentication, hint-only signed webhooks, and edition-specific feature probes.
+- GitLab.com and GitLab Self-Managed editions with GraphQL vulnerability reconciliation, project/group/repository/MR/pipeline/audit streams, bounded file/log/artifact evidence, asynchronous exports, MR governance, and edition-aware Standard Webhook verification.
+- F5 BIG-IP iRule collection and natural-key reads plus bounded, write-gated `create_irule` with exact no-op, conflict rejection, and uncertain-outcome reconciliation.
+- F2 current-revision source directives and F3 durable Archer exception convergence with exact Prisma suppression scope, separate approvals, revision supersession, scheduled expiry, late-outcome reversal, source reconciliation, and signed evidence links.
+- Mend SCA with eight streams, twelve operations, three governed actions, bounded report downloads, project UUID identity, and incremental activity replay.
+- Kubernetes and OpenShift editions with inventory, policy and posture assessments, LIST/WATCH checkpoints, snapshot reconciliation, managed audit ingress, and separately gated workload, RBAC, Route, SCC, and BuildConfig actions.
+- F1 real-scanner routing, F4 GitHub native publication, F5 GitLab native ingestion and feedback, and F6 OpenShift posture-to-approved-remediation flows with offline signed evidence and cross-tenant denial.
+- OpenShift runtime profile with restricted workloads, migration and RBAC separation, TLS Route, default-deny NetworkPolicies, secure worker relay, and optional narrow vendor and OIDC egress policies.
+- Prisma Cloud complete per-asset UVE export through paginated `POST /uve/api/v1/vulnerabilities/search` CVE enumeration and per-CVE `POST /uve/api/v3/vulnerabilities/download` gzip CSV downloads. `cspm_vulnerability_export` validates query/page stability, unique impacted-asset counts, duplicate and package/location-sensitive row identity, bounded decompression and record counts, and query-plus-download snapshot digests. The 10,000-row all-query CSV is not used; live acceptance remains opt-in.
+- Deduplicated action-plan, approval, and terminal-outcome evidence items whose digests verify offline in F7 bundles.
+- Event and deterministic artifact-replay stream declarations, with hint-only webhooks able to enqueue canonical full or incremental reconciliation.
+- Integration inventory of the existing consumer platforms with an ICUHUB disposition per integration (`docs/INTEGRATION_INVENTORY.md`).
+- Technology options per design concern with licenses, air-gap fit, and sources (`docs/OPTIONS.md`).
+- Delivery roadmap P0-P10; every phase runs as brainstorm, write, plan, implement, test (`docs/ROADMAP.md`).
+- BRD v0.2: BR-16..27, NG8..13, FR-CNR-08..11, FR-ING-06, FR-AUD-05, FR-ADM-03..04, FR-TKT, FR-NTF, FR-DIR, FR-FET, FR-MCPG, FR-FEED, FR-MIG, NFR-13..16, R11..13; integration catalog waves updated.
+- HLD capability protocols `Notifier`, `Directory`, `SbomSink`, `RiskRegister`, `VulnIntel`; extended `Tracker` operations.
+- ADR-0004..0016 closing decisions D1-D14.
+- `icuhub-schemas` 0.0.1 (`packages/icuhub-schemas`): OCSF 1.9.0 models for classes 2002-2007 and 6003 validated against the vendored official schemas, SARIF 2.1.0 codec with OCSF-to-SARIF conversion, CloudEvents 1.0 envelope, finding fingerprint (FR-NRM-01..06, FR-ING-05).
+- Runtime dependency license check (`tools/license_check.py`) in CI (NFR-15).
+- Prior-art survey of 51 comparable security, DevOps, and platform-engineering projects with cross-cutting lessons PA-01..PA-41 and anti-patterns AP-01..AP-18 (`docs/PRIOR_ART.md`).
+- Connector framework design: connector contract, generated manifest, sync engine with transactional checkpoints, mapping and identity rules, plan/apply actions, testing kit (`docs/CONNECTOR_FRAMEWORK.md`).
+- BRD v0.3: FR-CNR-12..19, FR-ING-07..13, FR-NRM-07..09, FR-CON-08..09, FR-TKT-09, FR-POL-09, NFR-18.
+- Coverage gap analysis of the vendor connector specs against open-source integration platforms, with 192 vendor gaps and 25 platform-level gaps (`docs/COVERAGE_GAPS.md`).
+- Per-vendor API facts and connector specifications for GitHub, GitLab, Bitbucket, Jira, Confluence, Kubernetes, OpenShift, Prisma Cloud, Fortify SSC and on Demand, Invicti, Mend, Qualys, Tenable, and Nessus (`docs/VENDOR_CONNECTORS.md`); `KnowledgeBase` capability and FR-KB-01..03; COMMATRIX F-122..123 and F-226..229.
+- ADR-0017..0019 closing decisions D15-D17 (generated connector manifests, first-party in-process connectors, JMESPath extraction in mappers); `OPTIONS.md` section 17.
+- Archer GRC (`archer`) API facts, connector specification, and capability scopes in `docs/VENDOR_CONNECTORS.md` section 10, with the summary row and open questions.
+- MVP plan defining MVP scope, per-kind done gates, and delivery phases M1..M7 (`docs/MVP.md`).
+- ADR-0020 (MVP scope) and ADR-0021 (service stack dependencies) recording the MVP scope and service stack decisions (`docs/adr/`).
+- BRD v0.4: decisions D18..D21, FR-COR-01..05, and FR-GRC-01..04.
+
+### Changed
+
+- Legacy Netsparker desktop/cloud XML profiles and their acceptance prerequisites are removed from scope. `GAP-INVICTI-001` now covers only current Invicti Standard XML; historical Netsparker parser citations remain research evidence, not supported profiles.
+- Coverage matrices now reflect generated manifests and current offline tests for GitHub, GitLab, Jira, OpenShift, Prisma Cloud, Fortify, Invicti, Mend, and Nessus. Original source-linked gap contracts remain unchanged, and partial or missing capabilities stay explicit.
+- Invicti Standard research now cites current official documentation for Standard XML vulnerability-list exports. Native Standard XML remains disabled because no genuine current export or element schema is available for golden parser validation.
+- Decisions table in BRD section 18 records outcomes and ADR links; BR-15, FR-RX-01..10, NFR-17, and R10 are withdrawn (ADR-0011) with their IDs reserved.
+- COMMATRIX event and secret flows describe Kafka and OpenBao Transit (ADR-0005, ADR-0006).
+- CI installs `icuhub-schemas`, compiles `src`, `packages`, and `tools`, and runs the license check.
+- HLD: ingestion capabilities are stream declarations driven by the sync engine; write and destructive operations are plan/apply actions; the `cursor` table is replaced by `stream_state`, with `target`, `sync_run`, `raw_batch`, `quarantine_item`, and `action_plan` added.
+- ROADMAP P2, P3, P4, P5, and P10 carry the connector framework tasks and tests; connector guide checklist follows the framework.
+- Scheduler, manual, webhook, and post-remediation sync triggers share one active job per durable stream state; OCSF persistence omits optional null fields to match schema golden serialization.
+- Ticket creation uses strict `route_key` correlation for Jira and configured logical fields plus natural-key correlation for Archer.
+
+### Fixed
+
+- Jira Cloud issue creation now reads the authoritative issue before success and persists the mapper-compatible `issue_id:fields.updated` revision, preventing ICUHUB echo actions and duplicate remediation. A failed post-create read-back is `outcome_unknown`, not a definitive failure.
+- Jira OAuth refresh-token rotation reaches durable credential storage before the replacement token is used; persistence failures retain the prior held token and never fall back to memory-only rotation.
+- Action leases now renew throughout re-planning and vendor execution. Crash recovery after a vendor write preserves `outcome_unknown`, avoids a duplicate create, and records a digest-verified terminal outcome evidence item.
+- Tenant-scoped natural-key action admission now has concurrent replay, conflicting-argument, tenant-isolation, and terminal-state reuse coverage backed by the database uniqueness contract.
+- Prisma Cloud alert, RQL, export, remediation, Compute partition, registry scan, incident acknowledgment, collection, runtime audit, and WAAS contracts now fail closed on incomplete or inconsistent evidence. Registry scans require post-send evidence, and source cloud providers and policy types are never invented during mapping.
+- Prisma alert count anomalies, failed pages, cross-partition mutation, duplicate-page cycles, and incomplete UVE responses no longer authorize checkpoint completion or absence closure.
+- Nessus compliance findings use check-specific identity and fingerprints, and identifier-free severity 1-4 results map to advisory-backed OCSF 2002 rather than detection-only findings.
+- Asynchronous actions now reconcile from the approved plan and persisted prior outcome without repeating the vendor write, including accepted-then-failed and bounded-poll paths.
+- The runtime license gate now accepts valid MIT-0 metadata and normalizes legacy PSF and PSFL fields to PSF-2.0 without relaxing rejection of unrecognized or restricted licenses.
+- OCSF `Resolved` status 4 now drives source resolution, and correlation cases reopen and resolve consistently as source members reappear or leave complete snapshots.
+- OCSF 2003 compliance `pass` observations resolve source posture without routing resolved-only cases; Jira or Archer remediation state alone never closes detection.
+- Route TLS private keys are removed before raw persistence and remain absent from plans, outcomes, database views, and signed evidence.
+- Archer action planning permits only declared authentication and read-only POST endpoints, and cached clients no longer retain the planning facade into apply.
+- One-shot test scenarios dispose per-loop database pools before loop shutdown, preventing connection exhaustion across the offline suite.
+
 ## [0.0.1] - 2026-11-05 -- design documents and repository setup
 
 ### Added

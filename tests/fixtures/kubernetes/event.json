@@ -1,0 +1,33 @@
+{
+  "kind": "Event",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "app-02.18f3a7c912d4e601",
+    "namespace": "staging",
+    "uid": "99999999-9999-4999-8999-999999999999",
+    "resourceVersion": "10430",
+    "creationTimestamp": "2026-11-02T10:01:00Z"
+  },
+  "involvedObject": {
+    "kind": "Pod",
+    "namespace": "staging",
+    "name": "app-02",
+    "uid": "22222222-2222-4222-8222-222222222222",
+    "apiVersion": "v1",
+    "resourceVersion": "10425"
+  },
+  "reason": "Started",
+  "message": "Started container app",
+  "source": {
+    "component": "kubelet",
+    "host": "worker-02"
+  },
+  "firstTimestamp": "2026-11-02T10:01:00Z",
+  "lastTimestamp": "2026-11-02T10:01:00Z",
+  "count": 1,
+  "type": "Normal",
+  "eventTime": null,
+  "reportingComponent": "",
+  "reportingInstance": "",
+  "action": "Start"
+}

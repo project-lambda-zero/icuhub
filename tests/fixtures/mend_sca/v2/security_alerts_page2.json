@@ -1,0 +1,50 @@
+{
+  "additionalData": {
+    "totalItems": 3,
+    "isLastPage": true
+  },
+  "supportToken": "example-support-token",
+  "retVal": [
+    {
+      "uuid": "00000000-0000-4000-8000-000000000603",
+      "name": "CVE-2099-0002 in example-helper",
+      "type": "SECURITY_VULNERABILITY",
+      "alertInfo": {
+        "status": "ACTIVE",
+        "comment": "",
+        "detectedAt": "2026-01-15T10:10:00Z",
+        "modifiedAt": "2026-01-15T10:10:00Z"
+      },
+      "project": {
+        "uuid": "00000000-0000-4000-8000-000000000101",
+        "name": "example-project-one",
+        "path": "example-group/example-project-one",
+        "productName": "example-application",
+        "productUuid": "00000000-0000-4000-8000-000000000201"
+      },
+      "product": {
+        "uuid": "00000000-0000-4000-8000-000000000201",
+        "name": "example-application"
+      },
+      "component": {
+        "uuid": "00000000-0000-4000-8000-000000000302",
+        "name": "example-helper-1.0.0",
+        "groupId": "com.example",
+        "artifactId": "example-helper",
+        "version": "1.0.0",
+        "libraryLocations": []
+      },
+      "vulnerability": {
+        "name": "CVE-2099-0002",
+        "type": "CVE",
+        "description": "Second synthetic vulnerability description.",
+        "score": 5.3,
+        "severity": "MEDIUM",
+        "publishDate": "2026-01-11",
+        "modifiedDate": "2026-01-11",
+        "vulnerabilityScoring": [],
+        "references": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "data": [
+    {
+      "id": 1001,
+      "issueInstanceId": "a1b2c3d4-0001-4000-8000-000000000001",
+      "projectVersionId": 42,
+      "revision": 3,
+      "primaryRuleGuid": "11111111-aaaa-4bbb-8ccc-000000000001",
+      "issueName": "SQL Injection",
+      "fullFileName": "src/app/Db.java",
+      "lineNumber": 88,
+      "issueStatus": "Unaudited",
+      "suppressed": false,
+      "removed": false,
+      "foundDate": "2026-03-01T10:00:00.000+0000"
+    },
+    {
+      "id": 1002,
+      "issueInstanceId": "a1b2c3d4-0002-4000-8000-000000000002",
+      "projectVersionId": 42,
+      "revision": 1,
+      "primaryRuleGuid": "11111111-aaaa-4bbb-8ccc-000000000002",
+      "issueName": "Path Manipulation",
+      "fullFileName": "src/app/Files.java",
+      "lineNumber": 17,
+      "issueStatus": "Suppressed",
+      "suppressed": true,
+      "removed": false,
+      "foundDate": "2026-03-01T11:30:00.000+0000"
+    }
+  ],
+  "count": 3
+}

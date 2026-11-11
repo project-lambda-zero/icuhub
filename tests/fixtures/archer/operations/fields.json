@@ -1,0 +1,24 @@
+[
+  {
+    "IsSuccessful": true,
+    "RequestedObject": {
+      "Id": 301,
+      "Name": "Risk Title",
+      "Alias": "RiskTitle",
+      "Type": 1,
+      "IsRequired": true,
+      "RelatedValuesListId": null
+    }
+  },
+  {
+    "IsSuccessful": true,
+    "RequestedObject": {
+      "Id": 302,
+      "Name": "Risk Rating",
+      "Alias": "RiskRating",
+      "Type": 4,
+      "IsRequired": false,
+      "RelatedValuesListId": 401
+    }
+  }
+]

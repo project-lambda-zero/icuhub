@@ -1,0 +1,70 @@
+{
+  "kind": "PolicyReport",
+  "apiVersion": "wgpolicyk8s.io/v1alpha2",
+  "metadata": {
+    "name": "policyreport-app-02",
+    "namespace": "staging",
+    "uid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    "resourceVersion": "10501",
+    "creationTimestamp": "2026-11-04T12:00:00Z",
+    "labels": {
+      "app.kubernetes.io/managed-by": "kyverno"
+    }
+  },
+  "scope": {
+    "apiVersion": "v1",
+    "kind": "Pod",
+    "namespace": "staging",
+    "name": "app-02",
+    "uid": "22222222-2222-4222-8222-222222222222"
+  },
+  "summary": {
+    "pass": 1,
+    "fail": 1,
+    "warn": 0,
+    "error": 0,
+    "skip": 0
+  },
+  "results": [
+    {
+      "source": "kyverno",
+      "policy": "require-team-label",
+      "rule": "check-team-label",
+      "category": "Best Practices",
+      "severity": "medium",
+      "result": "fail",
+      "scored": true,
+      "message": "Pods must have a team label.",
+      "timestamp": "2026-11-04T12:00:05Z",
+      "resources": [
+        {
+          "apiVersion": "v1",
+          "kind": "Pod",
+          "namespace": "staging",
+          "name": "app-02",
+          "uid": "22222222-2222-4222-8222-222222222222"
+        }
+      ]
+    },
+    {
+      "source": "kyverno",
+      "policy": "require-read-only-root",
+      "rule": "check-root-filesystem",
+      "category": "Pod Security",
+      "severity": "high",
+      "result": "pass",
+      "scored": true,
+      "message": "validation rule passed",
+      "timestamp": "2026-11-04T12:00:05Z",
+      "resources": [
+        {
+          "apiVersion": "v1",
+          "kind": "Pod",
+          "namespace": "staging",
+          "name": "app-02",
+          "uid": "22222222-2222-4222-8222-222222222222"
+        }
+      ]
+    }
+  ]
+}

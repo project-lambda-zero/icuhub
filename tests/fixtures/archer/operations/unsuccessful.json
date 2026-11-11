@@ -1,0 +1,9 @@
+{
+  "IsSuccessful": false,
+  "RequestedObject": null,
+  "ValidationMessages": [
+    {
+      "ResourcedMessage": "The metadata request was rejected"
+    }
+  ]
+}

@@ -1,0 +1,1652 @@
+{
+  "actions": [
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "One bulk-edit request against a release's vulnerabilities.",
+        "properties": {
+          "attributes": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Attributes"
+          },
+          "auditor_status": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Auditor Status"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "developer_status": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Developer Status"
+          },
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "severity": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Severity"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Id"
+          },
+          "vulnerability_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "minItems": 1,
+            "title": "Vulnerability Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "release_id",
+          "vulnerability_ids"
+        ],
+        "title": "BulkAuditInput",
+        "type": "object"
+      },
+      "name": "bulk_audit_issues",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "destructive",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "minLength": 1,
+            "title": "Approval Ref",
+            "type": "string"
+          },
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "scan_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Scan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_id",
+          "scan_id",
+          "approval_ref"
+        ],
+        "title": "CancelScanInput",
+        "type": "object"
+      },
+      "name": "cancel_scan",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Application Id",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Notes"
+          },
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "report_format": {
+            "enum": [
+              "Pdf",
+              "Html"
+            ],
+            "title": "Report Format",
+            "type": "string"
+          },
+          "report_name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Report Name",
+            "type": "string"
+          },
+          "report_template_type_id": {
+            "exclusiveMinimum": 0,
+            "title": "Report Template Type Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "application_id",
+          "release_id",
+          "report_template_type_id",
+          "report_format",
+          "report_name"
+        ],
+        "title": "CreateReportInput",
+        "type": "object"
+      },
+      "name": "create_report",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "destructive",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "minLength": 1,
+            "title": "Approval Ref",
+            "type": "string"
+          },
+          "resource_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Resource Id",
+            "type": "string"
+          },
+          "resource_type": {
+            "enum": [
+              "release",
+              "application",
+              "report"
+            ],
+            "title": "Resource Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resource_type",
+          "resource_id",
+          "approval_ref"
+        ],
+        "title": "DeleteResourceInput",
+        "type": "object"
+      },
+      "name": "delete_release_application_report",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "payload_base64": {
+            "minLength": 1,
+            "title": "Payload Base64",
+            "type": "string"
+          },
+          "payload_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Payload Sha256",
+            "type": "string"
+          },
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_id",
+          "payload_base64",
+          "payload_sha256"
+        ],
+        "title": "ImportScanInput",
+        "type": "object"
+      },
+      "name": "import_scan",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "$defs": {
+          "ScanProfile": {
+            "additionalProperties": false,
+            "properties": {
+              "audit_preference_type": {
+                "default": "Manual",
+                "enum": [
+                  "Manual",
+                  "Automated"
+                ],
+                "title": "Audit Preference Type",
+                "type": "string"
+              },
+              "language_level": {
+                "anyOf": [
+                  {
+                    "maxLength": 128,
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Language Level"
+              },
+              "scan_policy": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "Security",
+                      "DevOps",
+                      "Classic",
+                      "FoD_Legacy_"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Scan Policy"
+              },
+              "technology_stack": {
+                "maxLength": 128,
+                "minLength": 1,
+                "title": "Technology Stack",
+                "type": "string"
+              }
+            },
+            "required": [
+              "technology_stack"
+            ],
+            "title": "ScanProfile",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "assessment_type_id": {
+            "exclusiveMinimum": 0,
+            "title": "Assessment Type Id",
+            "type": "integer"
+          },
+          "billable_acknowledged": {
+            "const": true,
+            "title": "Billable Acknowledged",
+            "type": "boolean"
+          },
+          "entitlement_frequency_type": {
+            "enum": [
+              "SingleScan",
+              "Subscription"
+            ],
+            "title": "Entitlement Frequency Type",
+            "type": "string"
+          },
+          "entitlement_id": {
+            "exclusiveMinimum": 0,
+            "title": "Entitlement Id",
+            "type": "integer"
+          },
+          "payload_base64": {
+            "minLength": 1,
+            "title": "Payload Base64",
+            "type": "string"
+          },
+          "payload_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Payload Sha256",
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/$defs/ScanProfile"
+          },
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_id",
+          "assessment_type_id",
+          "entitlement_id",
+          "entitlement_frequency_type",
+          "profile",
+          "payload_base64",
+          "payload_sha256",
+          "billable_acknowledged"
+        ],
+        "title": "StartScanInput",
+        "type": "object"
+      },
+      "name": "start_scan",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "OAuth2ClientCredentials"
+  ],
+  "capabilities": [
+    "FindingSource"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "OAuth client credentials, bounded reads, and the destructive-action gate.",
+    "properties": {
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "base_url": {
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_id": {
+        "minLength": 1,
+        "title": "Client Id",
+        "type": "string"
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_secret": {
+        "$ref": "#/$defs/SecretRef",
+        "writeOnly": true
+      },
+      "destructive_enabled": {
+        "default": false,
+        "title": "Destructive Enabled",
+        "type": "boolean"
+      },
+      "max_download_bytes": {
+        "default": 536870912,
+        "exclusiveMinimum": 0,
+        "maximum": 1073741824,
+        "title": "Max Download Bytes",
+        "type": "integer"
+      },
+      "max_payload_bytes": {
+        "default": 536870912,
+        "exclusiveMinimum": 0,
+        "maximum": 1073741824,
+        "title": "Max Payload Bytes",
+        "type": "integer"
+      },
+      "page_size": {
+        "default": 50,
+        "maximum": 50,
+        "minimum": 1,
+        "title": "Page Size",
+        "type": "integer"
+      },
+      "probe_release_id": {
+        "anyOf": [
+          {
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Probe Release Id"
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "write_enabled": {
+        "default": false,
+        "title": "Write Enabled",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "base_url",
+      "client_id",
+      "client_secret"
+    ],
+    "title": "FortifyFodConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-228"
+  ],
+  "format_version": 1,
+  "importers": [],
+  "kind": "fortify_fod",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "data_export_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Data Export Id",
+            "type": "string"
+          },
+          "expected_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "IssuesExport",
+                  "ScansExport",
+                  "ReleasesExport",
+                  "ApplicationsExport",
+                  "EntitlementConsumptionExport"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Type"
+          }
+        },
+        "required": [
+          "data_export_id"
+        ],
+        "title": "DataExportArgs",
+        "type": "object"
+      },
+      "name": "download_data_export",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "content_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content Base64"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sha256"
+          },
+          "size_bytes": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          },
+          "vendor_ref": {
+            "title": "Vendor Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ready",
+          "vendor_ref"
+        ],
+        "title": "DownloadOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "scan_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scan Id"
+          },
+          "scan_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "Static",
+                  "Dynamic",
+                  "Mobile",
+                  "Monitoring",
+                  "Network",
+                  "OpenSource",
+                  "SASTAviator"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Scan Type"
+          }
+        },
+        "required": [
+          "release_id"
+        ],
+        "title": "DownloadFprArgs",
+        "type": "object"
+      },
+      "name": "download_fpr",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "content_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content Base64"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sha256"
+          },
+          "size_bytes": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          },
+          "vendor_ref": {
+            "title": "Vendor Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ready",
+          "vendor_ref"
+        ],
+        "title": "DownloadOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "report_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Report Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id"
+        ],
+        "title": "ReportArgs",
+        "type": "object"
+      },
+      "name": "download_report",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "content_base64": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content Base64"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Sha256"
+          },
+          "size_bytes": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Status"
+          },
+          "vendor_ref": {
+            "title": "Vendor Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ready",
+          "vendor_ref"
+        ],
+        "title": "DownloadOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Application Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_id"
+        ],
+        "title": "ApplicationArgs",
+        "type": "object"
+      },
+      "name": "get_application",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "VendorObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "data_export_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Data Export Id",
+            "type": "string"
+          },
+          "expected_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "IssuesExport",
+                  "ScansExport",
+                  "ReleasesExport",
+                  "ApplicationsExport",
+                  "EntitlementConsumptionExport"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Expected Type"
+          }
+        },
+        "required": [
+          "data_export_id"
+        ],
+        "title": "DataExportArgs",
+        "type": "object"
+      },
+      "name": "get_data_export",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "VendorObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "instance_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_id",
+          "instance_id"
+        ],
+        "title": "IssueInstanceArgs",
+        "type": "object"
+      },
+      "name": "get_issue",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "VendorObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "vuln_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Vuln Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_id",
+          "vuln_id"
+        ],
+        "title": "IssueArgs",
+        "type": "object"
+      },
+      "name": "get_issue_details",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "VendorObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "include_system_events": {
+            "default": false,
+            "title": "Include System Events",
+            "type": "boolean"
+          },
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "vuln_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Vuln Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_id",
+          "vuln_id"
+        ],
+        "title": "IssueHistoryArgs",
+        "type": "object"
+      },
+      "name": "get_issue_history",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "VendorObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "vuln_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Vuln Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_id",
+          "vuln_id"
+        ],
+        "title": "IssueArgs",
+        "type": "object"
+      },
+      "name": "get_recommendations",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "VendorObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_id"
+        ],
+        "title": "ReleaseArgs",
+        "type": "object"
+      },
+      "name": "get_release",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "VendorObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "report_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Report Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id"
+        ],
+        "title": "ReportArgs",
+        "type": "object"
+      },
+      "name": "get_report",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "VendorObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "release_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Release Id",
+            "type": "string"
+          },
+          "scan_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Scan Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "release_id",
+          "scan_id"
+        ],
+        "title": "ReleaseScanArgs",
+        "type": "object"
+      },
+      "name": "get_scan",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "VendorObjectOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "modified_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Modified Since"
+          }
+        },
+        "title": "ListApplicationsArgs",
+        "type": "object"
+      },
+      "name": "list_applications",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total_count": {
+            "minimum": 0,
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total_count"
+        ],
+        "title": "VendorListOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "data_export_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "IssuesExport",
+                  "ScansExport",
+                  "ReleasesExport",
+                  "ApplicationsExport",
+                  "EntitlementConsumptionExport"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Data Export Type"
+          }
+        },
+        "title": "ListDataExportsArgs",
+        "type": "object"
+      },
+      "name": "list_data_exports",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total_count": {
+            "minimum": 0,
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total_count"
+        ],
+        "title": "VendorListOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "pattern": "^[0-9]+$",
+            "title": "Application Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "application_id"
+        ],
+        "title": "MicroservicesArgs",
+        "type": "object"
+      },
+      "name": "list_microservices",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total_count": {
+            "minimum": 0,
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total_count"
+        ],
+        "title": "VendorListOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "application_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Application Id"
+          },
+          "modified_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Modified Since"
+          }
+        },
+        "title": "ListReleasesArgs",
+        "type": "object"
+      },
+      "name": "list_releases",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total_count": {
+            "minimum": 0,
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total_count"
+        ],
+        "title": "VendorListOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "modified_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Modified Since"
+          },
+          "release_id": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Release Id"
+          }
+        },
+        "title": "ListScansArgs",
+        "type": "object"
+      },
+      "name": "list_scans",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Records",
+            "type": "array"
+          },
+          "total_count": {
+            "minimum": 0,
+            "title": "Total Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "records",
+          "total_count"
+        ],
+        "title": "VendorListOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "description": "Operation with no input.",
+        "properties": {},
+        "title": "EmptyArgs",
+        "type": "object"
+      },
+      "name": "probe_target",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "additionalProperties": true,
+            "title": "Record",
+            "type": "object"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "VendorObjectOutput",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [
+    "data_export",
+    "scan"
+  ],
+  "scopes": [
+    {
+      "name": "view-apps",
+      "probe": "GET /api/v3/applications",
+      "required_by": [
+        "FindingSource"
+      ]
+    },
+    {
+      "name": "view-issues",
+      "probe": "GET /api/v3/releases/{releaseId}/vulnerabilities",
+      "required_by": [
+        "FindingSource"
+      ]
+    },
+    {
+      "name": "view-reports",
+      "probe": "GET /api/v3/reports/dataexports",
+      "required_by": [
+        "FindingSource"
+      ]
+    },
+    {
+      "name": "manage-issues",
+      "probe": "POST /api/v3/releases/{releaseId}/vulnerabilities/bulk-edit",
+      "required_by": []
+    },
+    {
+      "name": "manage-reports",
+      "probe": "POST /api/v3/reports",
+      "required_by": []
+    }
+  ],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "data_exports",
+      "ocsf_class": null,
+      "record_type": "data_export",
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "issues",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "scans",
+      "ocsf_class": null,
+      "record_type": "scan",
+      "requires_target": true,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": []
+}

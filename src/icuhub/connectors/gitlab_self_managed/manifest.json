@@ -1,0 +1,2719 @@
+{
+  "actions": [
+    {
+      "capability": "SourceControl",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "action_key": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$",
+            "title": "Action Key",
+            "type": "string"
+          },
+          "approved_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "iid": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Iid",
+            "type": "integer"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "sha": {
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Sha",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "iid",
+          "sha",
+          "action_key",
+          "approved_plan_hash"
+        ],
+        "title": "ApproveMergeRequestArgs",
+        "type": "object"
+      },
+      "name": "approve_merge_request",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "action_key": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$",
+            "title": "Action Key",
+            "type": "string"
+          },
+          "approved_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "expected_state": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Expected State",
+            "type": "string"
+          },
+          "state": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "State",
+            "type": "string"
+          },
+          "vulnerability_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Vulnerability Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "vulnerability_id",
+          "expected_state",
+          "state",
+          "action_key",
+          "approved_plan_hash"
+        ],
+        "title": "ChangeVulnerabilityStateArgs",
+        "type": "object"
+      },
+      "name": "change_vulnerability_state",
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "action_key": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$",
+            "title": "Action Key",
+            "type": "string"
+          },
+          "expected_status": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Expected Status",
+            "type": "string"
+          },
+          "job_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Job Id",
+            "type": "integer"
+          },
+          "operation": {
+            "enum": [
+              "play",
+              "retry",
+              "cancel"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "job_id",
+          "operation",
+          "expected_status",
+          "action_key"
+        ],
+        "title": "ControlJobArgs",
+        "type": "object"
+      },
+      "name": "control_job",
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "action_key": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$",
+            "title": "Action Key",
+            "type": "string"
+          },
+          "expected_status": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Expected Status",
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "retry",
+              "cancel"
+            ],
+            "title": "Operation",
+            "type": "string"
+          },
+          "pipeline_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Pipeline Id",
+            "type": "integer"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "pipeline_id",
+          "operation",
+          "expected_status",
+          "action_key"
+        ],
+        "title": "ControlPipelineArgs",
+        "type": "object"
+      },
+      "name": "control_pipeline",
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "action_key": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$",
+            "title": "Action Key",
+            "type": "string"
+          },
+          "approved_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 60000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Description"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "source_branch": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Source Branch",
+            "type": "string"
+          },
+          "target_branch": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Target Branch",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "source_branch",
+          "target_branch",
+          "title",
+          "action_key",
+          "approved_plan_hash"
+        ],
+        "title": "CreateMergeRequestArgs",
+        "type": "object"
+      },
+      "name": "create_merge_request",
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "write",
+      "idempotency": "key",
+      "input_schema": {
+        "$defs": {
+          "DiffPosition": {
+            "additionalProperties": false,
+            "description": "Merge request diff position; all fields are required together.",
+            "properties": {
+              "base_sha": {
+                "pattern": "^[0-9a-fA-F]{7,64}$",
+                "title": "Base Sha",
+                "type": "string"
+              },
+              "head_sha": {
+                "pattern": "^[0-9a-fA-F]{7,64}$",
+                "title": "Head Sha",
+                "type": "string"
+              },
+              "line": {
+                "maximum": 1000000,
+                "minimum": 1,
+                "title": "Line",
+                "type": "integer"
+              },
+              "path": {
+                "maxLength": 4096,
+                "minLength": 1,
+                "title": "Path",
+                "type": "string"
+              },
+              "start_sha": {
+                "pattern": "^[0-9a-fA-F]{7,64}$",
+                "title": "Start Sha",
+                "type": "string"
+              }
+            },
+            "required": [
+              "base_sha",
+              "head_sha",
+              "start_sha",
+              "path",
+              "line"
+            ],
+            "title": "DiffPosition",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "action_key": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$",
+            "title": "Action Key",
+            "type": "string"
+          },
+          "approved_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "body": {
+            "maxLength": 60000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "iid": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Iid",
+            "type": "integer"
+          },
+          "position": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/DiffPosition"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "iid",
+          "body",
+          "action_key",
+          "approved_plan_hash"
+        ],
+        "title": "CreateMrNoteOrDiscussionArgs",
+        "type": "object"
+      },
+      "name": "create_mr_note_or_discussion",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approved_plan_hash": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Approved Plan Hash"
+          },
+          "authorized_instance": {
+            "default": false,
+            "title": "Authorized Instance",
+            "type": "boolean"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Id"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Project Id"
+          }
+        },
+        "title": "CreateVulnerabilityExportInput",
+        "type": "object"
+      },
+      "name": "create_vulnerability_export",
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "destructive",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "action_key": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$",
+            "title": "Action Key",
+            "type": "string"
+          },
+          "approved_plan_hash": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Approved Plan Hash",
+            "type": "string"
+          },
+          "iid": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Iid",
+            "type": "integer"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "sha": {
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Sha",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "iid",
+          "sha",
+          "action_key",
+          "approved_plan_hash"
+        ],
+        "title": "MergeMergeRequestArgs",
+        "type": "object"
+      },
+      "name": "merge_merge_request",
+      "stability": "beta"
+    },
+    {
+      "capability": "CodeScanningSink",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "action_key": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$",
+            "title": "Action Key",
+            "type": "string"
+          },
+          "expected_head_sha": {
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Expected Head Sha",
+            "type": "string"
+          },
+          "iid": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Iid",
+            "type": "integer"
+          },
+          "job_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Job Id",
+            "type": "integer"
+          },
+          "native_finding_uids": {
+            "items": {
+              "maxLength": 512,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 5000,
+            "title": "Native Finding Uids",
+            "type": "array"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "sarif": {
+            "additionalProperties": true,
+            "title": "Sarif",
+            "type": "object"
+          }
+        },
+        "required": [
+          "project_id",
+          "iid",
+          "job_id",
+          "expected_head_sha",
+          "sarif",
+          "native_finding_uids",
+          "action_key"
+        ],
+        "title": "PublishSecurityReportArtifactArgs",
+        "type": "object"
+      },
+      "name": "publish_security_report_artifact",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "HeaderToken",
+    "BearerToken"
+  ],
+  "capabilities": [
+    "SourceControl",
+    "CodeScanningSink",
+    "FindingSource"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "GitLab Self-Managed or Dedicated configuration with an explicit API root.",
+    "properties": {
+      "access_token": {
+        "$ref": "#/$defs/SecretRef",
+        "writeOnly": true
+      },
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "auth_method": {
+        "default": "private_token",
+        "enum": [
+          "private_token",
+          "oauth_bearer",
+          "job_token"
+        ],
+        "title": "Auth Method",
+        "type": "string"
+      },
+      "base_url": {
+        "default": "https://gitlab.com/api/v4",
+        "maxLength": 2048,
+        "minLength": 1,
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "destructive_enabled": {
+        "default": false,
+        "title": "Destructive Enabled",
+        "type": "boolean"
+      },
+      "max_artifact_bytes": {
+        "default": 10485760,
+        "maximum": 10485760,
+        "minimum": 1,
+        "title": "Max Artifact Bytes",
+        "type": "integer"
+      },
+      "max_export_bytes": {
+        "default": 26214400,
+        "maximum": 104857600,
+        "minimum": 1,
+        "title": "Max Export Bytes",
+        "type": "integer"
+      },
+      "max_job_log_bytes": {
+        "default": 1048576,
+        "maximum": 10485760,
+        "minimum": 1,
+        "title": "Max Job Log Bytes",
+        "type": "integer"
+      },
+      "max_pages": {
+        "default": 1000,
+        "maximum": 100000,
+        "minimum": 1,
+        "title": "Max Pages",
+        "type": "integer"
+      },
+      "max_sarif_results_per_run": {
+        "default": 5000,
+        "maximum": 5000,
+        "minimum": 1,
+        "title": "Max Sarif Results Per Run",
+        "type": "integer"
+      },
+      "max_sarif_runs": {
+        "default": 20,
+        "maximum": 20,
+        "minimum": 1,
+        "title": "Max Sarif Runs",
+        "type": "integer"
+      },
+      "max_tie_ids": {
+        "default": 10000,
+        "maximum": 1000000,
+        "minimum": 1,
+        "title": "Max Tie Ids",
+        "type": "integer"
+      },
+      "overlap_s": {
+        "default": 300,
+        "minimum": 0,
+        "title": "Overlap S",
+        "type": "integer"
+      },
+      "page_size": {
+        "default": 100,
+        "maximum": 100,
+        "minimum": 1,
+        "title": "Page Size",
+        "type": "integer"
+      },
+      "principal_kind": {
+        "default": "personal",
+        "enum": [
+          "personal",
+          "project",
+          "group",
+          "oauth",
+          "ci_job"
+        ],
+        "title": "Principal Kind",
+        "type": "string"
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "publication_max_polls": {
+        "default": 60,
+        "maximum": 10000,
+        "minimum": 1,
+        "title": "Publication Max Polls",
+        "type": "integer"
+      },
+      "publication_poll_interval_s": {
+        "default": 2.0,
+        "exclusiveMinimum": 0,
+        "title": "Publication Poll Interval S",
+        "type": "number"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "webhook_tolerance_s": {
+        "default": 300,
+        "minimum": 0,
+        "title": "Webhook Tolerance S",
+        "type": "integer"
+      },
+      "write_enabled": {
+        "default": false,
+        "title": "Write Enabled",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "access_token"
+    ],
+    "title": "SelfManagedGitLabConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-027",
+    "F-101"
+  ],
+  "format_version": 1,
+  "importers": [],
+  "kind": "gitlab_self_managed",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_path": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Artifact Path"
+          },
+          "job_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Job Id",
+            "type": "integer"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "job_id"
+        ],
+        "title": "ArtifactRef",
+        "type": "object"
+      },
+      "name": "download_job_artifact",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Job Id",
+            "type": "integer"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "job_id"
+        ],
+        "title": "JobRef",
+        "type": "object"
+      },
+      "name": "download_job_log",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "export_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Export Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "export_id"
+        ],
+        "title": "DownloadVulnerabilityExportInput",
+        "type": "object"
+      },
+      "name": "download_vulnerability_export",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "sha": {
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Sha",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "sha"
+        ],
+        "title": "CommitRef",
+        "type": "object"
+      },
+      "name": "get_commit",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ref"
+          }
+        },
+        "required": [
+          "project_id",
+          "path"
+        ],
+        "title": "RepositoryPathRef",
+        "type": "object"
+      },
+      "name": "get_file_blame",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "group_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Group Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "group_id"
+        ],
+        "title": "GroupRef",
+        "type": "object"
+      },
+      "name": "get_group",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "job_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Job Id",
+            "type": "integer"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "job_id"
+        ],
+        "title": "JobRef",
+        "type": "object"
+      },
+      "name": "get_job",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "title": "ProjectRef",
+        "type": "object"
+      },
+      "name": "get_project",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Path",
+            "type": "string"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ref"
+          }
+        },
+        "required": [
+          "project_id",
+          "path"
+        ],
+        "title": "RepositoryPathRef",
+        "type": "object"
+      },
+      "name": "get_repository_file",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "vulnerability_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Vulnerability Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "vulnerability_id"
+        ],
+        "title": "VulnerabilityRef",
+        "type": "object"
+      },
+      "name": "get_vulnerability_detail",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "export_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Export Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "export_id"
+        ],
+        "title": "ExportRef",
+        "type": "object"
+      },
+      "name": "get_vulnerability_export",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "created_after": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created After"
+          },
+          "created_before": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created Before"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Group Id"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Project Id"
+          }
+        },
+        "title": "ListAuditEventsInput",
+        "type": "object"
+      },
+      "name": "list_audit_events",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          },
+          "sha": {
+            "pattern": "^[0-9a-fA-F]{7,64}$",
+            "title": "Sha",
+            "type": "string"
+          }
+        },
+        "required": [
+          "project_id",
+          "sha"
+        ],
+        "title": "CommitRef",
+        "type": "object"
+      },
+      "name": "list_commit_diffs",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "page": {
+            "default": 1,
+            "maximum": 100000,
+            "minimum": 1,
+            "title": "Page",
+            "type": "integer"
+          },
+          "project_id": {
+            "anyOf": [
+              {
+                "maximum": 9223372036854775807,
+                "minimum": 1,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Project Id"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "opened",
+                  "closed",
+                  "locked",
+                  "merged",
+                  "all"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "State"
+          },
+          "updated_after": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updated After"
+          },
+          "updated_before": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Updated Before"
+          }
+        },
+        "title": "ListMergeRequestsInput",
+        "type": "object"
+      },
+      "name": "list_merge_requests",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "iid": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Iid",
+            "type": "integer"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "iid"
+        ],
+        "title": "MergeRequestRef",
+        "type": "object"
+      },
+      "name": "list_mr_commits",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "iid": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Iid",
+            "type": "integer"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "iid"
+        ],
+        "title": "MergeRequestRef",
+        "type": "object"
+      },
+      "name": "list_mr_diffs",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "iid": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Iid",
+            "type": "integer"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "iid"
+        ],
+        "title": "MergeRequestRef",
+        "type": "object"
+      },
+      "name": "list_mr_pipelines",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "iid": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Iid",
+            "type": "integer"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "iid"
+        ],
+        "title": "MergeRequestRef",
+        "type": "object"
+      },
+      "name": "list_mr_versions",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "pipeline_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Pipeline Id",
+            "type": "integer"
+          },
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id",
+          "pipeline_id"
+        ],
+        "title": "PipelineRef",
+        "type": "object"
+      },
+      "name": "list_pipeline_jobs",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "SourceControl",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "title": "ProjectRef",
+        "type": "object"
+      },
+      "name": "list_pipelines",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_id": {
+            "maximum": 9223372036854775807,
+            "minimum": 1,
+            "title": "Project Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_id"
+        ],
+        "title": "ListVulnerabilitiesInput",
+        "type": "object"
+      },
+      "name": "list_vulnerabilities",
+      "output_schema": {
+        "additionalProperties": false,
+        "description": "A typed result retaining vendor-specific response data and coverage.",
+        "properties": {
+          "coverage": {
+            "default": "complete",
+            "enum": [
+              "complete",
+              "partial",
+              "not_evaluated"
+            ],
+            "title": "Coverage",
+            "type": "string"
+          },
+          "data": {
+            "title": "Data"
+          },
+          "dropped": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Dropped",
+            "type": "array"
+          },
+          "status_code": {
+            "default": 200,
+            "maximum": 599,
+            "minimum": 100,
+            "title": "Status Code",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "VendorResult",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [],
+  "scopes": [],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "audit_events",
+      "ocsf_class": 6003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "branches",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "commit_diffs",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "commits",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "file_blame",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "group_audit_events",
+      "ocsf_class": 6003,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "group_members",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "groups",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental"
+      ],
+      "name": "job_artifacts",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental"
+      ],
+      "name": "job_logs",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "jobs",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "labels",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "merge_requests",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "milestones",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "mr_approval_rules",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "mr_approval_state",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "mr_commits",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "mr_diffs",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "mr_pipelines",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "mr_versions",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "pipeline_bridges",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "pipeline_test_reports",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "pipeline_variables",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "time_id",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "pipelines",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "project_members",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "projects",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "repository_files",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "repository_tree",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "SourceControl",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "tags",
+      "ocsf_class": null,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "vulnerabilities",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": [
+    {
+      "event_types": [
+        "merge_request",
+        "note",
+        "vulnerability",
+        "vulnerability_create",
+        "vulnerability_update",
+        "vulnerability_delete",
+        "pipeline",
+        "build",
+        "job",
+        "audit",
+        "audit_event"
+      ],
+      "header_event": null,
+      "name": "receive_event"
+    }
+  ]
+}

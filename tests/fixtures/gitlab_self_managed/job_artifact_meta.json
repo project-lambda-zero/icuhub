@@ -1,0 +1,6 @@
+{
+  "filename": "synthetic-report.json",
+  "size": 32,
+  "content_type": "application/json",
+  "artifact_payload": "FIXTURE-ARTIFACT-BYTES"
+}

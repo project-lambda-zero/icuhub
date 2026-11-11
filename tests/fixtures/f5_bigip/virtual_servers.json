@@ -1,0 +1,21 @@
+{
+  "items": [
+    {
+      "name": "vs_web",
+      "partition": "Common",
+      "destination": "/Common/192.0.2.10:443",
+      "enabled": true,
+      "ipProtocol": "tcp",
+      "pool": "/Common/pool_web"
+    },
+    {
+      "name": "vs_api",
+      "partition": "Common",
+      "destination": "/Common/192.0.2.11:8443",
+      "enabled": false,
+      "ipProtocol": "tcp",
+      "pool": "/Common/pool_api"
+    }
+  ],
+  "kind": "tm:ltm:virtual:virtualcollectionstate"
+}

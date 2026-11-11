@@ -1,0 +1,2264 @@
+{
+  "actions": [
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Comment",
+            "type": "string"
+          },
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id",
+          "revision",
+          "comment"
+        ],
+        "title": "AddIssueCommentArgs",
+        "type": "object"
+      },
+      "name": "add_issue_comment",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "assignee": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Assignee",
+            "type": "string"
+          },
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id",
+          "revision",
+          "assignee"
+        ],
+        "title": "AssignIssueArgs",
+        "type": "object"
+      },
+      "name": "assign_issue",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Comment"
+          },
+          "custom_tag_guid": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Custom Tag Guid",
+            "type": "string"
+          },
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "new_custom_tag_index": {
+            "minimum": 0,
+            "title": "New Custom Tag Index",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id",
+          "revision",
+          "custom_tag_guid",
+          "new_custom_tag_index"
+        ],
+        "title": "AuditIssueArgs",
+        "type": "object"
+      },
+      "name": "audit_issue",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": true,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "allow_insecure_tls": {
+            "default": false,
+            "title": "Allow Insecure Tls",
+            "type": "boolean"
+          },
+          "content_type": {
+            "const": "JSON",
+            "default": "JSON",
+            "title": "Content Type",
+            "type": "string"
+          },
+          "monitor_apps": {
+            "default": "ALL",
+            "enum": [
+              "ALL",
+              "CUSTOM"
+            ],
+            "title": "Monitor Apps",
+            "type": "string"
+          },
+          "monitor_events": {
+            "default": "ALL",
+            "enum": [
+              "ALL",
+              "CUSTOM"
+            ],
+            "title": "Monitor Events",
+            "type": "string"
+          },
+          "monitored_app_version_events": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Monitored App Version Events",
+            "type": "array"
+          },
+          "monitored_app_version_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Monitored App Version Ids",
+            "type": "array"
+          },
+          "monitored_global_events": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Monitored Global Events",
+            "type": "array"
+          },
+          "object_version": {
+            "default": 0,
+            "minimum": 0,
+            "title": "Object Version",
+            "type": "integer"
+          },
+          "url": {
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "title": "CreateWebhookArgs",
+        "type": "object"
+      },
+      "name": "create_webhook",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "destructive",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "minLength": 1,
+            "title": "Approval Ref",
+            "type": "string"
+          },
+          "artifact_id": {
+            "minimum": 1,
+            "title": "Artifact Id",
+            "type": "integer"
+          },
+          "version_number": {
+            "minimum": 0,
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "version_number",
+          "approval_ref"
+        ],
+        "title": "PurgeArtifactArgs",
+        "type": "object"
+      },
+      "name": "purge_artifact",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "destructive",
+      "idempotency": "none",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "approval_ref": {
+            "minLength": 1,
+            "title": "Approval Ref",
+            "type": "string"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "approval_ref"
+        ],
+        "title": "PurgeProjectVersionArgs",
+        "type": "object"
+      },
+      "name": "purge_project_version",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          },
+          "revision": {
+            "minimum": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "suppressed": {
+            "title": "Suppressed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id",
+          "revision",
+          "suppressed"
+        ],
+        "title": "SetIssueSuppressionArgs",
+        "type": "object"
+      },
+      "name": "set_issue_suppression",
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "write",
+      "idempotency": "natural_key",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "fpr_base64": {
+            "minLength": 1,
+            "title": "Fpr Base64",
+            "type": "string"
+          },
+          "fpr_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Fpr Sha256",
+            "type": "string"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "fpr_sha256",
+          "fpr_base64"
+        ],
+        "title": "UploadFprArgs",
+        "type": "object"
+      },
+      "name": "upload_fpr",
+      "stability": "beta"
+    }
+  ],
+  "auth": [
+    "HeaderToken"
+  ],
+  "capabilities": [
+    "FindingSource",
+    "TelemetrySource"
+  ],
+  "config_schema": {
+    "$defs": {
+      "SecretRef": {
+        "additionalProperties": false,
+        "description": "An opaque credential-broker reference, never secret material.",
+        "properties": {
+          "ref": {
+            "minLength": 1,
+            "title": "Ref",
+            "type": "string",
+            "writeOnly": true
+          }
+        },
+        "required": [
+          "ref"
+        ],
+        "title": "SecretRef",
+        "type": "object",
+        "writeOnly": true
+      }
+    },
+    "additionalProperties": false,
+    "description": "SSC connection settings. ``base_url`` is the operator root, normally ``https://host/ssc``.",
+    "properties": {
+      "allow_plain_http_loopback": {
+        "default": false,
+        "title": "Allow Plain Http Loopback",
+        "type": "boolean"
+      },
+      "api_token": {
+        "$ref": "#/$defs/SecretRef",
+        "writeOnly": true
+      },
+      "base_url": {
+        "title": "Base Url",
+        "type": "string"
+      },
+      "ca_bundle_pem": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Ca Bundle Pem"
+      },
+      "client_cert": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "client_key": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "destructive_enabled": {
+        "default": false,
+        "title": "Destructive Enabled",
+        "type": "boolean"
+      },
+      "fpr_location_semantics": {
+        "default": "source_location_v2",
+        "enum": [
+          "source_location_v2",
+          "snippet_start_v1"
+        ],
+        "title": "Fpr Location Semantics",
+        "type": "string"
+      },
+      "proxy_url": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Proxy Url"
+      },
+      "timeout_s": {
+        "default": 30,
+        "exclusiveMinimum": 0,
+        "title": "Timeout S",
+        "type": "number"
+      },
+      "webhook_secret": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/SecretRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "writeOnly": true
+      },
+      "write_enabled": {
+        "default": false,
+        "title": "Write Enabled",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "base_url",
+      "api_token"
+    ],
+    "title": "FortifySscConfig",
+    "type": "object"
+  },
+  "flows": [
+    "F-108"
+  ],
+  "format_version": 1,
+  "importers": [
+    {
+      "extensions": [
+        ".fpr"
+      ],
+      "media_types": [
+        "application/zip",
+        "application/octet-stream"
+      ],
+      "name": "fortify_fpr",
+      "stream": "fpr_issues"
+    },
+    {
+      "extensions": [
+        ".xml"
+      ],
+      "media_types": [
+        "application/xml",
+        "text/xml"
+      ],
+      "name": "fortify_report",
+      "stream": "report_issues"
+    }
+  ],
+  "kind": "fortify_ssc",
+  "license": "AGPL-3.0-only",
+  "operations": [
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "minimum": 1,
+            "title": "Artifact Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artifact_id"
+        ],
+        "title": "ArtifactArgs",
+        "type": "object"
+      },
+      "name": "download_fpr",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "title": "Artifact Id",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "artifact_id",
+          "sha256"
+        ],
+        "title": "FprArtifactRef",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {
+            "minimum": 1,
+            "title": "Artifact Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "artifact_id"
+        ],
+        "title": "ArtifactArgs",
+        "type": "object"
+      },
+      "name": "get_artifact",
+      "output_schema": {
+        "$defs": {
+          "ArtifactStatus": {
+            "properties": {
+              "allowPurge": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Allowpurge"
+              },
+              "id": {
+                "minimum": 1,
+                "title": "Id",
+                "type": "integer"
+              },
+              "indexed": {
+                "default": false,
+                "title": "Indexed",
+                "type": "boolean"
+              },
+              "projectVersionId": {
+                "minimum": 1,
+                "title": "Projectversionid",
+                "type": "integer"
+              },
+              "purged": {
+                "default": false,
+                "title": "Purged",
+                "type": "boolean"
+              },
+              "status": {
+                "title": "Status",
+                "type": "string"
+              },
+              "versionNumber": {
+                "minimum": 0,
+                "title": "Versionnumber",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "projectVersionId",
+              "status",
+              "versionNumber"
+            ],
+            "title": "ArtifactStatus",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "artifact": {
+            "$ref": "#/$defs/ArtifactStatus"
+          }
+        },
+        "required": [
+          "artifact"
+        ],
+        "title": "ArtifactOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "export_id": {
+            "minimum": 1,
+            "title": "Export Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "export_id"
+        ],
+        "title": "DeltaExportArgs",
+        "type": "object"
+      },
+      "name": "get_delta_export",
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "export_id": {
+            "title": "Export Id",
+            "type": "integer"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "export_id",
+          "state"
+        ],
+        "title": "DeltaExportOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id"
+        ],
+        "title": "GetIssueArgs",
+        "type": "object"
+      },
+      "name": "get_issue",
+      "output_schema": {
+        "$defs": {
+          "FindingRecord": {
+            "additionalProperties": false,
+            "description": "Normalized SSC issue. ``revision`` drives every write precondition.",
+            "properties": {
+              "audit_state": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Audit State"
+              },
+              "category": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Category"
+              },
+              "file_path": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "File Path"
+              },
+              "fingerprint_inputs": {
+                "additionalProperties": true,
+                "title": "Fingerprint Inputs",
+                "type": "object"
+              },
+              "friority": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Friority"
+              },
+              "issue_id": {
+                "title": "Issue Id",
+                "type": "integer"
+              },
+              "issue_instance_id": {
+                "title": "Issue Instance Id",
+                "type": "string"
+              },
+              "line": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Line"
+              },
+              "project_version_id": {
+                "title": "Project Version Id",
+                "type": "integer"
+              },
+              "removed": {
+                "title": "Removed",
+                "type": "boolean"
+              },
+              "revision": {
+                "title": "Revision",
+                "type": "integer"
+              },
+              "rule_guid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Rule Guid"
+              },
+              "suppressed": {
+                "title": "Suppressed",
+                "type": "boolean"
+              },
+              "updated_at": {
+                "format": "date-time",
+                "title": "Updated At",
+                "type": "string"
+              }
+            },
+            "required": [
+              "issue_instance_id",
+              "issue_id",
+              "project_version_id",
+              "revision",
+              "rule_guid",
+              "category",
+              "file_path",
+              "line",
+              "audit_state",
+              "suppressed",
+              "removed",
+              "updated_at"
+            ],
+            "title": "FindingRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "finding": {
+            "$ref": "#/$defs/FindingRecord"
+          }
+        },
+        "required": [
+          "finding"
+        ],
+        "title": "IssueOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id"
+        ],
+        "title": "IssueDetailArgs",
+        "type": "object"
+      },
+      "name": "get_issue_details",
+      "output_schema": {
+        "$defs": {
+          "IssueDetailRecord": {
+            "properties": {
+              "brief": {
+                "anyOf": [
+                  {
+                    "maxLength": 1048576,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Brief"
+              },
+              "detail": {
+                "anyOf": [
+                  {
+                    "maxLength": 1048576,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Detail"
+              },
+              "foundDate": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Founddate"
+              },
+              "fullFileName": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Fullfilename"
+              },
+              "hidden": {
+                "default": false,
+                "title": "Hidden",
+                "type": "boolean"
+              },
+              "id": {
+                "minimum": 1,
+                "title": "Id",
+                "type": "integer"
+              },
+              "issueInstanceId": {
+                "minLength": 1,
+                "title": "Issueinstanceid",
+                "type": "string"
+              },
+              "issueName": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Issuename"
+              },
+              "lineNumber": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Linenumber"
+              },
+              "primaryRuleGuid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Primaryruleguid"
+              },
+              "projectVersionId": {
+                "minimum": 1,
+                "title": "Projectversionid",
+                "type": "integer"
+              },
+              "recommendation": {
+                "anyOf": [
+                  {
+                    "maxLength": 1048576,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Recommendation"
+              },
+              "references": {
+                "anyOf": [
+                  {
+                    "maxLength": 1048576,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "References"
+              },
+              "removed": {
+                "default": false,
+                "title": "Removed",
+                "type": "boolean"
+              },
+              "removedDate": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Removeddate"
+              },
+              "revision": {
+                "minimum": 0,
+                "title": "Revision",
+                "type": "integer"
+              },
+              "suppressed": {
+                "default": false,
+                "title": "Suppressed",
+                "type": "boolean"
+              },
+              "tips": {
+                "anyOf": [
+                  {
+                    "maxLength": 1048576,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Tips"
+              },
+              "traceNodes": {
+                "items": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array"
+                },
+                "maxItems": 1000,
+                "title": "Tracenodes",
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "issueInstanceId",
+              "projectVersionId",
+              "revision"
+            ],
+            "title": "IssueDetailRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "issue": {
+            "$ref": "#/$defs/IssueDetailRecord"
+          }
+        },
+        "required": [
+          "issue"
+        ],
+        "title": "IssueDetailOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id"
+        ],
+        "title": "ProjectVersionArgs",
+        "type": "object"
+      },
+      "name": "get_project_version",
+      "output_schema": {
+        "$defs": {
+          "ProjectVersionRecord": {
+            "additionalProperties": false,
+            "properties": {
+              "folder_guid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Folder Guid"
+              },
+              "project_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Project Name"
+              },
+              "project_version_id": {
+                "title": "Project Version Id",
+                "type": "integer"
+              },
+              "version_name": {
+                "title": "Version Name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "project_version_id",
+              "version_name"
+            ],
+            "title": "ProjectVersionRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "record": {
+            "$ref": "#/$defs/ProjectVersionRecord"
+          }
+        },
+        "required": [
+          "record"
+        ],
+        "title": "ProjectVersionInfo",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "delivery_id": {
+            "minimum": 1,
+            "title": "Delivery Id",
+            "type": "integer"
+          },
+          "webhook_id": {
+            "minimum": 1,
+            "title": "Webhook Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "webhook_id",
+          "delivery_id"
+        ],
+        "title": "WebhookDeliveryArgs",
+        "type": "object"
+      },
+      "name": "get_webhook_delivery",
+      "output_schema": {
+        "$defs": {
+          "WebhookDeliveryRecord": {
+            "properties": {
+              "createdAt": {
+                "format": "date-time",
+                "title": "Createdat",
+                "type": "string"
+              },
+              "failureReason": {
+                "anyOf": [
+                  {
+                    "maxLength": 16384,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Failurereason"
+              },
+              "id": {
+                "minimum": 1,
+                "title": "Id",
+                "type": "integer"
+              },
+              "responseCode": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Responsecode"
+              },
+              "status": {
+                "enum": [
+                  "PENDING",
+                  "SENT",
+                  "SUCCESS",
+                  "FAILED"
+                ],
+                "title": "Status",
+                "type": "string"
+              },
+              "webHookId": {
+                "minimum": 1,
+                "title": "Webhookid",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "webHookId",
+              "createdAt",
+              "status"
+            ],
+            "title": "WebhookDeliveryRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "delivery": {
+            "$ref": "#/$defs/WebhookDeliveryRecord"
+          }
+        },
+        "required": [
+          "delivery"
+        ],
+        "title": "WebhookDeliveryOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "limit": {
+            "default": 200,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "max_pages": {
+            "default": 100,
+            "maximum": 10000,
+            "minimum": 1,
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id"
+        ],
+        "title": "IssueCommentArgs",
+        "type": "object"
+      },
+      "name": "list_comments",
+      "output_schema": {
+        "$defs": {
+          "IssueCommentRecord": {
+            "properties": {
+              "auditTime": {
+                "format": "date-time",
+                "title": "Audittime",
+                "type": "string"
+              },
+              "comment": {
+                "maxLength": 1048576,
+                "title": "Comment",
+                "type": "string"
+              },
+              "issueId": {
+                "minimum": 1,
+                "title": "Issueid",
+                "type": "integer"
+              },
+              "projectVersionId": {
+                "anyOf": [
+                  {
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Projectversionid"
+              },
+              "seqNumber": {
+                "minimum": 0,
+                "title": "Seqnumber",
+                "type": "integer"
+              },
+              "userName": {
+                "title": "Username",
+                "type": "string"
+              }
+            },
+            "required": [
+              "seqNumber",
+              "issueId",
+              "comment",
+              "auditTime",
+              "userName"
+            ],
+            "title": "IssueCommentRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "comments": {
+            "items": {
+              "$ref": "#/$defs/IssueCommentRecord"
+            },
+            "title": "Comments",
+            "type": "array"
+          }
+        },
+        "required": [
+          "comments"
+        ],
+        "title": "IssueCommentOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "issue_id": {
+            "minimum": 1,
+            "title": "Issue Id",
+            "type": "integer"
+          },
+          "limit": {
+            "default": 1000,
+            "maximum": 10000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id",
+          "issue_id"
+        ],
+        "title": "IssueAuditArgs",
+        "type": "object"
+      },
+      "name": "list_issue_audit",
+      "output_schema": {
+        "$defs": {
+          "IssueAuditRecord": {
+            "properties": {
+              "attributeName": {
+                "title": "Attributename",
+                "type": "string"
+              },
+              "auditDateTime": {
+                "format": "date-time",
+                "title": "Auditdatetime",
+                "type": "string"
+              },
+              "conflict": {
+                "default": false,
+                "title": "Conflict",
+                "type": "boolean"
+              },
+              "issueId": {
+                "minimum": 1,
+                "title": "Issueid",
+                "type": "integer"
+              },
+              "newValue": {
+                "anyOf": [
+                  {
+                    "maxLength": 1048576,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Newvalue"
+              },
+              "oldValue": {
+                "anyOf": [
+                  {
+                    "maxLength": 1048576,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Oldvalue"
+              },
+              "sequenceNumber": {
+                "minimum": 0,
+                "title": "Sequencenumber",
+                "type": "integer"
+              },
+              "userName": {
+                "title": "Username",
+                "type": "string"
+              },
+              "valueType": {
+                "title": "Valuetype",
+                "type": "string"
+              }
+            },
+            "required": [
+              "sequenceNumber",
+              "issueId",
+              "auditDateTime",
+              "attributeName",
+              "userName",
+              "valueType"
+            ],
+            "title": "IssueAuditRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "audit": {
+            "items": {
+              "$ref": "#/$defs/IssueAuditRecord"
+            },
+            "title": "Audit",
+            "type": "array"
+          }
+        },
+        "required": [
+          "audit"
+        ],
+        "title": "IssueAuditOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 200,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "max_pages": {
+            "default": 100,
+            "maximum": 10000,
+            "minimum": 1,
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "project_version_id": {
+            "minimum": 1,
+            "title": "Project Version Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "project_version_id"
+        ],
+        "title": "IssueListArgs",
+        "type": "object"
+      },
+      "name": "list_issues",
+      "output_schema": {
+        "$defs": {
+          "IssueRecord": {
+            "properties": {
+              "foundDate": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Founddate"
+              },
+              "fullFileName": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Fullfilename"
+              },
+              "hidden": {
+                "default": false,
+                "title": "Hidden",
+                "type": "boolean"
+              },
+              "id": {
+                "minimum": 1,
+                "title": "Id",
+                "type": "integer"
+              },
+              "issueInstanceId": {
+                "minLength": 1,
+                "title": "Issueinstanceid",
+                "type": "string"
+              },
+              "issueName": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Issuename"
+              },
+              "lineNumber": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Linenumber"
+              },
+              "primaryRuleGuid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Primaryruleguid"
+              },
+              "projectVersionId": {
+                "minimum": 1,
+                "title": "Projectversionid",
+                "type": "integer"
+              },
+              "removed": {
+                "default": false,
+                "title": "Removed",
+                "type": "boolean"
+              },
+              "removedDate": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Removeddate"
+              },
+              "revision": {
+                "minimum": 0,
+                "title": "Revision",
+                "type": "integer"
+              },
+              "suppressed": {
+                "default": false,
+                "title": "Suppressed",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "issueInstanceId",
+              "projectVersionId",
+              "revision"
+            ],
+            "title": "IssueRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "issues": {
+            "items": {
+              "$ref": "#/$defs/IssueRecord"
+            },
+            "title": "Issues",
+            "type": "array"
+          }
+        },
+        "required": [
+          "issues"
+        ],
+        "title": "IssueListOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "include_inactive": {
+            "default": true,
+            "title": "Include Inactive",
+            "type": "boolean"
+          },
+          "limit": {
+            "default": 200,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "max_pages": {
+            "default": 100,
+            "maximum": 10000,
+            "minimum": 1,
+            "title": "Max Pages",
+            "type": "integer"
+          }
+        },
+        "title": "ProjectVersionListArgs",
+        "type": "object"
+      },
+      "name": "list_project_versions",
+      "output_schema": {
+        "$defs": {
+          "ProjectVersionRecord": {
+            "additionalProperties": false,
+            "properties": {
+              "folder_guid": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Folder Guid"
+              },
+              "project_name": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Project Name"
+              },
+              "project_version_id": {
+                "title": "Project Version Id",
+                "type": "integer"
+              },
+              "version_name": {
+                "title": "Version Name",
+                "type": "string"
+              }
+            },
+            "required": [
+              "project_version_id",
+              "version_name"
+            ],
+            "title": "ProjectVersionRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "records": {
+            "items": {
+              "$ref": "#/$defs/ProjectVersionRecord"
+            },
+            "title": "Records",
+            "type": "array"
+          }
+        },
+        "required": [
+          "records"
+        ],
+        "title": "ProjectVersionListOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 200,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "max_pages": {
+            "default": 100,
+            "maximum": 10000,
+            "minimum": 1,
+            "title": "Max Pages",
+            "type": "integer"
+          },
+          "webhook_id": {
+            "minimum": 1,
+            "title": "Webhook Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "webhook_id"
+        ],
+        "title": "WebhookHistoryArgs",
+        "type": "object"
+      },
+      "name": "list_webhook_history",
+      "output_schema": {
+        "$defs": {
+          "WebhookDeliveryRecord": {
+            "properties": {
+              "createdAt": {
+                "format": "date-time",
+                "title": "Createdat",
+                "type": "string"
+              },
+              "failureReason": {
+                "anyOf": [
+                  {
+                    "maxLength": 16384,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Failurereason"
+              },
+              "id": {
+                "minimum": 1,
+                "title": "Id",
+                "type": "integer"
+              },
+              "responseCode": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Responsecode"
+              },
+              "status": {
+                "enum": [
+                  "PENDING",
+                  "SENT",
+                  "SUCCESS",
+                  "FAILED"
+                ],
+                "title": "Status",
+                "type": "string"
+              },
+              "webHookId": {
+                "minimum": 1,
+                "title": "Webhookid",
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "webHookId",
+              "createdAt",
+              "status"
+            ],
+            "title": "WebhookDeliveryRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "deliveries": {
+            "items": {
+              "$ref": "#/$defs/WebhookDeliveryRecord"
+            },
+            "title": "Deliveries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "deliveries"
+        ],
+        "title": "WebhookHistoryOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 200,
+            "maximum": 1000,
+            "minimum": 1,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "max_pages": {
+            "default": 100,
+            "maximum": 10000,
+            "minimum": 1,
+            "title": "Max Pages",
+            "type": "integer"
+          }
+        },
+        "title": "WebhookListArgs",
+        "type": "object"
+      },
+      "name": "list_webhooks",
+      "output_schema": {
+        "$defs": {
+          "WebhookDefinitionRecord": {
+            "properties": {
+              "active": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Active"
+              },
+              "allowInsecureTLS": {
+                "default": false,
+                "title": "Allowinsecuretls",
+                "type": "boolean"
+              },
+              "contentType": {
+                "const": "JSON",
+                "title": "Contenttype",
+                "type": "string"
+              },
+              "description": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Description"
+              },
+              "id": {
+                "minimum": 1,
+                "title": "Id",
+                "type": "integer"
+              },
+              "lastStatus": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "NONE",
+                      "SUCCESS",
+                      "FAILED"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Laststatus"
+              },
+              "monitorApps": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "ALL",
+                      "CUSTOM"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Monitorapps"
+              },
+              "monitorEvents": {
+                "anyOf": [
+                  {
+                    "enum": [
+                      "ALL",
+                      "CUSTOM"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Monitorevents"
+              },
+              "monitoredAppVersionEvents": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Monitoredappversionevents",
+                "type": "array"
+              },
+              "monitoredAppVersionIds": {
+                "items": {
+                  "type": "integer"
+                },
+                "title": "Monitoredappversionids",
+                "type": "array"
+              },
+              "monitoredGlobalEvents": {
+                "items": {
+                  "type": "string"
+                },
+                "title": "Monitoredglobalevents",
+                "type": "array"
+              },
+              "objectVersion": {
+                "minimum": 0,
+                "title": "Objectversion",
+                "type": "integer"
+              },
+              "url": {
+                "minLength": 1,
+                "title": "Url",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "objectVersion",
+              "contentType",
+              "url"
+            ],
+            "title": "WebhookDefinitionRecord",
+            "type": "object"
+          }
+        },
+        "additionalProperties": false,
+        "properties": {
+          "webhooks": {
+            "items": {
+              "$ref": "#/$defs/WebhookDefinitionRecord"
+            },
+            "title": "Webhooks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "webhooks"
+        ],
+        "title": "WebhookListOutput",
+        "type": "object"
+      }
+    },
+    {
+      "capability": "FindingSource",
+      "classification": "read",
+      "egress_class": "vendor_tenant",
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "ProbeArgs",
+        "type": "object"
+      },
+      "name": "probe_target",
+      "output_schema": {
+        "$defs": {
+          "LicenseCapability": {
+            "properties": {
+              "expiration_date": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Expiration Date"
+              },
+              "key": {
+                "title": "Key",
+                "type": "string"
+              },
+              "value": {
+                "title": "Value",
+                "type": "string"
+              }
+            },
+            "required": [
+              "key",
+              "value"
+            ],
+            "title": "LicenseCapability",
+            "type": "object"
+          }
+        },
+        "properties": {
+          "applicationContextPath": {
+            "minLength": 1,
+            "title": "Applicationcontextpath",
+            "type": "string"
+          },
+          "licenseCapabilities": {
+            "items": {
+              "$ref": "#/$defs/LicenseCapability"
+            },
+            "title": "Licensecapabilities",
+            "type": "array"
+          },
+          "permissions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Permissions",
+            "type": "array"
+          },
+          "webappVersion": {
+            "minLength": 1,
+            "title": "Webappversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "webappVersion",
+          "applicationContextPath",
+          "licenseCapabilities",
+          "permissions"
+        ],
+        "title": "TargetProbeOutput",
+        "type": "object"
+      }
+    }
+  ],
+  "owner": "@icuhub/maintainers",
+  "record_types": [
+    "activity",
+    "artifact"
+  ],
+  "scopes": [],
+  "sdk": ">=1,<2",
+  "streams": [
+    {
+      "capability": "FindingSource",
+      "cursor": "sequence",
+      "mapper_version": 1,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "activity",
+      "ocsf_class": null,
+      "record_type": "activity",
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full"
+      ],
+      "name": "artifacts",
+      "ocsf_class": null,
+      "record_type": "artifact",
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 1,
+      "modes": [
+        "full",
+        "replay"
+      ],
+      "name": "fpr_issues",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "time_id",
+      "mapper_version": 2,
+      "modes": [
+        "incremental",
+        "full"
+      ],
+      "name": "issues",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": true,
+      "stability": "beta"
+    },
+    {
+      "capability": "FindingSource",
+      "cursor": "snapshot",
+      "mapper_version": 2,
+      "modes": [
+        "full",
+        "replay"
+      ],
+      "name": "report_issues",
+      "ocsf_class": 2002,
+      "record_type": null,
+      "requires_target": false,
+      "stability": "beta"
+    }
+  ],
+  "support": "core",
+  "version": "0.1.0",
+  "webhooks": [
+    {
+      "event_types": [
+        "ANALYSIS_RESULT_UPLOAD_COMPLETE_SUCCESS",
+        "ANALYSIS_RESULT_UPLOAD_FAILURE",
+        "ANALYSIS_RESULT_INDEXING_COMPLETED"
+      ],
+      "header_event": null,
+      "name": "parse_delivery"
+    }
+  ]
+}

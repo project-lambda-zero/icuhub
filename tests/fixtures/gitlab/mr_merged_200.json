@@ -1,0 +1,37 @@
+{
+  "id": 103,
+  "iid": 9,
+  "project_id": 42,
+  "title": "Upgrade parser dependency for CVE-2026-1234",
+  "description": "Bumps the parser to a patched release.",
+  "state": "merged",
+  "draft": false,
+  "created_at": "2026-11-09T12:00:00.000Z",
+  "updated_at": "2026-11-09T14:00:00.000Z",
+  "merged_at": "2026-11-09T14:00:00.000Z",
+  "closed_at": null,
+  "target_branch": "main",
+  "source_branch": "fix/cve-2026-1234",
+  "author": {
+    "id": 11,
+    "name": "Example Author",
+    "username": "example.author"
+  },
+  "merge_user": {
+    "id": 12,
+    "name": "Example Reviewer",
+    "username": "example.reviewer"
+  },
+  "sha": "89abcdef0123456789abcdef0123456789abcdef",
+  "merge_commit_sha": "1f2e3d4c5b6a79881f2e3d4c5b6a79881f2e3d4c",
+  "web_url": "https://gitlab.example.test/example-group/example-project/-/merge_requests/9",
+  "labels": [],
+  "references": {
+    "short": "!9",
+    "relative": "!9",
+    "full": "example-group/example-project!9"
+  },
+  "detailed_merge_status": "merged",
+  "has_conflicts": false,
+  "user_notes_count": 1
+}
